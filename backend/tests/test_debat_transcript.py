@@ -18,6 +18,7 @@ from bouwmeester.core.config import get_settings
 from bouwmeester.models.debat_markering import DebatMarkering
 from bouwmeester.models.debat_sessie import DebatOndertitel, DebatSpreekbeurt
 from bouwmeester.services import debat_subtitles as subs
+from bouwmeester.services import debat_tijdlijn_service as tijdlijn
 from bouwmeester.services.debat_subtitles import Cue
 from bouwmeester.services.debat_tijdlijn_service import (
     DebatTijdlijnService,
@@ -457,11 +458,11 @@ class TestTranscript:
         assert mm.channel[1].endswith("\nSlotzin van a.")
         assert mm.channel[2].endswith("\nBegin van b.")
 
-    async def test_a_speaker_who_carries_on_keeps_one_message(
+    async def test_the_chairman_saying_a_word_has_a_message_of_its_own(
         self, db_session, monkeypatch
     ):
-        """The chairman says a word in between. That is not shown, and
-        what the speaker says after it goes on in the same message."""
+        """What the chair says is part of the debate. The speaker who
+        carries on after it gets a next message, below the chairman's."""
         debat = _debat(("speaker", 1, "a"), ("chairman", 2, "v"), ("speaker", 3, "a"))
         feed = Feed(monkeypatch, parts=[_stream(debat)])
         cues = [
@@ -471,21 +472,15 @@ class TestTranscript:
         ]
         Subtitles(monkeypatch, feed, cues)
         mm = Mattermost()
-        sessie = await _sessie(db_session)
+        await _sessie(db_session)
 
         await _play(db_session, mm, feed, 5)
 
-        assert len(mm.channel) == 2
-        assert mm.channel[1].endswith("\nEerste deel. Tweede deel.")
-        kept = (
-            await db_session.execute(
-                select(DebatSpreekbeurt.tekst).where(
-                    DebatSpreekbeurt.sessie_id == sessie.id,
-                    DebatSpreekbeurt.event_type == "chairman",
-                )
-            )
-        ).scalar_one()
-        assert kept == "Gaat u verder."
+        assert len(mm.channel) == 4
+        assert mm.channel[1].endswith("\nEerste deel.")
+        assert mm.channel[2].startswith("🔨 **Voorzitter** · [")
+        assert mm.channel[2].endswith("\nGaat u verder.")
+        assert mm.channel[3].endswith("\nTweede deel.")
 
     async def test_a_long_turn_continues_in_a_next_message(
         self, db_session, monkeypatch
@@ -947,6 +942,7 @@ class TestTranscript:
         """Otherwise it comes out of nowhere, and nobody knows until when."""
         debat = _debat(("speaker", 1, "a"), ("chairman", 2, "v"), ("suspended", 3, ""))
         feed = Feed(monkeypatch, parts=[_stream(debat)])
+        _chair_unposted(monkeypatch)
         cues = [
             _cue(70, "Mijn betoog."),
             _cue(125, "Dank u wel."),
@@ -969,6 +965,7 @@ class TestTranscript:
     async def test_the_end_says_what_the_chairman_said(self, db_session, monkeypatch):
         debat = _debat(("speaker", 1, "a"), ("chairman", 2, "v"), ("debate_end", 3, ""))
         feed = Feed(monkeypatch, parts=[_stream(debat)])
+        _chair_unposted(monkeypatch)
         Subtitles(monkeypatch, feed, [_cue(125, "Ik sluit de vergadering.")])
         mm = Mattermost()
         await _sessie(db_session)
@@ -986,6 +983,7 @@ class TestTranscript:
         would lose its count."""
         debat = _debat(("speaker", 1, "a"), ("chairman", 2, "v"), ("debate_end", 3, ""))
         feed = Feed(monkeypatch, parts=[_stream(debat)])
+        _chair_unposted(monkeypatch)
         Subtitles(monkeypatch, feed, [_cue(125, "Ik sluit de vergadering.")])
         mm = Mattermost()
         sessie = await _sessie(db_session)
@@ -1031,6 +1029,7 @@ class TestTranscript:
         chairman's words from before the member do not announce it."""
         debat = _debat(("chairman", 1, "v"), ("speaker", 2, "a"), ("suspended", 3, ""))
         feed = Feed(monkeypatch, parts=[_stream(debat)])
+        _chair_unposted(monkeypatch)
         Subtitles(
             monkeypatch, feed, [_cue(65, "Het woord is aan u."), _cue(125, "Dank.")]
         )
@@ -1047,6 +1046,7 @@ class TestTranscript:
     ):
         debat = _debat(("chairman", 1, "v"), ("chairman", 2, "v"), ("suspended", 3, ""))
         feed = Feed(monkeypatch, parts=[_stream(debat)])
+        _chair_unposted(monkeypatch)
         Subtitles(
             monkeypatch, feed, [_cue(65, "Een mededeling."), _cue(125, "Ik schors.")]
         )
@@ -1064,6 +1064,7 @@ class TestTranscript:
             ("chairman", 1, "v"), ("suspended", 2, ""), ("debate_end", 4, "")
         )
         feed = Feed(monkeypatch, parts=[_stream(debat)])
+        _chair_unposted(monkeypatch)
         Subtitles(monkeypatch, feed, [_cue(65, "Ik schors tot twee uur.")])
         mm = Mattermost()
         await _sessie(db_session)
@@ -1073,7 +1074,7 @@ class TestTranscript:
         assert mm.channel[1].endswith("\nVoorzitter: Ik schors tot twee uur.")
         assert "Voorzitter:" not in mm.channel[2]
 
-    async def test_a_second_suspension_gets_what_was_said_after_the_resumption(
+    async def test_what_is_said_after_a_resumption_comes_under_it(
         self, db_session, monkeypatch
     ):
         debat = _debat(
@@ -1083,6 +1084,7 @@ class TestTranscript:
             ("suspended", 4, ""),
         )
         feed = Feed(monkeypatch, parts=[_stream(debat)])
+        _chair_unposted(monkeypatch)
         cues = [_cue(65, "Ik schors tot twee uur."), _cue(190, "Ik schors opnieuw.")]
         Subtitles(monkeypatch, feed, cues)
         mm = Mattermost()
@@ -1091,13 +1093,16 @@ class TestTranscript:
         await _play(db_session, mm, feed, 6)
 
         assert mm.channel[1].endswith("\nVoorzitter: Ik schors tot twee uur.")
-        assert mm.channel[3].endswith("\nVoorzitter: Ik schors opnieuw.")
+        assert mm.channel[2].startswith("▶️ **Hervat**")
+        assert mm.channel[2].endswith("\nIk schors opnieuw.")
+        assert "Voorzitter:" not in mm.channel[3]
 
     async def test_the_words_under_a_suspension_are_written_once(
         self, db_session, monkeypatch
     ):
         debat = _debat(("chairman", 1, "v"), ("suspended", 2, ""))
         feed = Feed(monkeypatch, parts=[_stream(debat)])
+        _chair_unposted(monkeypatch)
         Subtitles(monkeypatch, feed, [_cue(65, "Ik schors.")])
         mm = Mattermost()
         await _sessie(db_session)
@@ -1111,6 +1116,7 @@ class TestTranscript:
     ):
         debat = _debat(("chairman", 1, "v"), ("suspended", 2, ""))
         feed = Feed(monkeypatch, parts=[_stream(debat)])
+        _chair_unposted(monkeypatch)
         Subtitles(monkeypatch, feed, [_cue(115, "Ik schors.")])
         mm = Mattermost()
         await _sessie(db_session)
@@ -1137,6 +1143,67 @@ class TestTranscript:
 
         assert all("Voorzitter:" not in m for m in mm.channel)
 
+    async def test_a_meeting_with_only_a_start_and_an_end_is_not_empty(
+        self, db_session, monkeypatch
+    ):
+        """A procedurevergadering: Debat Direct has its start and its end and
+        nothing in between, while the chairman goes through the letters for
+        forty minutes. That goes under the start."""
+        debat = _debat(("debate_end", 4, ""))
+        feed = Feed(monkeypatch, parts=[_stream(debat)])
+        cues = [
+            _cue(20, "Ik open de procedurevergadering."),
+            _cue(90, "Punt drie, de brief over de cloud."),
+            _cue(200, "Dan zijn we aan het einde van het openbare deel."),
+        ]
+        Subtitles(monkeypatch, feed, cues)
+        mm = Mattermost()
+        await _sessie(db_session)
+
+        await _play(db_session, mm, feed, 6)
+
+        assert mm.channel[0].startswith("▶️ **Het debat is begonnen**")
+        assert mm.channel[0].endswith(
+            "\nIk open de procedurevergadering. Punt drie, de brief over de "
+            "cloud. Dan zijn we aan het einde van het openbare deel."
+        )
+        assert mm.channel[1].startswith("⏹️ **Het debat is afgelopen**")
+        assert "Voorzitter:" not in mm.channel[1]
+
+    async def test_a_suspension_does_not_repeat_what_is_under_the_chair(
+        self, db_session, monkeypatch
+    ):
+        debat = _debat(("chairman", 1, "v"), ("suspended", 2, ""))
+        feed = Feed(monkeypatch, parts=[_stream(debat)])
+        Subtitles(monkeypatch, feed, [_cue(65, "Ik schors tot twee uur.")])
+        mm = Mattermost()
+        await _sessie(db_session)
+
+        await _play(db_session, mm, feed, 4)
+
+        assert mm.channel[1].startswith("🔨 **Voorzitter** · [")
+        assert mm.channel[1].endswith("\nIk schors tot twee uur.")
+        assert mm.channel[2].startswith("⏸️ **Geschorst** · ")
+        assert "\n" not in mm.channel[2]
+
+    async def test_the_chair_opening_comes_under_the_start(
+        self, db_session, monkeypatch
+    ):
+        debat = _debat(("speaker", 1, "a"))
+        feed = Feed(monkeypatch, parts=[_stream(debat)])
+        Subtitles(
+            monkeypatch,
+            feed,
+            [_cue(20, "Welkom bij dit debat."), _cue(70, "Mijn betoog.")],
+        )
+        mm = Mattermost()
+        await _sessie(db_session)
+
+        await _play(db_session, mm, feed, 3)
+
+        assert mm.channel[0].endswith("\nWelkom bij dit debat.")
+        assert mm.channel[1].endswith("\nMijn betoog.")
+
     async def test_what_was_said_cannot_mention_anyone(self, db_session, monkeypatch):
         feed = Feed(monkeypatch, parts=[_stream(_debat(("speaker", 1, "a")))])
         Subtitles(monkeypatch, feed, [_cue(65, "Schrijf naar @channel en @all.")])
@@ -1158,6 +1225,26 @@ class TestTextKey:
 
     def test_it_fits_the_column(self):
         assert len(text_key("Een. Twee." * 1000)) == 16
+
+
+async def _member_turns(db_session, sessie) -> list:
+    turns = await load_turns(db_session, sessie.id, sessie.debat_direct_ids[0])
+    return [turn for turn in turns if turn.is_member]
+
+
+def _chair_unposted(monkeypatch) -> None:
+    """The chairman's events get no message of their own.
+
+    As after a stretch the timeline missed: what was said from the chair
+    then has no message to go under, and only its last words are shown,
+    under a suspension or the end.
+    """
+    real = tijdlijn.format_event
+
+    def without_chair(event, debat, sprekers):  # type: ignore[no-untyped-def]
+        return None if event.type == "chairman" else real(event, debat, sprekers)
+
+    monkeypatch.setattr(tijdlijn, "format_event", without_chair)
 
 
 async def _row(db_session, sessie, who: str) -> DebatSpreekbeurt:
@@ -1558,6 +1645,7 @@ class TestTextThatChanges:
     ):
         debat = _debat(("speaker", 1, "a"), ("chairman", 2, "v"), ("suspended", 3, ""))
         feed = Feed(monkeypatch, parts=[_stream(debat)])
+        _chair_unposted(monkeypatch)
         Subtitles(
             monkeypatch,
             feed,
@@ -1675,7 +1763,7 @@ class TestTwoEventsOneTurn:
         assert first.kop == message.split("\n")[0]
         assert (first.tekst, second.tekst) == ("Eerste zin.", "Tweede zin.")
 
-        (turn,) = await load_turns(db_session, sessie.id, sessie.debat_direct_ids[0])
+        (turn,) = await _member_turns(db_session, sessie)
         assert turn.key == ("speaker", "a")
         assert turn.row_id == first.id
         assert turn.text == "Eerste zin. Tweede zin."
@@ -1728,9 +1816,11 @@ class TestTwoEventsOneTurn:
             for r in await _speaking_rows(db_session)
         ] == stepwise
 
-    async def test_the_chairman_giving_the_floor_in_between_changes_nothing(
+    async def test_the_chairman_giving_the_floor_in_between_is_a_message(
         self, db_session, monkeypatch
     ):
+        """The chair's message stands between the two, so they are not one
+        turn: the channel follows the order of the debate."""
         events = [
             ("interrupter", _seconds(60), "a"),
             ("chairman", _seconds(62), "v"),
@@ -1738,8 +1828,9 @@ class TestTwoEventsOneTurn:
         ]
         mm, _, _ = await self._follow(db_session, monkeypatch, events)
 
-        assert len(_turns_in(mm)) == 1
-        assert mm.channel[1].startswith("**Onbekende spreker**")
+        assert len(_turns_in(mm)) == 2
+        assert mm.channel[2].startswith("🔨 **Voorzitter**")
+        assert mm.channel[3].startswith("**Onbekende spreker**")
 
     async def test_when_someone_else_spoke_in_between_it_is_a_new_turn(
         self, db_session, monkeypatch
@@ -1800,7 +1891,7 @@ class TestTwoEventsOneTurn:
         assert len(mm.channel) == 2
         assert mm.channel[1].startswith("↳ **Onbekende spreker** · [")
         assert mm.channel[1].endswith(" · interruptie\nMag ik iets vragen?")
-        (turn,) = await load_turns(db_session, sessie.id, sessie.debat_direct_ids[0])
+        (turn,) = await _member_turns(db_session, sessie)
         assert turn.key == ("interrupter", "a")
 
     @pytest.mark.parametrize(
@@ -1816,7 +1907,7 @@ class TestTwoEventsOneTurn:
         assert len(mm.channel) == 2
         assert mm.channel[1].startswith("**Onbekende spreker** · [")
         assert mm.channel[1].endswith("\nVoorzitter, dank.")
-        (turn,) = await load_turns(db_session, sessie.id, sessie.debat_direct_ids[0])
+        (turn,) = await _member_turns(db_session, sessie)
         assert turn.key == ("speaker", "a")
         assert turn.text == "Voorzitter, dank."
         # Every row of the turn says which turn it went into, also the one
@@ -1848,7 +1939,7 @@ class TestTwoEventsOneTurn:
         # Only the row with the message has a first line to write again.
         assert [r.kop is not None for r in rows] == [True, False, False]
         assert [r.tekst_geplaatst_hash for r in rows[1:]] == [None, None]
-        (turn,) = await load_turns(db_session, sessie.id, sessie.debat_direct_ids[0])
+        (turn,) = await _member_turns(db_session, sessie)
         assert turn.key == ("interrupter", "a")
         assert turn.text == "Een. Twee. Drie."
 
@@ -1915,12 +2006,7 @@ class TestTwoEventsOneTurn:
             ("b", "speaker", "interrupter"),
             ("b", "interrupter", None),
         ]
-        keys = [
-            turn.key
-            for turn in await load_turns(
-                db_session, sessie.id, sessie.debat_direct_ids[0]
-            )
-        ]
+        keys = [turn.key for turn in await _member_turns(db_session, sessie)]
         assert keys == [("speaker", "b"), ("speaker", "a"), ("interrupter", "b")]
         # The two other messages were not touched.
         assert len(mm.updates) == 1

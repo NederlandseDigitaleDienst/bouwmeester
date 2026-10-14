@@ -61,6 +61,14 @@ logger = logging.getLogger(__name__)
 
 _SPEAKING = (dd.EVENT_SPEAKER, dd.EVENT_INTERRUPTER)
 _CLOSING = (dd.EVENT_SUSPENDED, dd.EVENT_DEBATE_END)
+# Messages the chairman's words go under. Kept here and not imported from
+# the timeline, which imports this module.
+_CHAIR_OPENS = (
+    dd.EVENT_CHAIRMAN,
+    dd.EVENT_DEBATE_START,
+    dd.EVENT_CONTINUED,
+    dd.EVENT_CHAIRMAN_CHANGE,
+)
 # How far back the subtitles are read when a debate is first seen. The same
 # patience the timeline has for what it missed.
 READ_BACK = timedelta(minutes=10)
@@ -130,6 +138,14 @@ class Turn:
     # A suspension or the end: the text is the chairman's, and only the
     # last of it is shown.
     closing: bool = False
+    # The chairman has the floor: the start, a resumption, or the chair
+    # taking the word. Shown like a turn, but nobody's to ask questions in.
+    chair: bool = False
+
+    @property
+    def is_member(self) -> bool:
+        """A turn of a member or a bewindspersoon, to be read for questions."""
+        return not (self.closing or self.chair)
 
     @property
     def text(self) -> str:
@@ -772,14 +788,13 @@ async def load_turns(
             kind = turn_kind
         if kind in _SPEAKING:
             chairman = ""
-        elif kind not in _CLOSING:
-            chairman = append_text(chairman, tekst or "")
         if post_id:
             current = None
             if kind in _CLOSING and kop and chairman:
                 # "Ik schors de vergadering tot kwart over twee" is said
                 # by the chairman just before the event. Without it the
-                # suspension comes out of nowhere.
+                # suspension comes out of nowhere. Only what is not under
+                # a message of the chair already.
                 turns.append(
                     Turn(
                         row_id,
@@ -798,7 +813,7 @@ async def load_turns(
                 # Said once. A second suspension, or the end after a
                 # suspension, does not repeat it.
                 chairman = ""
-            if kind in _SPEAKING and kop:
+            if (kind in _SPEAKING or kind in _CHAIR_OPENS) and kop:
                 current = Turn(
                     row_id,
                     post_id,
@@ -810,16 +825,37 @@ async def load_turns(
                     start,
                     read,
                     read_until or 0,
+                    chair=kind not in _SPEAKING,
                 )
                 turns.append(current)
         elif kind in _SPEAKING and (current is None or current.key != (kind, who)):
             # Someone spoke who has no message: a stretch the timeline
             # missed. What follows is not the turn from before it.
             current = None
-        if current is not None and kind in _SPEAKING and tekst:
-            # The row of the message itself, and the rows of the same
-            # speaker carrying on after the chairman said a word. What
-            # the chairman said in between is kept but not shown.
+        elif (
+            kind == dd.EVENT_CHAIRMAN
+            and current is not None
+            and current.chair
+            and current.key != (kind, who)
+        ):
+            # The chair taking the word without a message, after a stretch
+            # the timeline missed: not the message of the chair before it.
+            current = None
+        shown = False
+        if current is not None and tekst:
+            if current.chair:
+                # Whatever is said from the chair until a member speaks.
+                shown = kind not in _SPEAKING and kind not in _CLOSING
+            else:
+                # The row of the message itself, and the rows of the same
+                # speaker carrying on after the chairman said a word. What
+                # the chairman said in between without a message of its
+                # own (before the chair had messages) is kept but not
+                # shown.
+                shown = kind in _SPEAKING
+        if shown:
             current.texts.append(tekst)
             current.rows.append(row_id)
+        elif kind not in _SPEAKING and kind not in _CLOSING:
+            chairman = append_text(chairman, tekst or "")
     return turns

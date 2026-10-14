@@ -80,8 +80,13 @@ class TestFormatEvent:
         assert tekst.startswith("↳ **Kamerlid B (SP)** · [10:45](")
         assert tekst.endswith(" · interruptie")
 
-    def test_the_chairman_giving_the_floor_is_not_a_turn(self):
-        assert format_event(_event("chairman", "10:42:00"), FULL, self.S) is None
+    def test_the_chairman_is_a_turn_of_his_own(self):
+        tekst = format_event(_event("chairman", "10:42:00"), FULL, self.S)
+        assert tekst.startswith("🔨 **Voorzitter Kamerlid A** · [10:42](")
+
+    def test_an_unknown_chairman_is_still_the_chairman(self):
+        tekst = format_event(_event("chairman", "10:42:00", "wie"), FULL, self.S)
+        assert tekst.startswith("🔨 **Voorzitter** · [10:42](")
 
     def test_unknown_speaker_is_still_a_turn(self):
         tekst = format_event(_event("speaker", "10:42:10", "wie"), FULL, self.S)
@@ -249,9 +254,13 @@ class TestFloors:
         rows = [self._row("speaker", 0), self._row("suspended", 30, "")]
         assert floors_from(rows) == {}
 
-    def test_the_chairman_giving_the_floor_changes_nothing(self):
+    def test_the_chairman_takes_the_floor(self):
+        rows = [self._row("speaker", 0), self._row("chairman", 30, "v")]
+        assert floors_from(rows)["d1"].who == "v"
+
+    def test_a_chairman_without_a_message_is_a_stretch_that_was_missed(self):
         rows = [self._row("speaker", 0), self._row("chairman", 30, "v", post=None)]
-        assert floors_from(rows)["d1"].who == "a"
+        assert floors_from(rows) == {}
 
     def test_every_part_has_a_floor_of_its_own(self):
         rows = [self._row("speaker", 0, "a"), self._row("speaker", 5, "b", part="d2")]
@@ -619,17 +628,19 @@ class TestTimeline:
 
         assert sessie.tijdlijn_status == TIJDLIJN_LOOPT
         assert mm.texts[0].startswith("▶️ **Het debat is begonnen** in de Klompézaal")
-        assert mm.texts[1].startswith("**Kamerlid D (SP)** · [10:01](")
+        assert mm.texts[1].startswith("🔨 **Voorzitter Kamerlid E** · [10:00](")
+        assert mm.texts[2].startswith("**Kamerlid D (SP)** · [10:01](")
         assert mm.texts[-1] == "⏹️ **Het debat is afgelopen** · 13:00"
         assert "⏸️ **Geschorst** · 11:10" in mm.texts
         assert any(t.startswith("▶️ **Hervat** · [11:34](") for t in mm.texts)
         assert "_Voorzitter is nu Kamerlid B_ · 12:42" in mm.texts
         # One message per turn: 153 speaker and interrupter events, of
-        # which 20 are someone carrying on and 5 are the second event of
-        # someone entered as interrupter and seconds later as speaker. The
-        # 75 chairman events are not in the channel.
-        assert len(mm.turns) == 128
-        assert len(mm.texts) == 133
+        # which 6 are someone carrying on with nobody in between, or the
+        # second event of someone entered as interrupter and seconds later
+        # as speaker. The 75 chairman events are a message each.
+        assert len(mm.turns) == 147
+        assert sum(1 for t in mm.texts if t.startswith("🔨")) == 75
+        assert len(mm.texts) == 227
         # Every event is remembered, posted or not.
         assert await _rows(db_session, sessie) == 233
         assert {channel for channel, _ in mm.posts} == {sessie.channel_id}
@@ -696,8 +707,8 @@ class TestTimeline:
             "⏭️ Ik was er even niet. Wat er tussen 10:19 en 10:39"
         )
         assert "spreekbeurten) staat op [Debat Direct](" in after[0]
-        # Only the last ten minutes follow, not all thirty.
-        assert len(after) < 15
+        # Only the last ten minutes follow, not the 48 events of all thirty.
+        assert len(after) < 20
         assert sum(1 for t in mm.texts if t.startswith("⏭️")) == 1
 
     async def test_mattermost_being_down_does_not_drop_events_without_a_word(
@@ -910,13 +921,12 @@ class TestTimeline:
     ):
         """Read back from the database, "hervat" has to come before the
         speaker of that same second, or that speaker counts as forgotten
-        and gets a second message when the chairman has said a word."""
+        and gets a second message when carrying on."""
         debat = _debat(
             ("speaker", 1, "a"),
             ("suspended", 2, ""),
             ("continued", 3, ""),
             ("speaker", 3, "a"),
-            ("chairman", 4, "v"),
             ("speaker", 5, "a"),
         )
         feed = Feed(monkeypatch, parts=[debat])

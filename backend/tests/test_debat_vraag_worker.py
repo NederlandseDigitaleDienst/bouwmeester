@@ -1025,6 +1025,40 @@ class TestWhichTurns:
         assert [beurt.spreekbeurt_id for beurt, _ in handed] == [a.id, b.id]
         assert await _at(db_session, pause) is None
 
+    async def test_a_message_of_the_chair_is_nobodys_turn(
+        self, db_session, monkeypatch, handed
+    ):
+        """The chair has messages of its own, with his words under them.
+        Questions are asked by members, so they are not read for any, and
+        the turn before the chair stays the one an answer is to."""
+        Outside(monkeypatch)
+        mm, llm = Chat(), FakeLLM()
+        s = await _running(db_session)
+        a = await _row(
+            db_session, s, "speaker", 60, "a", tekst=f"{OPENING} {Q_WANNEER}"
+        )
+        chair = await _row(
+            db_session,
+            s,
+            "chairman",
+            100,
+            "v",
+            tekst=f"Dank u wel. {Q_BUDGET}",
+            kop="🔨 **Voorzitter** · 10:01",
+        )
+        b = await _row(
+            db_session, s, "speaker", 200, "b", tekst=f"{OPENING} {Q_BUDGET}"
+        )
+        await _row(db_session, s, "debate_end", 300)
+        _in_channel(mm, a, chair, b)
+        chairs = [t for t in await load_turns(db_session, s.id, PART) if t.chair]
+        assert [t.row_id for t in chairs] == [chair.id]
+
+        await _tick(db_session, mm, llm)
+
+        assert [beurt.spreekbeurt_id for beurt, _ in handed] == [a.id, b.id]
+        assert await _at(db_session, chair) is None
+
     async def test_the_subtitles_have_to_be_past_the_next_message(
         self, db_session, monkeypatch, handed
     ):
