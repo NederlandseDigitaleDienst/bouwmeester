@@ -91,8 +91,19 @@ POLL_BEFORE_START = timedelta(minutes=15)
 
 _HTTP_TIMEOUT = 15.0
 _SPEAKING = (dd.EVENT_SPEAKER, dd.EVENT_INTERRUPTER)
+# Who can hold the floor: a member, or the chairman.
+_FLOOR = (*_SPEAKING, dd.EVENT_CHAIRMAN)
+# Messages the chairman's words go under, until a member gets the floor. A
+# procedurevergadering has no events between its start and its end at all,
+# so without the start among these its whole text would go unseen.
+CHAIR_OPENS = (
+    dd.EVENT_CHAIRMAN,
+    dd.EVENT_DEBATE_START,
+    dd.EVENT_CONTINUED,
+    dd.EVENT_CHAIRMAN_CHANGE,
+)
 # Messages that get text under them later, so their first line is kept.
-_WITH_TEXT = (*_SPEAKING, dd.EVENT_SUSPENDED, dd.EVENT_DEBATE_END)
+_WITH_TEXT = (*_SPEAKING, *CHAIR_OPENS, dd.EVENT_SUSPENDED, dd.EVENT_DEBATE_END)
 # What the channel would have been told. A missed stretch with any of these
 # in it is said to have been missed; one with only the chairman giving the
 # floor is not.
@@ -158,6 +169,9 @@ def turn_kind(kind: str, began: datetime, event: dd.DdEvent) -> str | None:
     """
     if event.type == kind:
         return kind
+    if dd.EVENT_CHAIRMAN in (kind, event.type):
+        # The chair is no role a member speaks in.
+        return None
     if event.start - began > SAME_TURN_WITHIN or event.start < began:
         return None
     if event.start == began:
@@ -182,16 +196,20 @@ def format_event(
 ) -> str | None:
     """The message for one event, or ``None`` for an event that gets none.
 
-    One message per turn at speaking. The chairman giving the floor is not
-    a turn: in a debate of three hours that is seventy-five messages that
-    say nothing. Whether an event of someone speaking is a turn of its own
-    is not decided here; see `turn_kind`.
+    One message per turn at speaking, the chairman's included: what is
+    said from the chair (the order of business, a ruling, the list of
+    toezeggingen) is part of the debate. Whether an event of someone
+    speaking is a turn of its own is not decided here; see `turn_kind`.
     """
     if event.type in _SPEAKING:
         spreker = sprekers.get(event.object_id)
         naam = _escape(spreker.label if spreker else "Onbekende spreker")
         regel = f"**{naam}** · {_linked_time(debat, event)}"
         return heading_as(regel, event.type)
+    if event.type == dd.EVENT_CHAIRMAN:
+        spreker = sprekers.get(event.object_id)
+        naam = f" {_escape(spreker.naam)}" if spreker else ""
+        return f"🔨 **Voorzitter{naam}** · {_linked_time(debat, event)}"
     if event.type == dd.EVENT_CHAIRMAN_CHANGE:
         spreker = sprekers.get(event.object_id)
         if spreker is None:
@@ -232,7 +250,7 @@ def floors_from(rows) -> dict[str, Floor]:  # type: ignore[no-untyped-def]
     """
     floors: dict[str, Floor] = {}
     for part, kind, start, who, post_id, beurt_soort, kop in rows:
-        speaking = kind in _SPEAKING
+        speaking = kind in _FLOOR
         turn = (beurt_soort or kind) if speaking else kind
         floor = floors.get(part)
         if not post_id:
@@ -706,7 +724,7 @@ class DebatTijdlijnService:
                 floor = floors.get(debate_id)
                 if (
                     floor is not None
-                    and event.type in _SPEAKING
+                    and event.type in _FLOOR
                     and event.object_id == floor.who
                     and (kind := turn_kind(floor.kind, floor.began, event))
                 ):
@@ -744,7 +762,7 @@ class DebatTijdlijnService:
                             return
                         break
                     result.berichten += 1
-                    if event.type in _SPEAKING:
+                    if event.type in _FLOOR:
                         floors[debate_id] = Floor(
                             event.type, event.object_id, event.start, tekst
                         )

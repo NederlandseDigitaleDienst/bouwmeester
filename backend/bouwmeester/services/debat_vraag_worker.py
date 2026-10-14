@@ -179,7 +179,7 @@ class _Waiting:
     offset: timedelta = timedelta(0)
     # The turn right before it: an answer of the bewindspersoon is to
     # whoever interrupted there. The chairman giving the floor in between
-    # is no turn: his words have no message of their own in the channel.
+    # is skipped: a message of the chair is no turn of a member.
     before: Turn | None = None
     # The part of the debate it is in.
     part: str = ""
@@ -826,9 +826,9 @@ class DebatVraagWorker:
                 if kind in (dd.EVENT_SUSPENDED, dd.EVENT_CONTINUED)
             ]
             for turn in turns:
-                if turn.closing:
-                    # A suspension or the end, with the words of the
-                    # chairman under it. Nobody's turn at speaking.
+                if not turn.is_member:
+                    # The chair, or a suspension or the end with the words
+                    # of the chairman under it. Nobody's turn at speaking.
                     continue
                 if before is not None and any(
                     before.start < moment <= turn.start for moment in breaks
@@ -970,7 +970,7 @@ class DebatVraagWorker:
         """
         turns = await load_turns(self.session, sessie_id, item.part)
         turn = next((t for t in turns if t.row_id == item.turn.row_id), None)
-        if turn is None or turn.closing or turn.beoordeeld_at is not None:
+        if turn is None or not turn.is_member or turn.beoordeeld_at is not None:
             return None
         lines = await self._turn_lines(turn)
         bound: datetime | None = None
@@ -1581,7 +1581,7 @@ class DebatVraagWorker:
                 continue
             turns = await load_turns(self.session, sessie_id, debate_id)
             unread = any(
-                not turn.closing and turn.beoordeeld_at is None and turn.text
+                turn.is_member and turn.beoordeeld_at is None and turn.text
                 for turn in turns
             )
             if unread and now - end[5] < LIST_WAITS_FOR_TURNS:
