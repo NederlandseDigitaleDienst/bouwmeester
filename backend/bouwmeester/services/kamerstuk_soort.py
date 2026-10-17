@@ -40,6 +40,12 @@ CAT_WETGEVING = "wetgeving"
 # categorie het icoon, de kopregel en de LLM-instructie stuurt, en een
 # nieuwsbericht alle drie anders nodig heeft dan een kamerstuk.
 CAT_NIEUWS = "nieuws"
+# Ook geen kamerstuk: een officiële bekendmaking uit de Staatscourant, het
+# Staatsblad of het Tractatenblad. Twee categorieën, omdat een vastgestelde
+# regeling iets anders van de lezer vraagt dan een kennisgeving of een
+# vergunning.
+CAT_REGELGEVING = "regelgeving"
+CAT_BEKENDMAKING = "bekendmaking"
 CAT_OVERIG = "overig"
 
 # Gemeten op 22 september 2026 tegen de echte API; de sleutels zijn het
@@ -191,6 +197,30 @@ CATEGORIE_PRESENTATIE: dict[str, dict[str, str]] = {
         # het eerste is wat je wil weten: wie schrijft dit.
         "herkomst": "vakpers",
     },
+    # Geen `herkomst` hier: die verschilt per stuk (welk blad, welke
+    # organisatie) en staat daarom in `extra_data`. `link_label` en `via`
+    # vervangen de tkconv-teksten in het bericht, want deze stukken komen
+    # niet van tkconv; `bron_label` zegt wat de tweede link opent.
+    CAT_REGELGEVING: {
+        "emoji": ":classical_building:",
+        "teken": "\U0001f3db\ufe0f",
+        "label": "Regelgeving",
+        "kleur": "#154273",
+        "link_label": "Openen op officielebekendmakingen.nl",
+        "bron_label": "PDF",
+        "via": "via officielebekendmakingen.nl",
+    },
+    # Geen megafoon: die is de reactie waarmee een debat wordt aangekondigd
+    # (`debat_aankondiging_service.REACTIE_AANKONDIGEN`).
+    CAT_BEKENDMAKING: {
+        "emoji": ":bookmark_tabs:",
+        "teken": "\U0001f4d1",
+        "label": "Bekendmaking",
+        "kleur": "#475569",
+        "link_label": "Openen op officielebekendmakingen.nl",
+        "bron_label": "PDF",
+        "via": "via officielebekendmakingen.nl",
+    },
     CAT_DEBAT: {
         # Een microfoon en niet een tekstballon: die laatste heeft `extern`
         # al, en in de inhaalslag-lijst is de emoji het enige dat een lezer
@@ -299,6 +329,67 @@ def categorie_van(soort: str | None) -> str:
     if klein.startswith("brief"):
         return CAT_BRIEF
     return CAT_OVERIG
+
+
+# Rubrieken van de Staatscourant die een regel of een besluit van algemene
+# strekking vaststellen, of (het advies van de Raad van State) erover gaan.
+# De rest van de Staatscourant is een kennisgeving, vergunning of melding.
+# Kleine letters; de waarde is het letterlijke `dcterms:type`.
+_REGELGEVING_RUBRIEKEN = (
+    "algemeen verbindend voorschrift",
+    "beleidsregel",
+    "ander besluit van algemene strekking",
+    "delegatie- of mandaatbesluit",
+    "interne regeling",
+    "algemeenverbindendverklaring van cao-bepalingen",
+    "advies raad van state",
+)
+
+
+def categorie_van_bekendmaking(publicatie: str | None, rubriek: str | None) -> str:
+    """Welke categorie hoort bij een officiële bekendmaking?
+
+    Alles in het Staatsblad (wetten, AMvB's, koninklijke besluiten) en het
+    Tractatenblad (verdragen) is regelgeving. In de Staatscourant beslist
+    de rubriek: "algemeen verbindend voorschrift (ministeriële regeling)"
+    is regelgeving, een omgevingsvergunning is een bekendmaking.
+
+    Op het begin van de rubriek en niet exact, zodat een variant met een
+    toevoeging tussen haakjes ("algemeen verbindend voorschrift
+    (ministeriële regeling)") niet terugvalt op `bekendmaking`.
+    """
+    blad = (publicatie or "").strip().lower()
+    if blad in ("staatsblad", "tractatenblad"):
+        return CAT_REGELGEVING
+    soort = (rubriek or "").strip().lower()
+    if soort.startswith(_REGELGEVING_RUBRIEKEN):
+        return CAT_REGELGEVING
+    return CAT_BEKENDMAKING
+
+
+# Rubrieken die als kop van een bericht te lang zijn of niets zeggen. De kop
+# staat in hoofdletters: "ALGEMEEN VERBINDEND VOORSCHRIFT (MINISTERIËLE
+# REGELING)" loopt over twee regels, en "ANDERE BESCHIKKING" zegt alleen
+# dat het iets anders is. Exact, kleine letters; de rest blijft zoals KOOP
+# hem noemt.
+_LEESBARE_RUBRIEK = {
+    "algemeen verbindend voorschrift (ministeriële regeling)": "Ministeriële regeling",
+    "ander besluit van algemene strekking": "Besluit van algemene strekking",
+    "andere beschikking": "Besluit",
+}
+
+
+def leesbare_rubriek(rubriek: str | None) -> str | None:
+    """De rubriek zoals hij in de kop van een bericht staat.
+
+    Met een hoofdletter vooraan, zoals het soort van de TK-API ("Motie"):
+    in de voettekst staat hij niet in hoofdletters.
+    """
+    rubriek = (rubriek or "").strip()
+    if not rubriek:
+        return None
+    rubriek = _LEESBARE_RUBRIEK.get(rubriek.lower(), rubriek)
+    return rubriek[0].upper() + rubriek[1:]
 
 
 def _parse_datum(waarde: object) -> date | None:

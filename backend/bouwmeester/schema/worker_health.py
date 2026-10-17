@@ -51,6 +51,7 @@ class MattermostChannelOverview(BaseModel):
     parlementaire_alerts_enabled: bool
     nieuws_alerts_enabled: bool
     casus_updates_enabled: bool = False
+    bekendmakingen_alerts_enabled: bool
     last_seen_post_at: datetime | None
     disabled_at: datetime | None
     created_at: datetime

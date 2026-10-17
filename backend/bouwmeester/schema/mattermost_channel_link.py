@@ -32,6 +32,7 @@ class MattermostChannelLinkCreate(BaseModel):
     parlementaire_alerts_enabled: bool | None = None
     nieuws_alerts_enabled: bool | None = None
     casus_updates_enabled: bool | None = None
+    bekendmakingen_alerts_enabled: bool | None = None
 
 
 class MattermostChannelLinkUpdate(BaseModel):
@@ -40,6 +41,7 @@ class MattermostChannelLinkUpdate(BaseModel):
     parlementaire_alerts_enabled: bool | None = None
     nieuws_alerts_enabled: bool | None = None
     casus_updates_enabled: bool | None = None
+    bekendmakingen_alerts_enabled: bool | None = None
     # Stuur ``reenable=true`` om een uitgeschakelde koppeling weer aan te
     # zetten nadat de bot terug is in het kanaal. ``false`` is geen
     # zinvolle waarde (uitschakelen gebeurt automatisch via WS-events of
@@ -61,6 +63,7 @@ class MattermostChannelLinkResponse(BaseModel):
     parlementaire_alerts_enabled: bool
     nieuws_alerts_enabled: bool
     casus_updates_enabled: bool
+    bekendmakingen_alerts_enabled: bool
     last_seen_post_at: int | None
     disabled_at: datetime | None
     created_by_id: UUID | None
