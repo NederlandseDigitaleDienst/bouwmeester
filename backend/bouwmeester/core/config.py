@@ -118,6 +118,12 @@ class Settings(BaseSettings):
     TKCONV_KANTOORUREN_START: int = 8
     TKCONV_KANTOORUREN_EIND: int = 18
     TKCONV_AVOND_EIND: int = 23
+    # Officiële bekendmakingen (SRU-API van KOOP). De Staatscourant verschijnt
+    # in één ochtendbatch: op elke werkdag van 9 tot 16 oktober 2026 tussen
+    # 09:00 en 09:30 (meestal 09:07 tot 09:21), daarbuiten hooguit vijf
+    # stukken per dag. Vaker pollen wint dus weinig, en de repository begrenst
+    # het aantal verzoeken (zie `bekendmakingen_client`).
+    BEKENDMAKINGEN_POLL_INTERVAL_SECONDS: int = 900
     LLM_MODEL: str = "claude-haiku-4-5-20251001"
     LLM_PROVIDER: str = "claude"  # "claude" or "vlam"
     VLAM_API_KEY: str = ""

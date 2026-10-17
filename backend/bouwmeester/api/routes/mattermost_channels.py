@@ -205,6 +205,9 @@ async def create_initiatief_channel(
             nieuws_alerts_enabled=data.nieuws_alerts_enabled
             if data.nieuws_alerts_enabled is not None
             else False,
+            bekendmakingen_alerts_enabled=data.bekendmakingen_alerts_enabled
+            if data.bekendmakingen_alerts_enabled is not None
+            else False,
             created_by_id=current_user.id if current_user else None,
         )
     except IntegrityError:
@@ -377,6 +380,7 @@ async def update_channel_link(
         suggest_leads_enabled=data.suggest_leads_enabled,
         parlementaire_alerts_enabled=data.parlementaire_alerts_enabled,
         nieuws_alerts_enabled=data.nieuws_alerts_enabled,
+        bekendmakingen_alerts_enabled=data.bekendmakingen_alerts_enabled,
         reenable=data.reenable,
     )
     return MattermostChannelLinkResponse.model_validate(updated)
