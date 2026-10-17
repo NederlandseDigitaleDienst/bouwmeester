@@ -123,6 +123,12 @@ export function MattermostChannelsSection({ scope }: Props) {
                   data: { nieuws_alerts_enabled: value },
                 })
               }
+              onToggleBekendmakingen={(value) =>
+                updateMutation.mutate({
+                  linkId: link.id,
+                  data: { bekendmakingen_alerts_enabled: value },
+                })
+              }
               onDelete={() => deleteMutation.mutate(link.id)}
             />
           ))}
@@ -150,6 +156,7 @@ function ChannelRow({
   onToggleSuggest,
   onToggleAlerts,
   onToggleNieuws,
+  onToggleBekendmakingen,
   onDelete,
 }: {
   link: MattermostChannelLink;
@@ -157,16 +164,19 @@ function ChannelRow({
   onToggleSuggest: (value: boolean) => void;
   onToggleAlerts: (value: boolean) => void;
   onToggleNieuws: (value: boolean) => void;
+  onToggleBekendmakingen: (value: boolean) => void;
   onDelete: () => void;
 }) {
   const autoNoteRef = useRef<HTMLElement>(null);
   const suggestRef = useRef<HTMLElement>(null);
   const alertsRef = useRef<HTMLElement>(null);
   const nieuwsRef = useRef<HTMLElement>(null);
+  const bekendmakingenRef = useRef<HTMLElement>(null);
   useNlddEvent(autoNoteRef, 'change', (e) => onToggleAutoNote(checkedValue(e)));
   useNlddEvent(suggestRef, 'change', (e) => onToggleSuggest(checkedValue(e)));
   useNlddEvent(alertsRef, 'change', (e) => onToggleAlerts(checkedValue(e)));
   useNlddEvent(nieuwsRef, 'change', (e) => onToggleNieuws(checkedValue(e)));
+  useNlddEvent(bekendmakingenRef, 'change', (e) => onToggleBekendmakingen(checkedValue(e)));
 
   return (
     <nldd-list-item>
@@ -212,6 +222,15 @@ function ChannelRow({
               ref={nieuwsRef}
               label="Nieuws-alerts"
               checked={orUndef(link.nieuws_alerts_enabled)}
+            />
+            {/* Staatscourant, Staatsblad en Tractatenblad op dezelfde
+                zoektermen: vastgestelde regelingen en besluiten, geen
+                voorstellen. Apart aan te zetten, om dezelfde reden als
+                het nieuws. */}
+            <nldd-checkbox-field
+              ref={bekendmakingenRef}
+              label="Officiële bekendmakingen"
+              checked={orUndef(link.bekendmakingen_alerts_enabled)}
             />
           </nldd-container>
         </nldd-container>
