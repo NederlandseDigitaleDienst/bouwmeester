@@ -989,7 +989,7 @@ export interface NodeTagResponse {
 }
 
 // Parlementair Item
-export type ParlementairItemType = 'motie' | 'kamervraag' | 'toezegging' | 'amendement' | 'commissiedebat' | 'schriftelijk_overleg' | 'interpellatie';
+export type ParlementairItemType = 'motie' | 'kamervraag' | 'toezegging' | 'amendement' | 'commissiedebat' | 'schriftelijk_overleg' | 'interpellatie' | 'tkconv_document' | 'nieuwsartikel' | 'bekendmaking';
 export type ParlementairItemStatus = 'pending' | 'imported' | 'reviewed' | 'rejected' | 'out_of_scope';
 export type SuggestedEdgeStatus = 'pending' | 'approved' | 'rejected';
 
@@ -1001,6 +1001,9 @@ export const PARLEMENTAIR_TYPE_LABELS: Record<string, string> = {
   commissiedebat: 'Commissiedebat',
   schriftelijk_overleg: 'Schriftelijk Overleg',
   interpellatie: 'Interpellatie',
+  tkconv_document: 'Kamerstuk',
+  nieuwsartikel: 'Nieuws',
+  bekendmaking: 'Bekendmaking',
 };
 
 export const PARLEMENTAIR_TYPE_COLORS: Record<string, EntityColor> = {
@@ -1011,6 +1014,9 @@ export const PARLEMENTAIR_TYPE_COLORS: Record<string, EntityColor> = {
   commissiedebat: 'hemelblauw',
   schriftelijk_overleg: 'donkerblauw',
   interpellatie: 'rood',
+  tkconv_document: 'violet',
+  nieuwsartikel: 'oranje',
+  bekendmaking: 'mosgroen',
 };
 
 export const ALL_PARLEMENTAIR_TYPES: ParlementairItemType[] = Object.keys(

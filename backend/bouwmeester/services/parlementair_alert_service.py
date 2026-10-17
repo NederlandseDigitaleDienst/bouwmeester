@@ -28,8 +28,10 @@ from bouwmeester.repositories.parlementair_abonnement import (
     ParlementairAbonnementRepository,
 )
 from bouwmeester.services.kamerstuk_soort import (
+    CAT_BEKENDMAKING,
     CAT_NIEUWS,
     CAT_OVERIG,
+    CAT_REGELGEVING,
     CATEGORIE_PRESENTATIE,
 )
 from bouwmeester.services.mattermost_service import MattermostService
@@ -196,6 +198,8 @@ def _vinkje_voor(item: ParlementairItem):
     categorie = (item.extra_data or {}).get("categorie")
     if categorie == CAT_NIEUWS:
         return MattermostChannelLink.nieuws_alerts_enabled
+    if categorie in (CAT_REGELGEVING, CAT_BEKENDMAKING):
+        return MattermostChannelLink.bekendmakingen_alerts_enabled
     return MattermostChannelLink.parlementaire_alerts_enabled
 
 
@@ -510,10 +514,12 @@ class ParlementairAlertService:
 
         acties = []
         if item.document_url:
-            acties.append(f"[Openen op tkconv]({item.document_url})")
+            link_label = presentatie.get("link_label", "Openen op tkconv")
+            acties.append(f"[{link_label}]({item.document_url})")
         raw_url = extra.get("raw_url")
         if raw_url:
-            acties.append(f"[Brondocument]({raw_url})")
+            bron_label = presentatie.get("bron_label", "Brondocument")
+            acties.append(f"[{bron_label}]({raw_url})")
         if acties:
             tekst_delen.append(" · ".join(acties))
 
@@ -577,7 +583,7 @@ class ParlementairAlertService:
         if not beknopt:
             attachment["pretext"] = kop
             attachment["fields"] = fields
-            attachment["footer"] = self._voettekst(item, extra)
+            attachment["footer"] = self._voettekst(item, extra, presentatie)
 
         return "", {"attachments": [attachment]}
 
@@ -595,14 +601,23 @@ class ParlementairAlertService:
         icoon, de kleur en de instructie aan het taalmodel, en springt in
         als de API geen soort kent.
         """
-        label = (extra.get("soort") or presentatie["label"]).upper()
+        # Escapen: het soort komt van de bron (TK-API, SRU), en dit is
+        # markdown in de `pretext`.
+        label = _escape_proza((extra.get("soort") or presentatie["label"]).upper())
         delen = [f"**{label}**"]
 
         # Een position paper of burgerbrief komt van buiten de Kamer, en
         # dat is precies wat je bij zo'n stuk wilt weten: het is een
         # standpunt van een belanghebbende, geen beleid. Het soort alleen
         # zegt dat niet.
-        if presentatie.get("herkomst"):
+        #
+        # Bij een bekendmaking verschilt de herkomst per stuk (welk blad,
+        # welke organisatie) en staat hij in `extra_data`. Die komt van
+        # buiten, dus escapen zoals het onderwerp hieronder.
+        herkomst_label = (extra.get("herkomst_label") or "").strip()
+        if herkomst_label:
+            delen.append(_escape_proza(herkomst_label))
+        elif presentatie.get("herkomst"):
             delen.append(presentatie["herkomst"])
 
         termijn = _als_datum(extra.get("termijn"))
@@ -638,12 +653,14 @@ class ParlementairAlertService:
         return " · ".join(delen)
 
     @staticmethod
-    def _voettekst(item: ParlementairItem, extra: dict) -> str:
+    def _voettekst(
+        item: ParlementairItem, extra: dict, presentatie: dict | None = None
+    ) -> str:
         soort = extra.get("soort")
         commissie = extra.get("commissie")
         datum = _nl_datum(item.datum) if item.datum else ""
         delen = [x for x in [soort, commissie, datum] if x]
-        delen.append("via tkconv (berthub.eu)")
+        delen.append((presentatie or {}).get("via", "via tkconv (berthub.eu)"))
         return " · ".join(delen)
 
     async def post_inhaalslag(
