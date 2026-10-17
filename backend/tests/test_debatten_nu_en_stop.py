@@ -835,8 +835,8 @@ class TestStopOnBehalfOfAPerson:
             await c.post(f"/api/debatten/{sessie.id}/stop")
 
         (_, tekst) = posts[0]
-        assert "\\@channel" in tekst
-        assert "@channel" not in tekst.replace("\\@channel", "")
+        assert "@⁠channel" in tekst
+        assert "@channel" not in tekst
         assert "[x]" not in tekst
 
     async def test_a_sessie_in_a_team_the_person_is_not_in_is_403(

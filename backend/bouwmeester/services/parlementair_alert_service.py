@@ -37,6 +37,10 @@ from bouwmeester.services.mattermost_utils import escape_mattermost_md as _escap
 from bouwmeester.services.mattermost_utils import (
     escape_mattermost_prose as _escape_proza,
 )
+from bouwmeester.services.mattermost_utils import (
+    markdown_url,
+    zonder_mentions,
+)
 from bouwmeester.services.zoekterm_passage import knip_rond_termen
 
 logger = logging.getLogger(__name__)
@@ -510,10 +514,10 @@ class ParlementairAlertService:
 
         acties = []
         if item.document_url:
-            acties.append(f"[Openen op tkconv]({item.document_url})")
+            acties.append(f"[Openen op tkconv]({markdown_url(item.document_url)})")
         raw_url = extra.get("raw_url")
         if raw_url:
-            acties.append(f"[Brondocument]({raw_url})")
+            acties.append(f"[Brondocument]({markdown_url(raw_url)})")
         if acties:
             tekst_delen.append(" · ".join(acties))
 
@@ -552,11 +556,12 @@ class ParlementairAlertService:
         titel_link = item.document_url or ""
         ruwe_titel = f"{presentatie.get('teken', '')} {item.titel}".strip()
         # Zonder link geldt de markdown-tak, en dan escapen we alsnog.
-        titel = ruwe_titel if titel_link else _escape_md(ruwe_titel)
+        # Platte tekst, maar Mattermost zoekt er wel mentions in.
+        titel = zonder_mentions(ruwe_titel) if titel_link else _escape_md(ruwe_titel)
         attachment: dict = {
             # Ook platte tekst: dit is wat een notificatie op een telefoon
             # toont. Backslashes horen daar net zomin.
-            "fallback": f"{presentatie['label']}: {item.titel}",
+            "fallback": zonder_mentions(f"{presentatie['label']}: {item.titel}"),
             "color": kleur,
             "title": titel,
             "title_link": titel_link,
@@ -595,7 +600,9 @@ class ParlementairAlertService:
         icoon, de kleur en de instructie aan het taalmodel, en springt in
         als de API geen soort kent.
         """
-        label = (extra.get("soort") or presentatie["label"]).upper()
+        # Escapen: het soort komt van de bron, en dit is markdown in de
+        # `pretext`.
+        label = _escape_proza((extra.get("soort") or presentatie["label"]).upper())
         delen = [f"**{label}**"]
 
         # Een position paper of burgerbrief komt van buiten de Kamer, en
@@ -644,7 +651,8 @@ class ParlementairAlertService:
         datum = _nl_datum(item.datum) if item.datum else ""
         delen = [x for x in [soort, commissie, datum] if x]
         delen.append("via tkconv (berthub.eu)")
-        return " · ".join(delen)
+        # Platte tekst, zoals de titel.
+        return zonder_mentions(" · ".join(delen))
 
     async def post_inhaalslag(
         self, abonnementen: list, items: list[ParlementairItem]
@@ -716,7 +724,7 @@ class ParlementairAlertService:
             titel = _escape_md(_kort(item.titel, 70))
             link = item.document_url
             regel = f"{presentatie['emoji']} "
-            regel += f"[{titel}]({link})" if link else titel
+            regel += f"[{titel}]({markdown_url(link)})" if link else titel
             if datum:
                 regel += f" · {datum}"
             regels.append(regel)

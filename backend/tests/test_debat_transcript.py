@@ -265,7 +265,7 @@ class TestClosing:
 
     def test_under_the_first_line_and_said_by_whom(self):
         assert render_closing("⏸️ **Geschorst** · 13:46", "Ik schors tot @all uur.") == (
-            "⏸️ **Geschorst** · 13:46\nVoorzitter: Ik schors tot \\@all uur."
+            "⏸️ **Geschorst** · 13:46\nVoorzitter: Ik schors tot @⁠all uur."
         )
 
     def test_only_the_end_of_a_long_text_goes_under_it(self):
@@ -1212,8 +1212,8 @@ class TestTranscript:
 
         await _play(db_session, mm, feed, 3)
 
-        assert "\\@channel" in mm.channel[1]
-        assert "\\@all" in mm.channel[1]
+        assert "@⁠channel" in mm.channel[1]
+        assert "@⁠all" in mm.channel[1]
 
 
 class TestTextKey:

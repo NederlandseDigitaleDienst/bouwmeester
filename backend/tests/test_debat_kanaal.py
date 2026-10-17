@@ -341,7 +341,7 @@ class TestStukkenMessage:
         bericht = stukken_message(_activiteit(agendapunten=(punt,)), now=self.NOW)
         assert "[hier](http://evil.test)" not in bericht
         assert (
-            "1. [Kijk \\[hier\\]\\(http://evil.test\\) \\@channel]"
+            "1. [Kijk \\[hier\\]\\(http://evil.test\\) @⁠channel]"
             "(https://www.tweedekamer.nl/"
         ) in bericht
 

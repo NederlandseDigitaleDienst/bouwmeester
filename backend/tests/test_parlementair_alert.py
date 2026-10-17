@@ -7,6 +7,7 @@ Een filter dat een stuk zou weggooien in plaats van stilhouden hoort hier
 niet thuis.
 """
 
+import re
 from datetime import date, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
@@ -219,6 +220,108 @@ class TestFormatAlert:
         item.onderwerp = "Iets over digitalisering"
         _, props = _svc().format_alert(item, ['"NLDD"'])
         assert "digitalisering" in props["attachments"][0]["text"]
+
+
+def _mentions(tekst: str) -> set[str]:
+    """Wat de mention-parser van Mattermost in de tekst vindt.
+
+    Nagebouwd naar de server: eerst de markdown, waarin `\\@` alweer `@`
+    is, en dan woorden knippen op alles wat geen letter, cijfer of een
+    van `.-_:@` is (`StandardMentionParser.ProcessText`).
+    """
+    tekst = re.sub(r"\\(.)", r"\1", tekst)
+    woorden = re.split(r"[^\w.\-:@]", tekst)
+    return {
+        w.rstrip(".:-_").lower()
+        for w in woorden
+        if w.startswith("@") and len(w.rstrip(".:-_")) > 1
+    }
+
+
+def _alle_tekst(props: dict) -> list[str]:
+    a = props["attachments"][0]
+    delen = [a.get(k, "") for k in ("pretext", "title", "text", "footer", "fallback")]
+    return delen + [f["value"] for f in a.get("fields", [])]
+
+
+def _open_blokhaken(tekst: str) -> int:
+    """Hoeveel `[` er in markdown een link kunnen openen: zonder escape."""
+    open_, i = 0, 0
+    while i < len(tekst):
+        if tekst[i] == "\\":
+            i += 2
+            continue
+        open_ += tekst[i] == "["
+        i += 1
+    return open_
+
+
+class TestNietsVanBuitenWordtActief:
+    """Samenvatting, titel en soort komen van derden of van het model.
+
+    Een mention of een link daaruit gaat onder de naam van de bot het
+    kanaal in. Een backslash voor de `@` hield dat niet tegen: zo stond
+    het hier eerder getest, en Mattermost leest `\\@channel` als
+    `@channel`.
+    """
+
+    def test_geen_mention_waar_dan_ook(self):
+        item = _item(
+            titel="Brief over @all",
+            samenvatting="Lees \\@channel en @here.",
+            actie="Stuur het naar @iemand",
+            soort="Brief @channel",
+            commissie="Digitale Zaken @all",
+        )
+        item.onderwerp = "@channel"
+        _, props = _svc().format_alert(item, ['"@NLDD"'])
+        for tekst in _alle_tekst(props):
+            assert _mentions(tekst) == set(), tekst
+
+    def test_geen_mention_in_de_terugval(self):
+        item = _item(samenvatting=None)
+        item.onderwerp = "Zie @channel"
+        _, props = _svc().format_alert(item, ['"NLDD"'])
+        assert _mentions(props["attachments"][0]["text"]) == set()
+
+    def test_een_backslash_opent_geen_link(self):
+        """`\\[` werd na het escapen `\\\\[`: een backslash, en een echte `[`."""
+        _, props = _svc().format_alert(
+            _item(samenvatting="Zie \\[hier\\](https://kwaad.example/x)"),
+            ['"NLDD"'],
+        )
+        samenvatting = props["attachments"][0]["text"].split("\n\n")[0]
+        assert _open_blokhaken(samenvatting) == 0
+
+    def test_een_haakje_in_de_url_sluit_de_link_niet_af(self):
+        item = _item(
+            raw_url="https://berthub.eu/x.pdf)[Inloggen](https://kwaad.example/login"
+        )
+        item.document_url = "https://berthub.eu/a b)[Inloggen](https://kwaad.example"
+        _, props = _svc().format_alert(item, ['"NLDD"'])
+        tekst = props["attachments"][0]["text"]
+        assert "[Inloggen](" not in tekst
+        assert (
+            "(https://berthub.eu/a%20b%29%5BInloggen%5D%28https://kwaad.example)"
+            in (tekst)
+        )
+
+    def test_soort_kan_de_kop_niet_openbreken(self):
+        kop = _svc()._kopregel(
+            {"soort": "brief** [x](https://kwaad.example)"},
+            {"label": "Brief", "emoji": ":e:", "kleur": "#000"},
+        )
+        assert kop.startswith("**BRIEF\\*\\* \\[X\\]")
+        assert _open_blokhaken(kop) == 0
+
+    def test_platte_tekst_krijgt_geen_backslashes(self):
+        """Titel met link, voettekst en `fallback` zijn geen markdown."""
+        _, props = _svc().format_alert(
+            _item(titel="Brief (D66) over @all", soort="Brief"), ['"NLDD"']
+        )
+        a = props["attachments"][0]
+        assert "\\" not in a["title"] + a["fallback"] + a["footer"]
+        assert "(D66)" in a["title"]
 
 
 class TestDrempel:
