@@ -14,8 +14,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bouwmeester.models.import_watermerk import ImportWatermerk
 from bouwmeester.services import parlementair_import_service as mod
+from bouwmeester.services.import_strategies import (
+    bekendmakingen as bekendmakingen_strategie,
+)
 from bouwmeester.services.import_strategies import nieuws as nieuws_strategie
 from bouwmeester.services.import_strategies import tkconv as tkconv_strategie
+from bouwmeester.services.import_strategies.bekendmakingen import (
+    BekendmakingenStrategy,
+)
 from bouwmeester.services.import_strategies.nieuws import NieuwsStrategy
 from bouwmeester.services.import_strategies.registry import get_strategy
 from bouwmeester.services.import_strategies.tkconv import TkconvSearchStrategy
@@ -31,9 +37,11 @@ BRON = "tkconv_document"
 def _nieuw_proces():
     tkconv_strategie.reset_watermerk()
     nieuws_strategie.reset_watermerk()
+    bekendmakingen_strategie.reset_watermerk()
     yield
     tkconv_strategie.reset_watermerk()
     nieuws_strategie.reset_watermerk()
+    bekendmakingen_strategie.reset_watermerk()
 
 
 async def _bewaard(session: AsyncSession, bron: str = BRON) -> datetime | None:
@@ -118,6 +126,24 @@ class TestNaEenHerstart:
 
         assert nieuws_strategie.huidig_watermerk() == nieuws
         assert tkconv_strategie.huidig_watermerk() is None
+
+    async def test_bekendmakingen_have_a_watermark_of_their_own(self, db_session):
+        tkconv = datetime.now(UTC) - timedelta(hours=3)
+        bekendmakingen = datetime.now(UTC) - timedelta(hours=1)
+        await _zet(db_session, tkconv)
+        await _zet(db_session, bekendmakingen, "bekendmaking")
+        service = ParlementairImportService(db_session)
+
+        await service._herstel_watermerk(BekendmakingenStrategy())
+
+        assert bekendmakingen_strategie.huidig_watermerk() == bekendmakingen
+        assert tkconv_strategie.huidig_watermerk() is None
+
+        later = bekendmakingen + timedelta(minutes=15)
+        bekendmakingen_strategie.reset_watermerk()
+        bekendmakingen_strategie.herstel_watermerk(later)
+        await service._bewaar_watermerk(BekendmakingenStrategy())
+        assert await _bewaard(db_session, "bekendmaking") == later
 
     async def test_the_row_is_keyed_on_the_item_type_of_the_strategy(self):
         assert TkconvSearchStrategy().item_type == BRON
