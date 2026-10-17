@@ -37,9 +37,15 @@ from bouwmeester.repositories.signaalcontext import (
 )
 from bouwmeester.repositories.tag import TagRepository
 from bouwmeester.schema.tag import TagCreate
+from bouwmeester.services.import_strategies import (
+    bekendmakingen as bekendmakingen_strategie,
+)
 from bouwmeester.services.import_strategies import nieuws as nieuws_strategie
 from bouwmeester.services.import_strategies import tkconv as tkconv_strategie
 from bouwmeester.services.import_strategies.base import FetchedItem, ImportStrategy
+from bouwmeester.services.import_strategies.bekendmakingen import (
+    BekendmakingenStrategy,
+)
 from bouwmeester.services.import_strategies.nieuws import NieuwsStrategy
 from bouwmeester.services.import_strategies.registry import get_strategy
 from bouwmeester.services.import_strategies.tkconv import TkconvSearchStrategy
@@ -68,6 +74,8 @@ def _watermerk_module(strategy: ImportStrategy):  # type: ignore[no-untyped-def]
         return tkconv_strategie
     if isinstance(strategy, NieuwsStrategy):
         return nieuws_strategie
+    if isinstance(strategy, BekendmakingenStrategy):
+        return bekendmakingen_strategie
     return None
 
 
@@ -170,6 +178,14 @@ class ParlementairImportService:
                     logger.info("Geen actieve nieuwsbronnen, nieuws overgeslagen")
                     continue
 
+            if isinstance(strategy, BekendmakingenStrategy):
+                strategy.abonnementen = await self.abonnement_repo.list_actief()
+                if not strategy.abonnementen:
+                    logger.info(
+                        "Geen actieve abonnementen, bekendmakingen overgeslagen"
+                    )
+                    continue
+
             await self._herstel_watermerk(strategy)
             count = await self._import_type(strategy)
             await self._bewaar_watermerk(strategy)
@@ -254,12 +270,18 @@ class ParlementairImportService:
         model, then cost an alert each time.
 
         Each round takes a few of them along again. Only what a search
-        term brought in, and only for as long as the feed of the source
-        carries it: a document the model keeps failing on is not asked
-        for every two minutes for ever.
+        term brought in, and only for `WACHTENDEN_OPNIEUW_TOT`: a document
+        the model keeps failing on is not asked for every two minutes for
+        ever.
+
+        Kamerstukken and bekendmakingen, which both keep the terms they
+        came in on in `matched_terms`. For a bekendmaking it matters most:
+        the watermark has moved past it, so it never comes in again, and
+        a model that is away during the morning batch of the Staatscourant
+        would cost the alerts of that whole morning.
         """
         self._opnieuw = set()
-        if not isinstance(strategy, TkconvSearchStrategy):
+        if not isinstance(strategy, (TkconvSearchStrategy, BekendmakingenStrategy)):
             return []
         try:
             rijen = (
@@ -281,7 +303,7 @@ class ParlementairImportService:
             )
         except Exception:
             await self.session.rollback()
-            logger.exception("Wachtende kamerstukken niet op te halen")
+            logger.exception("Wachtende %s niet op te halen", strategy.item_type)
             return []
 
         per_query: dict[str, list] = {}
@@ -323,8 +345,9 @@ class ParlementairImportService:
             )
         if items:
             logger.info(
-                "%d wachtende kamerstukken opnieuw: %s",
+                "%d wachtende %s opnieuw: %s",
                 len(items),
+                strategy.item_type,
                 ", ".join(i.zaak_nummer for i in items),
             )
         return items
@@ -1702,4 +1725,8 @@ def _context_regels(extra: dict) -> list[str]:
         regels.append(f"ANTWOORDTERMIJN: {extra['termijn']}")
     if extra.get("commissie"):
         regels.append(f"COMMISSIE: {extra['commissie']}")
+    # Bij een bekendmaking: in welk blad, en wie het besluit nam. Dat staat
+    # niet altijd in de passage die het model krijgt.
+    if extra.get("herkomst_label"):
+        regels.append(f"GEPUBLICEERD IN: {extra['herkomst_label']}")
     return regels
