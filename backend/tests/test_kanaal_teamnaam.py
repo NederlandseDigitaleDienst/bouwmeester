@@ -223,7 +223,7 @@ class TestVulTeamnaamAan:
 
 class TestBeheeroverzichtSchema:
     """Het beheeroverzicht draagt de velden die `vul_teamnaam_aan` invult,
-    en alle schakelaars. Zonder die twee laatste toonde het
+    en alle vier de schakelaars. Zonder die twee laatste toonde het
     overzicht "Niets actief" bij een kanaal met alerts aan.
     """
 
@@ -236,7 +236,6 @@ class TestBeheeroverzichtSchema:
             "suggest_leads_enabled",
             "parlementaire_alerts_enabled",
             "nieuws_alerts_enabled",
-            "bekendmakingen_alerts_enabled",
         ):
             assert veld in velden, f"{veld} ontbreekt in het beheeroverzicht"
 

@@ -14,9 +14,6 @@ from unittest.mock import AsyncMock, patch
 from sqlalchemy import select
 
 from bouwmeester.models.parlementair_item import ParlementairItem
-from bouwmeester.services.import_strategies.bekendmakingen import (
-    BekendmakingenStrategy,
-)
 from bouwmeester.services.import_strategies.registry import get_strategy
 from bouwmeester.services.import_strategies.tkconv import TkconvSearchStrategy
 from bouwmeester.services.llm.base import TagExtractionResult
@@ -166,22 +163,6 @@ class TestWatErOpnieuwGaat:
         items = await service._wachtenden(_strategy(_abonnement()), set())
         assert rij.zaak_id not in {i.zaak_id for i in items}
 
-    async def test_a_waiting_bekendmaking_is_taken_along_too(self, db_session):
-        """The watermark has moved past it: the query never brings it back."""
-        rij = await _wachtend(db_session, soort="bekendmaking")
-        abonnement = _abonnement()
-        strategy = BekendmakingenStrategy()
-        strategy.abonnementen = [abonnement]
-        service = _service(db_session)
-
-        items = await service._wachtenden(strategy, set())
-
-        assert rij.zaak_id in {i.zaak_id for i in items}
-        assert strategy.treffers[rij.zaak_id] == [abonnement.id]
-        # Not the kamerstukken: each strategy takes its own type.
-        tkconv = await service._wachtenden(_strategy(abonnement), set())
-        assert rij.zaak_id not in {i.zaak_id for i in tkconv}
-
     async def test_a_few_a_round_the_oldest_first(self, db_session):
         term = f"term-{uuid.uuid4().hex[:6]}"
         rijen = [
@@ -231,27 +212,6 @@ class TestOpnieuwBeoordelen:
         assert nu.llm_samenvatting == "Waar het over gaat."
         assert nu.corpus_node_id is not None
         # This is what was missing: the alert goes out after the commit.
-        assert service._te_alerteren == [nu.id]
-
-    async def test_a_bekendmaking_is_imported_and_alerted_once_the_model_answers(
-        self, db_session
-    ):
-        rij = await _wachtend(db_session, soort="bekendmaking")
-        strategy = BekendmakingenStrategy()
-        strategy.abonnementen = [_abonnement()]
-        service = _service(db_session)
-        (item,) = [
-            i
-            for i in await service._wachtenden(strategy, set())
-            if i.zaak_id == rij.zaak_id
-        ]
-
-        with patch(LLM, new=AsyncMock(return_value=_werkend_model())):
-            resultaat = await service._process_item(item, strategy)
-
-        assert resultaat is True
-        nu = await _lees(db_session, rij.zaak_id)
-        assert (nu.type, nu.status) == ("bekendmaking", "imported")
         assert service._te_alerteren == [nu.id]
 
     async def test_a_model_that_fails_again_leaves_it_waiting_since_when_it_came(

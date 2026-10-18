@@ -237,7 +237,7 @@ class MattermostSlashService:
             "- `/bouwmeester ontkoppel` — verwijder de kanaal-koppeling\n"
             "- `/bouwmeester kanaal` — toon de huidige koppeling\n"
             "- `/bouwmeester volg <zoekterm>` — "
-            "volg een term in kamerstukken, nieuws en bekendmakingen\n"
+            "volg een term in nieuwe kamerstukken\n"
             "- `/bouwmeester ontvolg <zoekterm>` — "
             "verwijder de term (inclusief telling)\n"
             "- `/bouwmeester volgt` — welke termen dit initiatief volgt\n"
@@ -492,9 +492,9 @@ class MattermostSlashService:
         naam = await self._scope_naam(link)
         return _ephemeral(
             f":mag: **{_escape_md(abonnement.term)}** wordt nu gevolgd voor "
-            f"**{_escape_md(naam)}**. Nieuwe kamerstukken, nieuws en "
-            "bekendmakingen met deze term verschijnen in dit kanaal. Bestaande "
-            "stukken van voor nu worden niet opnieuw gemeld."
+            f"**{_escape_md(naam)}**. Nieuwe kamerstukken met deze term in de "
+            "volledige tekst verschijnen in dit kanaal. Bestaande stukken van "
+            "voor nu worden niet opnieuw gemeld."
         )
 
     async def _handle_ontvolg(
