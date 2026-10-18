@@ -1,9 +1,6 @@
 """Registry of available import strategies."""
 
 from bouwmeester.services.import_strategies.base import ImportStrategy
-from bouwmeester.services.import_strategies.bekendmakingen import (
-    BekendmakingenStrategy,
-)
 from bouwmeester.services.import_strategies.kamervraag import KamervraagStrategy
 from bouwmeester.services.import_strategies.motie import MotieStrategy
 from bouwmeester.services.import_strategies.nieuws import NieuwsStrategy
@@ -16,7 +13,6 @@ STRATEGIES: dict[str, type[ImportStrategy]] = {
     "toezegging": ToezeggingStrategy,
     "tkconv_document": TkconvSearchStrategy,
     "nieuwsartikel": NieuwsStrategy,
-    "bekendmaking": BekendmakingenStrategy,
 }
 
 

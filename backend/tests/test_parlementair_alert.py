@@ -13,22 +13,17 @@ from uuid import uuid4
 
 from bouwmeester.models.parlementair_abonnement import ParlementairAbonnement
 from bouwmeester.services.kamerstuk_soort import (
-    CAT_BEKENDMAKING,
     CAT_BIJLAGE,
     CAT_EXTERN,
-    CAT_NIEUWS,
-    CAT_REGELGEVING,
     CAT_VERGADERING_TERUG,
     CAT_VERGADERING_VOORUIT,
     CAT_VRAAG,
-    CATEGORIE_PRESENTATIE,
 )
 from bouwmeester.services.parlementair_alert_service import (
     DREMPEL_MIDDEN,
     ParlementairAlertService,
     _nl_datum,
     _relevantie,
-    _vinkje_voor,
 )
 
 
@@ -433,140 +428,3 @@ class TestInhaalslagWeegtDeDrempel:
 
         assert gepost == 1
         assert "Ongewogen" in verstuurd[0]["props"]["attachments"][0]["text"]
-
-
-class TestBekendmaking:
-    """Een officiële bekendmaking: eigen vinkje, eigen bron in het bericht."""
-
-    def _bekendmaking(self, **extra) -> SimpleNamespace:
-        item = _item(
-            titel="Autorisatiebesluit NLDD",
-            zaak_nummer="stcrt-2026-36625",
-            categorie=extra.pop("categorie", CAT_BEKENDMAKING),
-            soort="autorisatiebesluit basisregistratie personen",
-            herkomst_label=extra.pop(
-                "herkomst_label",
-                "Staatscourant, Rijksdienst voor Identiteitsgegevens",
-            ),
-            raw_url="https://repository.overheid.nl/stcrt-2026-36625.pdf",
-            **extra,
-        )
-        item.document_url = (
-            "https://zoek.officielebekendmakingen.nl/stcrt-2026-36625.html"
-        )
-        return item
-
-    def test_eigen_vinkje_voor_beide_categorieen(self):
-        from bouwmeester.models.mattermost_channel_link import (
-            MattermostChannelLink,
-        )
-
-        for categorie in (CAT_REGELGEVING, CAT_BEKENDMAKING):
-            assert (
-                _vinkje_voor(_item(categorie=categorie))
-                is MattermostChannelLink.bekendmakingen_alerts_enabled
-            ), categorie
-
-    def test_kamerstukken_en_nieuws_houden_hun_vinkje(self):
-        from bouwmeester.models.mattermost_channel_link import (
-            MattermostChannelLink,
-        )
-
-        assert (
-            _vinkje_voor(_item(categorie=CAT_VRAAG))
-            is MattermostChannelLink.parlementaire_alerts_enabled
-        )
-        assert (
-            _vinkje_voor(_item(categorie=CAT_NIEUWS))
-            is MattermostChannelLink.nieuws_alerts_enabled
-        )
-
-    def test_vinkje_staat_standaard_uit(self):
-        from bouwmeester.models.mattermost_channel_link import (
-            MattermostChannelLink,
-        )
-
-        kolom = MattermostChannelLink.__table__.c.bekendmakingen_alerts_enabled
-        assert kolom.server_default.arg == "false"
-        assert kolom.nullable is False
-
-    def test_schema_laat_het_veld_door(self):
-        from bouwmeester.schema.mattermost_channel_link import (
-            MattermostChannelLinkCreate,
-            MattermostChannelLinkResponse,
-            MattermostChannelLinkUpdate,
-        )
-
-        for schema in (
-            MattermostChannelLinkCreate,
-            MattermostChannelLinkResponse,
-            MattermostChannelLinkUpdate,
-        ):
-            assert "bekendmakingen_alerts_enabled" in schema.model_fields
-
-    def test_kopregel_noemt_blad_en_organisatie(self):
-        _, props = _svc().format_alert(self._bekendmaking(), ['"NLDD"'])
-        kop = props["attachments"][0]["pretext"]
-        assert kop == (
-            "**AUTORISATIEBESLUIT BASISREGISTRATIE PERSONEN** · "
-            "Staatscourant, Rijksdienst voor Identiteitsgegevens"
-        )
-
-    def test_herkomst_van_buiten_wordt_geescaped(self):
-        _, props = _svc().format_alert(
-            self._bekendmaking(herkomst_label="Staatscourant, @channel [x](y)"),
-            ['"NLDD"'],
-        )
-        kop = props["attachments"][0]["pretext"]
-        assert "\\@channel" in kop
-        assert "\\[x\\]" in kop
-
-    def test_soort_van_buiten_wordt_geescaped(self):
-        item = self._bekendmaking()
-        item.extra_data["soort"] = "regeling** @channel [x](y)"
-        _, props = _svc().format_alert(item, ['"NLDD"'])
-        kop = props["attachments"][0]["pretext"]
-        assert kop.startswith("**REGELING\\*\\* \\@CHANNEL \\[X\\](Y)**")
-
-    def test_link_en_voettekst_noemen_officielebekendmakingen(self):
-        _, props = _svc().format_alert(self._bekendmaking(), ['"NLDD"'])
-        attachment = props["attachments"][0]
-        assert "[Openen op officielebekendmakingen.nl](" in attachment["text"]
-        assert "[PDF](https://repository.overheid.nl/" in attachment["text"]
-        assert "tkconv" not in attachment["text"]
-        assert attachment["footer"].endswith("via officielebekendmakingen.nl")
-        assert "tkconv" not in attachment["footer"]
-
-    def test_regelgeving_ook(self):
-        _, props = _svc().format_alert(
-            self._bekendmaking(categorie=CAT_REGELGEVING), ['"NLDD"']
-        )
-        assert props["attachments"][0]["footer"].endswith(
-            "via officielebekendmakingen.nl"
-        )
-
-    def test_geen_knoppen_voor_een_debat(self):
-        from bouwmeester.services.debat_aankondiging_service import is_announceable
-        from bouwmeester.services.debat_kanaal_service import is_startable
-
-        extra = self._bekendmaking().extra_data
-        assert not is_startable(extra)
-        assert not is_announceable(extra)
-
-    def test_een_kamerstuk_blijft_zoals_het_was(self):
-        """`herkomst: tkconv` op een kamerstuk komt niet in de kopregel."""
-        item = _item(
-            categorie=CAT_VRAAG, soort="Schriftelijke vragen", herkomst="tkconv"
-        )
-        _, props = _svc().format_alert(item, ['"NLDD"'])
-        attachment = props["attachments"][0]
-        assert attachment["pretext"] == "**SCHRIFTELIJKE VRAGEN**"
-        assert "[Openen op tkconv](" in attachment["text"]
-        assert attachment["footer"].endswith("via tkconv (berthub.eu)")
-
-    def test_extern_houdt_zijn_herkomst(self):
-        kop = _svc()._kopregel(
-            {"soort": "Position paper", "categorie": CAT_EXTERN, "herkomst": "tkconv"},
-            CATEGORIE_PRESENTATIE[CAT_EXTERN],
-        )
-        assert kop == "**POSITION PAPER** · van buiten de Kamer"

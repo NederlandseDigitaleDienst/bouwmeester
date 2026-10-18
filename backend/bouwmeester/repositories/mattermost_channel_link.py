@@ -61,7 +61,6 @@ class MattermostChannelLinkRepository:
         created_by_id: UUID | None,
         parlementaire_alerts_enabled: bool = False,
         nieuws_alerts_enabled: bool = False,
-        bekendmakingen_alerts_enabled: bool = False,
     ) -> MattermostChannelLink:
         link = MattermostChannelLink(
             channel_id=channel_id,
@@ -74,7 +73,6 @@ class MattermostChannelLinkRepository:
             suggest_leads_enabled=suggest_leads_enabled,
             parlementaire_alerts_enabled=parlementaire_alerts_enabled,
             nieuws_alerts_enabled=nieuws_alerts_enabled,
-            bekendmakingen_alerts_enabled=bekendmakingen_alerts_enabled,
             created_by_id=created_by_id,
         )
         self.session.add(link)
@@ -90,7 +88,6 @@ class MattermostChannelLinkRepository:
         suggest_leads_enabled: bool | None = None,
         parlementaire_alerts_enabled: bool | None = None,
         nieuws_alerts_enabled: bool | None = None,
-        bekendmakingen_alerts_enabled: bool | None = None,
         reenable: bool | None = None,
     ) -> MattermostChannelLink:
         if auto_note_enabled is not None:
@@ -101,8 +98,6 @@ class MattermostChannelLinkRepository:
             link.parlementaire_alerts_enabled = parlementaire_alerts_enabled
         if nieuws_alerts_enabled is not None:
             link.nieuws_alerts_enabled = nieuws_alerts_enabled
-        if bekendmakingen_alerts_enabled is not None:
-            link.bekendmakingen_alerts_enabled = bekendmakingen_alerts_enabled
         if reenable:
             link.disabled_at = None
         await self.session.flush()

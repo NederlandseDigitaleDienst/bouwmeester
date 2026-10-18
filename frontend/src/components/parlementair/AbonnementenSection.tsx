@@ -262,8 +262,7 @@ export function AbonnementenSection({ initiatiefId }: { initiatiefId: string }) 
         {abonnementen.length === 0 ? (
           <nldd-text size="xs" color="secondary">
             Nog geen zoektermen. Voeg er een toe, bijvoorbeeld de naam van dit
-            initiatief zoals die in kamerstukken, nieuws en bekendmakingen
-            wordt geschreven.
+            initiatief zoals die in kamerstukken wordt geschreven.
           </nldd-text>
         ) : (
           <nldd-table
@@ -300,11 +299,9 @@ export function AbonnementenSection({ initiatiefId }: { initiatiefId: string }) 
         {/* Onder de tabel, want het legt uit wat je daar ziet. Eén alinea:
             vijf losse regels uitleg boven het invoerveld leest niemand. */}
         <nldd-text size="xs" color="secondary">
-          Er wordt gezocht in de volledige tekst van nieuwe kamerstukken (ook
-          bijlagen en beslisnota&apos;s) en officiële bekendmakingen, en in de
-          titel en intro van nieuwsberichten. Een term die niets oplevert is
-          niet per se fout; een term die vaak wordt weggeklikt is waarschijnlijk
-          te breed.
+          Er wordt in de volledige tekst van nieuwe kamerstukken gezocht, ook in
+          bijlagen en beslisnota&apos;s. Een term die niets oplevert is niet per
+          se fout; een term die vaak wordt weggeklikt is waarschijnlijk te breed.
         </nldd-text>
 
         <Bezorging kanalen={kanalen} />
