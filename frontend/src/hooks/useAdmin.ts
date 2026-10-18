@@ -150,6 +150,7 @@ export interface MattermostChannelOverview {
   suggest_leads_enabled: boolean;
   parlementaire_alerts_enabled: boolean;
   nieuws_alerts_enabled: boolean;
+  bekendmakingen_alerts_enabled: boolean;
   last_seen_post_at: string | null;
   disabled_at: string | null;
   created_at: string;

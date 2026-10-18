@@ -50,6 +50,7 @@ class MattermostChannelOverview(BaseModel):
     suggest_leads_enabled: bool
     parlementaire_alerts_enabled: bool
     nieuws_alerts_enabled: bool
+    bekendmakingen_alerts_enabled: bool
     last_seen_post_at: datetime | None
     disabled_at: datetime | None
     created_at: datetime

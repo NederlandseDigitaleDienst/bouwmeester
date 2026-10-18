@@ -113,6 +113,37 @@ async def _tkconv_loop(settings) -> None:  # type: ignore[no-untyped-def]
         await asyncio.sleep(_tkconv_interval(settings))
 
 
+async def _bekendmakingen_loop(settings) -> None:  # type: ignore[no-untyped-def]
+    """Volg zoektermen in de Staatscourant, het Staatsblad en het Tractatenblad.
+
+    Eigen loop en eigen ritme, zoals tkconv: de bron verschijnt in één
+    ochtendbatch, en dat vraagt een ander ritme dan de kamerstukken.
+    """
+    await health_tick("bekendmakingen", status="starting")
+    while True:
+        count = 0
+        try:
+            async with async_session() as session:
+                from bouwmeester.services.parlementair_import_service import (
+                    ParlementairImportService,
+                )
+
+                service = ParlementairImportService(session)
+                count = await service.poll_and_import(item_types=["bekendmaking"])
+                if count:
+                    logger.info(
+                        f"bekendmakingen-ronde: {count} bekendmakingen geïmporteerd"
+                    )
+            await health_tick("bekendmakingen", detail=f"{count} bekendmakingen")
+        except Exception as exc:
+            logger.exception("Fout in bekendmakingen-ronde")
+            await health_tick(
+                "bekendmakingen", status="error", detail=_short_error(exc)
+            )
+
+        await asyncio.sleep(settings.BEKENDMAKINGEN_POLL_INTERVAL_SECONDS)
+
+
 async def _opdracht_task_loop(settings) -> None:  # type: ignore[no-untyped-def]
     """Daily check for deadline-approaching and budget-preparation tasks."""
     await health_tick("opdracht_task", status="starting")
@@ -551,6 +582,7 @@ async def main() -> None:
     tasks = [
         asyncio.create_task(_parlementair_loop(settings)),
         asyncio.create_task(_tkconv_loop(settings)),
+        asyncio.create_task(_bekendmakingen_loop(settings)),
         asyncio.create_task(_mattermost_websocket_loop(settings)),
         asyncio.create_task(_opdracht_task_loop(settings)),
         asyncio.create_task(_fcc_sync_loop(settings)),

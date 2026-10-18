@@ -7,6 +7,9 @@ from unittest.mock import AsyncMock
 import pytest
 
 from bouwmeester.services.import_strategies.base import FetchedItem
+from bouwmeester.services.import_strategies.bekendmakingen import (
+    BekendmakingenStrategy,
+)
 from bouwmeester.services.import_strategies.kamervraag import KamervraagStrategy
 from bouwmeester.services.import_strategies.motie import MotieStrategy
 from bouwmeester.services.import_strategies.nieuws import NieuwsStrategy
@@ -35,6 +38,7 @@ class TestRegistry:
         assert "kamervraag" in STRATEGIES
         assert "toezegging" in STRATEGIES
         assert "nieuwsartikel" in STRATEGIES
+        assert "bekendmaking" in STRATEGIES
 
     def test_get_strategy_motie(self):
         s = get_strategy("motie")
@@ -67,6 +71,7 @@ class TestRegistry:
         assert isinstance(all_s["toezegging"], ToezeggingStrategy)
         assert isinstance(all_s["tkconv_document"], TkconvSearchStrategy)
         assert isinstance(all_s["nieuwsartikel"], NieuwsStrategy)
+        assert isinstance(all_s["bekendmaking"], BekendmakingenStrategy)
 
 
 # ---------------------------------------------------------------------------

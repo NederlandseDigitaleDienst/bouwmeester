@@ -825,6 +825,7 @@ def _worker_expected_cadence_sec() -> dict[str, float]:
         # verwachting is het tráágste interval: met de kantooruren-waarde
         # zou een gezonde loop elke nacht als "Vertraagd" verschijnen.
         "tkconv": float(settings.TKCONV_POLL_INTERVAL_NACHT_SECONDS),
+        "bekendmakingen": float(settings.BEKENDMAKINGEN_POLL_INTERVAL_SECONDS),
         "mattermost_websocket": 90.0,  # idle-heartbeat is once per 60s
         "debat_tijdlijn": 90.0,  # ticks every few seconds, heartbeat once per 60s
         # The same heartbeat, but a round can take long: up to ten turns
@@ -1035,6 +1036,7 @@ async def mattermost_channel_overview(
                 suggest_leads_enabled=r.suggest_leads_enabled,
                 parlementaire_alerts_enabled=r.parlementaire_alerts_enabled,
                 nieuws_alerts_enabled=r.nieuws_alerts_enabled,
+                bekendmakingen_alerts_enabled=r.bekendmakingen_alerts_enabled,
                 last_seen_post_at=last_seen,
                 disabled_at=r.disabled_at,
                 created_at=r.created_at,
