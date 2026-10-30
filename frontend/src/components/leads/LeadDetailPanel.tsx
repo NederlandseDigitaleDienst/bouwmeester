@@ -13,6 +13,9 @@ import { RichTextEditor } from '@/components/common/RichTextEditor';
 import { RichTextDisplay } from '@/components/common/RichTextDisplay';
 import { LinkLeadNodeModal } from './LinkLeadNodeModal';
 import { AddLeadContactModal } from './AddLeadContactModal';
+import { StartCasusModal } from '@/components/casussen/StartCasusModal';
+import { useNavigate } from 'react-router-dom';
+import { initiatiefPath } from '@/utils/initiatiefRoutes';
 import { LeadGitHubLinks } from './LeadGitHubLinks';
 import { LeadUpdatesSection } from './LeadUpdatesSection';
 import { MattermostChannelsSection } from '@/components/mattermost/MattermostChannelsSection';
@@ -48,6 +51,7 @@ import {
   LEAD_ACTIVITY_TYPE_LABELS,
   INITIATIEF_COLORS,
   LEAD_CONTACT_ROL_LABELS,
+  CASUS_START_STAGE,
   ENGAGEMENT_TYPE_LABELS,
 } from '@/types';
 import type { LeadUpdate, LeadActivityCreate, EngagementType, LeadAttachment } from '@/types';
@@ -158,6 +162,19 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
 
   // Contact add form
   const [showAddContact, setShowAddContact] = useState(false);
+  const [showStartCasus, setShowStartCasus] = useState(false);
+  const navigate = useNavigate();
+  // Na "Casus starten" is de lead geschiedenis: lezen mag, wijzigen niet.
+  // De backend weigert mutaties met een 409; hier verdwijnen de knoppen.
+  const casusGestart = !!lead?.casus_id;
+  const kanCasusStarten = !!lead && !casusGestart && lead.stage === CASUS_START_STAGE;
+  const gaNaarCasus = () => {
+    if (!lead?.casus_id) return;
+    onClose();
+    if (lead.initiatief_id) {
+      navigate(`${initiatiefPath(lead.initiatief_id, 'casussen')}?casus=${lead.casus_id}`);
+    }
+  };
 
   // Node link modal
   const [showLinkNode, setShowLinkNode] = useState(false);
@@ -320,8 +337,17 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
             onClose={onClose}
             actions={
               <nldd-container layout="row" gap="8">
-                <NlddButton variant="secondary" size="sm" startIcon="pencil" onClick={startEditing} disabled={!lead} text="Bewerken" />
-                <NlddButton variant="destructive" size="sm" startIcon="trash" onClick={handleDelete} disabled={!lead} text="Verwijderen" />
+                {casusGestart ? (
+                  <NlddButton variant="primary" size="sm" endIcon="arrow-right" onClick={gaNaarCasus} disabled={!lead?.initiatief_id} text="Naar de casus" />
+                ) : (
+                  <>
+                    {kanCasusStarten && (
+                      <NlddButton variant="primary" size="sm" startIcon="sparkles" onClick={() => setShowStartCasus(true)} text="Casus starten" />
+                    )}
+                    <NlddButton variant="secondary" size="sm" startIcon="pencil" onClick={startEditing} disabled={!lead} text="Bewerken" />
+                    <NlddButton variant="destructive" size="sm" startIcon="trash" onClick={handleDelete} disabled={!lead} text="Verwijderen" />
+                  </>
+                )}
               </nldd-container>
             }
           />
@@ -478,6 +504,14 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
       ) : (
         /* View mode */
         <nldd-container gap="20">
+          {casusGestart && (
+            <nldd-container layout="row" gap="8" vertical-alignment="center">
+              <Badge color="groen">Casus gestart</Badge>
+              <nldd-text size="sm" color="secondary">
+                Uit deze lead is een casus gestart. De lead is alleen-lezen; het werk gaat verder op de casus.
+              </nldd-text>
+            </nldd-container>
+          )}
           {/* Stage badge + next action */}
           <nldd-container layout="wrap" gap="8" vertical-alignment="center">
             <nldd-tag text={LEAD_STAGE_LABELS[lead.stage]} color={stageTagColor(lead.stage)} size="sm" />
@@ -988,6 +1022,10 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
     >
       Weet je zeker dat je deze activiteit wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.
     </ConfirmDialog>
+    <StartCasusModal
+      lead={showStartCasus && lead ? lead : null}
+      onClose={() => setShowStartCasus(false)}
+    />
     {showLinkNode && lead && (
       <LinkLeadNodeModal
         leadId={lead.id}

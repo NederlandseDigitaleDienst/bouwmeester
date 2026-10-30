@@ -13,6 +13,7 @@ from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.models.initiatief_update import InitiatiefUpdatePost
 from bouwmeester.models.lead import Lead
 from bouwmeester.models.lead_column import LeadColumn
+from bouwmeester.models.person import Person
 from bouwmeester.models.resource_permission import ResourcePermission
 from bouwmeester.repositories.base import BaseRepository
 from bouwmeester.schema.initiatief import (
@@ -382,6 +383,110 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
         )
         result = await self.session.execute(eenheid_stmt)
         return result.scalar_one_or_none() is not None
+
+    async def list_persons_with_access(self, initiatief_id: UUID) -> list[Person]:
+        """Alle actieve personen die dit initiatief kunnen zien.
+
+        Zelfde regel als `is_member` en `build_initiatief_context`: een
+        directe resource_permission, of een actieve plaatsing in een eenheid
+        met een resource_permission op het initiatief. Gesorteerd op naam.
+        """
+        from datetime import date
+
+        from bouwmeester.models.person_organisatie import (
+            PersonOrganisatieEenheid,
+        )
+
+        direct = select(ResourcePermission.person_id).where(
+            ResourcePermission.resource_type == "initiatief",
+            ResourcePermission.resource_id == initiatief_id,
+            ResourcePermission.person_id.isnot(None),
+        )
+        today = date.today()
+        via_eenheid = (
+            select(PersonOrganisatieEenheid.person_id)
+            .join(
+                ResourcePermission,
+                ResourcePermission.organisatie_eenheid_id
+                == PersonOrganisatieEenheid.organisatie_eenheid_id,
+            )
+            .where(
+                ResourcePermission.resource_type == "initiatief",
+                ResourcePermission.resource_id == initiatief_id,
+                PersonOrganisatieEenheid.start_datum <= today,
+                or_(
+                    PersonOrganisatieEenheid.eind_datum.is_(None),
+                    PersonOrganisatieEenheid.eind_datum >= today,
+                ),
+            )
+        )
+        stmt = (
+            select(Person)
+            .where(
+                Person.id.in_(direct.union(via_eenheid)),
+                Person.is_active.is_(True),
+            )
+            .order_by(Person.naam)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def access_sources(
+        self, initiatief_id: UUID
+    ) -> tuple[dict[UUID, str], dict[UUID, list[str]]]:
+        """Waar iemands toegang vandaan komt: directe rol en/of eenheden.
+
+        Geeft (person_id -> directe rol, person_id -> namen van gekoppelde
+        eenheden met een actieve plaatsing). Zelfde regel als
+        `list_persons_with_access`; dit is de uitleg erbij.
+        """
+        from datetime import date
+
+        from bouwmeester.models.organisatie_eenheid import OrganisatieEenheid
+        from bouwmeester.models.person_organisatie import (
+            PersonOrganisatieEenheid,
+        )
+
+        direct_stmt = select(
+            ResourcePermission.person_id, ResourcePermission.rol
+        ).where(
+            ResourcePermission.resource_type == "initiatief",
+            ResourcePermission.resource_id == initiatief_id,
+            ResourcePermission.person_id.isnot(None),
+        )
+        direct = {
+            pid: rol for pid, rol in (await self.session.execute(direct_stmt)).all()
+        }
+
+        today = date.today()
+        via_stmt = (
+            select(PersonOrganisatieEenheid.person_id, OrganisatieEenheid.naam)
+            .join(
+                ResourcePermission,
+                ResourcePermission.organisatie_eenheid_id
+                == PersonOrganisatieEenheid.organisatie_eenheid_id,
+            )
+            .join(
+                OrganisatieEenheid,
+                OrganisatieEenheid.id == ResourcePermission.organisatie_eenheid_id,
+            )
+            .where(
+                ResourcePermission.resource_type == "initiatief",
+                ResourcePermission.resource_id == initiatief_id,
+                PersonOrganisatieEenheid.start_datum <= today,
+                or_(
+                    PersonOrganisatieEenheid.eind_datum.is_(None),
+                    PersonOrganisatieEenheid.eind_datum >= today,
+                ),
+            )
+            .order_by(OrganisatieEenheid.naam)
+        )
+        via: dict[UUID, list[str]] = {}
+        for pid, naam in (await self.session.execute(via_stmt)).all():
+            lijst = via.setdefault(pid, [])
+            if naam not in lijst:
+                lijst.append(naam)
+        return direct, via
 
     async def count_eigenaren(self, initiatief_id: UUID) -> int:
         """Count eigenaren (person-scoped) for an initiatief."""

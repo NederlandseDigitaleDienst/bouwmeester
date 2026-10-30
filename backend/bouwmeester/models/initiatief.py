@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Text, UniqueConstraint, func, text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from bouwmeester.core.database import Base
@@ -41,6 +41,18 @@ class Initiatief(Base):
     score_strategisch_label: Mapped[str | None] = mapped_column(nullable=True)
     score_politiek_label: Mapped[str | None] = mapped_column(nullable=True)
     score_positie_label: Mapped[str | None] = mapped_column(nullable=True)
+    # Acceptatiecriteria voor een nieuwe casus: wat het team bij het starten
+    # naloopt. Per casus vastgelegd in casus.startvoorwaarden (afgevinkt, met
+    # een opmerking per criterium). Leeg = geen criteria.
+    acceptatiecriteria: Mapped[list] = mapped_column(
+        JSON, default=list, server_default="[]"
+    )
+    # De vragen bij het starten van een casus (schema/startvragen.py). Leeg =
+    # de standaardlijst.
+    startvragen: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    # De casusfunnel: fases met naam, kleur, omschrijving en "door als"
+    # (schema/casus_fases.py). Leeg = het voorstel.
+    casus_fases: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
     created_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("person.id", ondelete="SET NULL"),

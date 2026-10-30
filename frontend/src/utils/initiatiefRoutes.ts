@@ -8,10 +8,17 @@
 
 export const INITIATIEVEN_PATH = '/initiatieven';
 
-export type InitiatiefTab = 'leads' | 'updates' | 'mensen' | 'signalen' | 'instellingen';
+export type InitiatiefTab =
+  | 'leads'
+  | 'casussen'
+  | 'updates'
+  | 'mensen'
+  | 'signalen'
+  | 'instellingen';
 
 const INITIATIEF_TABS: readonly InitiatiefTab[] = [
   'leads',
+  'casussen',
   'updates',
   'mensen',
   'signalen',

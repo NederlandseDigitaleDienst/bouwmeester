@@ -25,6 +25,7 @@ from bouwmeester.core.storage import (
     store_upload,
     validate_upload,
 )
+from bouwmeester.models.casus import Casus
 from bouwmeester.models.github_link import SCOPE_LEAD, GitHubLink
 from bouwmeester.models.lead import Lead
 from bouwmeester.models.lead_activity import LeadActivity
@@ -33,6 +34,7 @@ from bouwmeester.models.lead_node import LeadNode
 from bouwmeester.repositories.github_link import GitHubLinkRepository
 from bouwmeester.repositories.lead import LeadRepository, StageNotInColumnsError
 from bouwmeester.repositories.lead_activity import LeadActivityRepository
+from bouwmeester.schema.casus import CASUSTEAM_ROLLEN
 from bouwmeester.schema.github_link import (
     GitHubLinkCreate,
     GitHubLinkResponse,
@@ -121,6 +123,20 @@ def _check_lead_access(lead: Lead, init_ctx: InitiatiefContext) -> None:
     ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Lead niet gevonden"
+        )
+
+
+async def _require_lead_open(db: AsyncSession, lead: Lead) -> None:
+    """409 als uit deze lead een casus is gestart: de lead is dan geschiedenis.
+
+    Lezen mag altijd; wijzigen, verplaatsen, aanvullen en verwijderen niet.
+    Het werk gaat verder op de casus.
+    """
+    stmt = select(Casus.id).where(Casus.lead_id == lead.id)
+    if (await db.execute(stmt.limit(1))).first() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Uit deze lead is een casus gestart; de lead is alleen-lezen.",
         )
 
 
@@ -405,6 +421,7 @@ async def update_lead(
     if old_lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(old_lead, init_ctx)
+    await _require_lead_open(db, old_lead)
     old_assignee_id = old_lead.assignee_id
     old_stage = old_lead.stage
 
@@ -469,6 +486,13 @@ async def delete_lead(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
+    if (
+        await db.execute(select(Casus.id).where(Casus.lead_id == lead_id).limit(1))
+    ).first():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Uit deze lead is een casus gestart; verwijder eerst de casus.",
+        )
     lead_title = lead.title
 
     # Clean up resource_permission rows (no FK cascade on polymorphic)
@@ -514,6 +538,7 @@ async def move_lead(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
+    await _require_lead_open(db, lead)
     author_id = current_user.id if current_user else None
     repo = LeadRepository(db)
     try:
@@ -590,6 +615,7 @@ async def add_activity(
     lead_repo = LeadRepository(db)
     lead = require_found(await lead_repo.get(lead_id), "Lead")
     _check_lead_access(lead, init_ctx)
+    await _require_lead_open(db, lead)
 
     author_id = current_user.id if current_user else None
     repo = LeadActivityRepository(db)
@@ -719,6 +745,14 @@ async def add_contact(
     _check_lead_access(lead, init_ctx)
     from bouwmeester.models.resource_permission import ResourcePermission
 
+    # Trekker en teamlid horen op de casus, niet op de lead.
+    if data.rol in CASUSTEAM_ROLLEN:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Een casusteam hoort bij de casus; start eerst de casus.",
+        )
+    await _require_lead_open(db, lead)
+
     contact = ResourcePermission(
         person_id=data.person_id,
         resource_type="lead",
@@ -824,6 +858,7 @@ async def link_node(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
+    await _require_lead_open(db, lead)
     link = LeadNode(
         lead_id=lead_id,
         node_id=data.node_id,
@@ -933,6 +968,7 @@ async def add_tag_to_lead(
     repo = LeadRepository(db)
     lead = require_found(await repo.get(lead_id), "Lead")
     _check_lead_access(lead, init_ctx)
+    await _require_lead_open(db, lead)
 
     tag_repo = TagRepository(db)
 
@@ -1021,6 +1057,7 @@ async def upload_attachment(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
+    await _require_lead_open(db, lead)
 
     content_type = file.content_type or "application/octet-stream"
     content = await read_upload_content(file)

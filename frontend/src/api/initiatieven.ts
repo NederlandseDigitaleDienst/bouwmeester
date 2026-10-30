@@ -1,5 +1,6 @@
 import { apiGet, apiPost, apiPut, apiDelete } from './client';
 import type {
+  InitiatiefPersoon,
   Initiatief,
   InitiatiefCreate,
   InitiatiefDetail,
@@ -19,6 +20,10 @@ export async function getInitiatieven(params?: {
   const query: Record<string, string> = {};
   if (params?.search) query.search = params.search;
   return apiGet<InitiatiefListItem[]>('/api/initiatieven', query);
+}
+
+export async function getInitiatiefPersonen(id: string): Promise<InitiatiefPersoon[]> {
+  return apiGet<InitiatiefPersoon[]>(`/api/initiatieven/${id}/personen`);
 }
 
 export async function getInitiatief(id: string): Promise<InitiatiefDetail> {

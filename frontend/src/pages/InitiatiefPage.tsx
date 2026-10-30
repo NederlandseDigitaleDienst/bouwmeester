@@ -4,6 +4,7 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { useNlddEvent } from '@/components/nldd/events';
 import { useInitiatief } from '@/hooks/useInitiatieven';
 import { InitiatiefLeads } from '@/components/initiatieven/InitiatiefLeads';
+import { InitiatiefCasussen } from '@/components/casussen/InitiatiefCasussen';
 import { InitiatiefUpdates } from '@/components/initiatieven/InitiatiefUpdates';
 import { InitiatiefMensen } from '@/components/initiatieven/InitiatiefMensen';
 import { InitiatiefSignalen } from '@/components/initiatieven/InitiatiefSignalen';
@@ -17,6 +18,7 @@ import type { InitiatiefDetail } from '@/types';
 
 const TAB_LABELS: Record<InitiatiefTab, string> = {
   leads: 'Leads',
+  casussen: 'Casussen',
   updates: 'Updates',
   mensen: 'Mensen',
   signalen: 'Signalen',
@@ -31,7 +33,7 @@ const TAB_LABELS: Record<InitiatiefTab, string> = {
 function visibleTabs(initiatief: InitiatiefDetail): InitiatiefTab[] {
   const canEdit =
     initiatief.access_level === 'eigenaar' || initiatief.access_level === 'contributor';
-  const tabs: InitiatiefTab[] = ['leads', 'updates', 'mensen', 'signalen'];
+  const tabs: InitiatiefTab[] = ['leads', 'casussen', 'updates', 'mensen', 'signalen'];
   if (canEdit) tabs.push('instellingen');
   return tabs;
 }
@@ -80,6 +82,7 @@ export function InitiatiefPage() {
           carry a half-typed form or a filter from one into the other. */}
       <div key={initiatief.id}>
         {activeTab === 'leads' && <InitiatiefLeads initiatiefId={initiatief.id} />}
+        {activeTab === 'casussen' && <InitiatiefCasussen initiatiefId={initiatief.id} />}
         {activeTab === 'updates' && <TabBody><InitiatiefUpdates initiatief={initiatief} /></TabBody>}
         {activeTab === 'mensen' && <TabBody><InitiatiefMensen initiatief={initiatief} /></TabBody>}
         {activeTab === 'signalen' && <TabBody><InitiatiefSignalen initiatief={initiatief} /></TabBody>}
