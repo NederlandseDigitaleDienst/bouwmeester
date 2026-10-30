@@ -15,8 +15,8 @@ import { initiatiefAccentVar, initiatiefIconColor } from '@/components/initiatie
 type Status = 'loading' | 'ok' | 'not-found' | 'error';
 
 /**
- * The only page outside the auth shell and outside `nldd-app-view`
- * (`/c/:slug` in App.tsx), so it needs its own `nldd-app-view` wrapper for
+ * The only page outside the auth shell and outside `nldd-shell`
+ * (`/c/:slug` in App.tsx), so it needs its own `nldd-shell` wrapper for
  * the color-scheme context that every other page gets from AppLayout.
  */
 export function PublicInitiatiefPage() {
@@ -69,11 +69,11 @@ export function PublicInitiatiefPage() {
 
   if (status === 'loading') {
     return (
-      <nldd-app-view background="tinted">
+      <nldd-shell background="tinted">
         <nldd-simple-section horizontal-alignment="center" vertical-alignment="center" height="100dvh">
           <LoadingSpinner />
         </nldd-simple-section>
-      </nldd-app-view>
+      </nldd-shell>
     );
   }
 
@@ -97,7 +97,7 @@ export function PublicInitiatiefPage() {
   const accentIcon = initiatiefIconColor(data.kleur);
 
   return (
-    <nldd-app-view background="tinted">
+    <nldd-shell background="tinted">
       {/* Top accent stripe — subtiele kleur-identiteit per initiatief. A full-
           bleed bar is not a component the system has, so it stays a plain div
           painted from the initiative's own category token. */}
@@ -106,7 +106,7 @@ export function PublicInitiatiefPage() {
       <nldd-full-bleed-section width="768px" padding-top="64" padding-bottom="48">
         <nldd-container gap="16">
           <nldd-container layout="row" gap="8" vertical-alignment="center">
-            <nldd-icon name="circle-filled-small" size="16" color={accentIcon} />
+            <nldd-icon icon="circle-filled-small" size="16" color={accentIcon} />
             <nldd-text size="xs" weight="medium" color="secondary">
               Community
             </nldd-text>
@@ -135,7 +135,7 @@ export function PublicInitiatiefPage() {
                   {data.casussen.length} {data.casussen.length === 1 ? 'casus' : 'casussen'}
                 </nldd-text>
               </nldd-container>
-              <nldd-collection layout="grid" item-width="280px" gap="16">
+              <nldd-collection layout="grid" item-min-width="280px" gap="16">
                 {data.casussen.map((c, idx) => (
                   <CasusCard key={idx} casus={c} accentIcon={accentIcon} />
                 ))}
@@ -180,7 +180,7 @@ export function PublicInitiatiefPage() {
           </nldd-text>
         </nldd-container>
       </nldd-page-footer>
-    </nldd-app-view>
+    </nldd-shell>
   );
 }
 
@@ -250,7 +250,7 @@ function CasusCard({
     <nldd-card>
       <nldd-container padding="20">
         <nldd-container layout="row" gap="8" vertical-alignment="center" padding-bottom="8">
-          <nldd-icon name="circle-filled-small" size="16" color={accentIcon} />
+          <nldd-icon icon="circle-filled-small" size="16" color={accentIcon} />
           <nldd-text size="xs" weight="medium" color="secondary">
             Casus
           </nldd-text>
@@ -309,7 +309,7 @@ function UpdatesEmptyState({ naam }: { naam: string }) {
 
 function PublicMessage({ title, body }: { title: string; body: string }) {
   return (
-    <nldd-app-view background="tinted">
+    <nldd-shell background="tinted">
       <nldd-simple-section horizontal-alignment="center" vertical-alignment="center" height="100dvh">
         <nldd-container gap="12" horizontal-alignment="center">
           <nldd-title size={2}>
@@ -320,6 +320,6 @@ function PublicMessage({ title, body }: { title: string; body: string }) {
           </nldd-text>
         </nldd-container>
       </nldd-simple-section>
-    </nldd-app-view>
+    </nldd-shell>
   );
 }

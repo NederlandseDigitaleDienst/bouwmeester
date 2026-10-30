@@ -489,7 +489,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                   ...(overdue ? { backgroundColor: 'var(--primitives-color-critical-25)', borderRadius: '6px' } : {}),
                 }}
               >
-                <nldd-icon name="calendar" size="16" aria-hidden="true" />
+                <nldd-icon icon="calendar" size="16" aria-hidden="true" />
                 <nldd-text size="sm" color={overdue ? 'critical' : 'secondary'} weight={overdue ? 'medium' : 'regular'}>
                   {formatDateLong(lead.next_action_date)}
                 </nldd-text>
@@ -701,7 +701,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
             }
           >
             {lead.attachments.length > 0 ? (
-              <nldd-list variant="simple" dividers="never" accessible-label="Bijlagen">
+              <nldd-list appearance="simple" dividers="never" accessible-label="Bijlagen">
                 {lead.attachments.map((att) => (
                   <AttachmentRow
                     key={att.id}
@@ -730,7 +730,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
             }
           >
             {lead.contacts.length > 0 ? (
-              <nldd-list variant="simple" dividers="never" accessible-label="Externe contactpersonen">
+              <nldd-list appearance="simple" dividers="never" accessible-label="Externe contactpersonen">
                 {lead.contacts.map((contact) => (
                   <ContactRow
                     key={contact.id}
@@ -762,7 +762,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
             }
           >
             {lead.linked_nodes.length > 0 ? (
-              <nldd-list variant="simple" dividers="never" accessible-label="Gelinkte nodes">
+              <nldd-list appearance="simple" dividers="never" accessible-label="Gelinkte nodes">
                 {lead.linked_nodes.map((ln) => (
                   <LinkedNodeRow
                     key={ln.id}
@@ -858,7 +858,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                         flexShrink: 0,
                       }}
                     >
-                      <nldd-icon name={ACTIVITY_ICONS[activity.activity_type]} size="16" aria-hidden="true" />
+                      <nldd-icon icon={ACTIVITY_ICONS[activity.activity_type]} size="16" aria-hidden="true" />
                     </div>
                     <nldd-container gap="2" width="full">
                       <nldd-container layout="row" gap="8" vertical-alignment="center">
@@ -1097,7 +1097,7 @@ function AttachmentRow({ attachment: att, downloadUrl, onDelete, onZoom }: Attac
     <nldd-list-item>
       <nldd-container width="full" gap="8" padding="4" style={{ opacity: att.bestand_beschikbaar ? 1 : 0.5 }}>
         <nldd-container layout="row" gap="8" vertical-alignment="center">
-          <nldd-icon name={att.soort === 'link' ? 'external-link' : 'paperclip'} size="16" aria-hidden="true" />
+          <nldd-icon icon={att.soort === 'link' ? 'external-link' : 'paperclip'} size="16" aria-hidden="true" />
           {att.soort === 'link' && att.url ? (
             // The link inherits its size from the text around it, so the
             // ellipsis on that text cuts the link off too.
@@ -1156,9 +1156,9 @@ function AttachmentRow({ attachment: att, downloadUrl, onDelete, onZoom }: Attac
               object-fit="contain"
               shape="rounded"
             />
-            <div className="group-hover-dim-overlay" style={{ position: 'absolute', inset: 0, borderRadius: 'var(--components-image-rounded-corner-radius)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="group-hover-dim-overlay" style={{ position: 'absolute', inset: 0, borderRadius: 'var(--semantics-controls-md-corner-radius)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <nldd-icon
-                name="magnifier"
+                icon="magnifier"
                 size="24"
                 className="group-hover-reveal"
                 style={{ color: 'white' }}

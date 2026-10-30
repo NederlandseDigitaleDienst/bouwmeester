@@ -39,12 +39,12 @@ export function ReferencesList({ targetId }: ReferencesListProps) {
   return (
     <nldd-container gap="8">
       <nldd-container layout="row" gap="4" vertical-alignment="center">
-        <nldd-icon name="link" size="16" aria-hidden="true" />
+        <nldd-icon icon="link" size="16" aria-hidden="true" />
         <nldd-text size="xs" weight="bold" color="secondary">
           Verwijzingen ({references.length})
         </nldd-text>
       </nldd-container>
-      <nldd-list variant="simple" accessible-label="Verwijzingen">
+      <nldd-list appearance="simple" accessible-label="Verwijzingen">
         {references.map((ref) => (
           <ReferenceRow
             key={`${ref.source_type}-${ref.source_id}`}

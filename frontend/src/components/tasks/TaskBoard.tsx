@@ -16,9 +16,9 @@ const BOARD_COLUMNS: TaskStatus[] = [
 ];
 
 /** Column accent, using the semantic roles rather than literal colors. */
-type NlddTagColor = NonNullable<React.ComponentProps<'nldd-tag'>['color']>;
+type NlddBadgeColor = NonNullable<React.ComponentProps<'nldd-badge'>['color']>;
 
-const COLUMN_TAG_COLOR: Record<TaskStatus, NlddTagColor> = {
+const COLUMN_TAG_COLOR: Record<TaskStatus, NlddBadgeColor> = {
   [TaskStatus.OPEN]: 'accent',
   [TaskStatus.IN_PROGRESS]: 'warning',
   [TaskStatus.DONE]: 'success',

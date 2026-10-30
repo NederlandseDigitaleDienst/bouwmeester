@@ -386,7 +386,7 @@ export function SamenwerkingsverbandDetailPage() {
         {swv.leden.length === 0 ? (
           <nldd-inline-dialog text="Nog geen leden." />
         ) : (
-          <nldd-list type="list" variant="box-tinted">
+          <nldd-list type="list" appearance="box-tinted">
             {swv.leden.map((lid) => {
               const isEditing = editingLidId === lid.id;
               if (isEditing) {

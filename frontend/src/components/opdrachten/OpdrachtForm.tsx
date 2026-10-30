@@ -393,7 +393,7 @@ export function OpdrachtForm({ opdracht, onClose, onSuccess, defaults }: Opdrach
           <nldd-form-section text="Gekoppelde nodes">
             <nldd-container gap="12">
               {koppelingen.length > 0 && (
-                <nldd-list variant="box-tinted" dividers="never">
+                <nldd-list appearance="box-tinted" dividers="never">
                   {koppelingen.map(k => (
                     <nldd-list-item key={k.id}>
                       {k.node_type && (

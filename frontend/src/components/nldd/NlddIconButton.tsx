@@ -55,7 +55,7 @@ export function NlddIconButton({
     <nldd-icon-button
       ref={ref}
       icon={icon}
-      variant={variant}
+      appearance={variant}
       size={size}
       type={type}
       accessible-label={accessibleLabel}

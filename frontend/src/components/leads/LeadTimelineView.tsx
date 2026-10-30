@@ -151,7 +151,7 @@ function getActivityLabel(type: string): string {
 // -- Single timeline event row --
 //
 // This is a feed of distinct events across many leads, not a single entity's
-// progress toward a known end, so nldd-timeline-track-cell's `status`
+// progress toward a known end, so nldd-step-cell's `status`
 // (past/current/future relative to where *you* are) doesn't carry real
 // meaning here — every row is simply "past". It still earns its place as the
 // per-row dot-and-line lane the design already had: `variant="major"`,
@@ -172,7 +172,7 @@ function TimelineEventCard({
 
   return (
     <nldd-list-item>
-      <nldd-timeline-track-cell status="past" variant="major" position="between" />
+      <nldd-step-cell status="past" level="major" position="between" />
       <nldd-list-item-segment ref={ref} button width="full" accessible-label={event.lead_title}>
         <nldd-container width="full" gap="0">
           <nldd-container layout="row" gap="8" vertical-alignment="top">
@@ -318,7 +318,7 @@ export function LeadTimelineView({
               </nldd-text>
 
               {/* Events for this date */}
-              <nldd-list variant="simple" dividers="never" accessible-label={`Activiteit op ${formatDateGroupLabel(dateKey)}`}>
+              <nldd-list appearance="simple" dividers="never" accessible-label={`Activiteit op ${formatDateGroupLabel(dateKey)}`}>
                 {dayEvents.map((event) => (
                   <TimelineEventCard
                     key={event.id}

@@ -41,7 +41,7 @@ describe('NlddButton', () => {
       <NlddButton text="Verwijderen" startIcon="trash" variant="destructive" size="sm" />,
     );
     expect(button(container)).toHaveAttribute('start-icon', 'trash');
-    expect(button(container)).toHaveAttribute('variant', 'destructive');
+    expect(button(container)).toHaveAttribute('appearance', 'destructive');
     expect(button(container)).toHaveAttribute('size', 'sm');
   });
 

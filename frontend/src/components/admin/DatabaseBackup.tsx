@@ -33,7 +33,7 @@ function SectionHeader({
 }) {
   return (
     <nldd-container layout="row" gap="12" vertical-alignment="top">
-      <nldd-icon name={icon} size="24" color={color} box className="shrink-0" />
+      <nldd-icon icon={icon} size="24" color={color} box className="shrink-0" />
       <nldd-container width="fit-content" className="row-fill" gap="2">
         <nldd-title size={5}>
           <h2>{title}</h2>

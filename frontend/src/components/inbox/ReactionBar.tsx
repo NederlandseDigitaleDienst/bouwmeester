@@ -17,7 +17,7 @@ function ReactionChip({ reaction, onReact }: ReactionChipProps) {
     <nldd-button
       ref={ref}
       size="xs"
-      variant={reaction.reacted_by_me ? 'accent-transparent' : 'neutral-transparent'}
+      appearance={reaction.reacted_by_me ? 'accent-transparent' : 'neutral-transparent'}
       text={`${reaction.emoji} ${reaction.count}`}
       accessible-label={`${reaction.emoji} ${reaction.count}, ${reaction.sender_names.join(', ')}`}
     />

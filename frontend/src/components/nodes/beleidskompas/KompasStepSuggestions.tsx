@@ -22,7 +22,7 @@ function ApproveButton({ loading, onClick }: { loading: boolean; onClick: () => 
     <nldd-icon-button
       ref={ref}
       icon="check-mark"
-      variant="neutral-transparent"
+      appearance="neutral-transparent"
       size="sm"
       accessible-label="Koppelen"
       loading={loading ? true : undefined}
@@ -111,7 +111,7 @@ export function KompasStepSuggestions({
       )}
 
       {suggestions && suggestions.length > 0 && (
-        <nldd-list variant="box-tinted" dividers="always">
+        <nldd-list appearance="box-tinted" dividers="always">
           {suggestions.map((s) => {
             const isApproved = approved.has(s.target_node_id);
             const isRejected = rejected.has(s.target_node_id);

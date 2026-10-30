@@ -143,10 +143,10 @@ export function InboxPage() {
         <GettingStartedCard />
 
         {/* Quick stats */}
-        <nldd-collection layout="grid" item-width="200px" gap="16">
+        <nldd-collection layout="grid" item-min-width="200px" gap="16">
           <Card actionLabel="Corpus nodes bekijken" onClick={() => navigate('/corpus')}>
             <nldd-container layout="row" gap="12" vertical-alignment="center">
-              <nldd-icon name="network-structure" size="40" color="lintblauw" box />
+              <nldd-icon icon="network-structure" size="40" color="lintblauw" box />
               <nldd-container gap="0">
                 <nldd-text size="lg" weight="bold">{stats?.corpus_node_count ?? '-'}</nldd-text>
                 <nldd-text size="xs" color="secondary">Corpus nodes</nldd-text>
@@ -156,7 +156,7 @@ export function InboxPage() {
 
           <Card actionLabel="Open taken bekijken" onClick={() => navigate('/tasks')}>
             <nldd-container layout="row" gap="12" vertical-alignment="center">
-              <nldd-icon name="check-list" size="40" color="geel" box />
+              <nldd-icon icon="check-list" size="40" color="geel" box />
               <nldd-container gap="0">
                 <nldd-text size="lg" weight="bold">{stats?.open_task_count ?? '-'}</nldd-text>
                 <nldd-text size="xs" color="secondary">Open taken</nldd-text>
@@ -166,7 +166,7 @@ export function InboxPage() {
 
           <Card actionLabel="Achterstallige taken bekijken" onClick={() => navigate('/tasks')}>
             <nldd-container layout="row" gap="12" vertical-alignment="center">
-              <nldd-icon name="chart-x-y-axis-line" size="40" color="robijnrood" box />
+              <nldd-icon icon="chart-x-y-axis-line" size="40" color="robijnrood" box />
               <nldd-container gap="0">
                 <nldd-text size="lg" weight="bold">{stats?.overdue_task_count ?? '-'}</nldd-text>
                 <nldd-text size="xs" color="secondary">Achterstallig</nldd-text>
@@ -182,7 +182,7 @@ export function InboxPage() {
             }}
           >
             <nldd-container layout="row" gap="12" vertical-alignment="center">
-              <nldd-icon name="euro-sign" size="40" color="mosgroen" box />
+              <nldd-icon icon="euro-sign" size="40" color="mosgroen" box />
               <nldd-container gap="0">
                 <nldd-text size="lg" weight="bold" style={{ whiteSpace: 'nowrap' }}>
                   {stats?.active_opdracht_budget != null ? formatCurrencyCompact(stats.active_opdracht_budget) : '-'}
@@ -197,7 +197,7 @@ export function InboxPage() {
         {managedEenheidId && visibleUnassignedCount > 0 && (
           <Card actionLabel="Onverdeelde taken verdelen" onClick={() => navigate('/eenheid-overzicht')}>
             <nldd-container layout="row" gap="12" vertical-alignment="center">
-              <nldd-icon name="users" size="40" color="violet" box />
+              <nldd-icon icon="users" size="40" color="violet" box />
               <nldd-container gap="0" width="full">
                 <nldd-text size="sm" weight="medium">
                   {visibleUnassignedCount} onverdeelde {visibleUnassignedCount === 1 ? 'taak' : 'taken'}

@@ -63,7 +63,7 @@ export function EdgeList({ nodeId, nodeType }: EdgeListProps) {
       </nldd-container>
 
       {edges.length > 0 ? (
-        <nldd-list variant="box-tinted" dividers="always">
+        <nldd-list appearance="box-tinted" dividers="always">
           {edges.map((edge) => {
             const connectedNode =
               edge.from_node_id === nodeId ? edge.to_node : edge.from_node;

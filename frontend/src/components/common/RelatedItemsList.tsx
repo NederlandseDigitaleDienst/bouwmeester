@@ -67,7 +67,7 @@ export function RelatedItemsList({
 
   return (
     <nldd-container gap="4">
-      <nldd-list variant="simple" accessible-label="Gerelateerde items">
+      <nldd-list appearance="simple" accessible-label="Gerelateerde items">
         {visible.map((item) => (
           <ItemRow key={item.id} item={item} />
         ))}

@@ -38,7 +38,6 @@ const REGISTERED_BY_PARENT: Record<string, string> = {
   'nldd-breadcrumbs-item': 'breadcrumbs',
   'nldd-menu-bar-item': 'menu-bar',
   'nldd-segmented-control-item': 'segmented-control',
-  'nldd-step-indicator-item': 'step-indicator',
   'nldd-button-bar-divider': 'button-bar',
   'nldd-toolbar-item': 'toolbar',
   'nldd-toolbar-title': 'toolbar',

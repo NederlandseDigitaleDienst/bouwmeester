@@ -221,7 +221,7 @@ export function LeadInboxView({
               </nldd-title>
             </nldd-container>
 
-            <nldd-list variant="simple" dividers="always" accessible-label={`Leads: ${DATE_GROUP_LABELS[group]}`}>
+            <nldd-list appearance="simple" dividers="always" accessible-label={`Leads: ${DATE_GROUP_LABELS[group]}`}>
               {items.map((lead) => (
                 <LeadInboxRow
                   key={lead.id}
@@ -336,7 +336,7 @@ function LeadInboxRow({
                 )}
                 {lead.contact_names.length > 0 && (
                   <div className="hug hug-gap-2 hug-truncate" title={lead.contact_names.join(', ')}>
-                    <nldd-icon name="users" size="16" aria-hidden="true" />
+                    <nldd-icon icon="users" size="16" aria-hidden="true" />
                     <nldd-text size="xs" color="secondary">
                       {lead.contact_names[0]}
                       {lead.contact_names.length > 1 && ` +${lead.contact_names.length - 1}`}
@@ -345,13 +345,13 @@ function LeadInboxRow({
                 )}
                 {lead.next_action_date && (
                   <div className="hug hug-gap-2">
-                    <nldd-icon name="calendar" size="16" aria-hidden="true" />
+                    <nldd-icon icon="calendar" size="16" aria-hidden="true" />
                     <nldd-text size="xs" color="secondary">{formatDateShort(lead.next_action_date)}</nldd-text>
                   </div>
                 )}
                 {lead.attachment_count > 0 && (
                   <div className="hug hug-gap-2">
-                    <nldd-icon name="paperclip" size="16" aria-hidden="true" />
+                    <nldd-icon icon="paperclip" size="16" aria-hidden="true" />
                     <nldd-text size="xs" color="secondary">{lead.attachment_count}</nldd-text>
                   </div>
                 )}
@@ -383,8 +383,8 @@ function LeadInboxRow({
         id={`assign-trigger-${lead.id}`}
         accessible-label="Toewijzen aan iemand anders"
       >
-        <nldd-icon name="person-badge-plus" size="16" aria-hidden="true" />
-        <nldd-icon name="chevron-down" size="16" aria-hidden="true" />
+        <nldd-icon icon="person-badge-plus" size="16" aria-hidden="true" />
+        <nldd-icon icon="chevron-down" size="16" aria-hidden="true" />
       </nldd-list-item-segment>
       {/* Popovers render at the document root: this one sits after the row
           rather than nested in it, anchored by id so it never gets sized by
@@ -404,7 +404,7 @@ function LeadInboxRow({
       </nldd-popover>
 
       <nldd-list-item-segment ref={koelkastRef} button accessible-label="Naar koelkast">
-        <nldd-icon name="snowflake" size="16" aria-hidden="true" />
+        <nldd-icon icon="snowflake" size="16" aria-hidden="true" />
       </nldd-list-item-segment>
     </nldd-list-item>
   );

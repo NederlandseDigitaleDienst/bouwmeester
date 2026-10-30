@@ -33,7 +33,7 @@ export function InboxList({ items, onOpenThread, onMarkRead }: InboxListProps) {
   }
 
   return (
-    <nldd-list variant="box-base" accessible-label="Meldingen">
+    <nldd-list appearance="box-base" accessible-label="Meldingen">
       {items.map((item) => (
         <InboxItemCard key={item.id} item={item} onOpenThread={onOpenThread} onMarkRead={onMarkRead} />
       ))}
