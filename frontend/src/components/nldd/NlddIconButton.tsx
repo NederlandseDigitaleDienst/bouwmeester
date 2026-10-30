@@ -35,6 +35,8 @@ interface NlddIconButtonProps {
   disabled?: boolean;
   type?: 'button' | 'submit' | 'reset';
   className?: string;
+  /** De named slot om in te landen, zoals `toolbar` in een titelbalk (zie NlddButton). */
+  slot?: string;
 }
 
 export function NlddIconButton({
@@ -46,6 +48,7 @@ export function NlddIconButton({
   disabled,
   type = 'button',
   className,
+  slot,
 }: NlddIconButtonProps) {
   const ref = useRef<HTMLElement>(null);
   const handler = useCallback((event: Event) => onClick?.(event), [onClick]);
@@ -60,6 +63,7 @@ export function NlddIconButton({
       type={type}
       accessible-label={accessibleLabel}
       className={className}
+      {...(slot ? { slot } : {})}
       {...(disabled ? { disabled: true } : {})}
     />
   );

@@ -28,6 +28,7 @@ import '@nldd/design-system/navigation-split-view';
 import '@nldd/design-system/page';
 import '@nldd/design-system/page-footer';
 import '@nldd/design-system/popover';
+import '@nldd/design-system/sheet';
 import '@nldd/design-system/simple-section';
 import '@nldd/design-system/spacer';
 import '@nldd/design-system/split-view-pane';

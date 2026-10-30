@@ -8,6 +8,14 @@ interface RichTextFormFieldProps {
   placeholder?: string;
   /** Marks the field as required; without it the label shows "Optioneel". */
   required?: boolean;
+  /**
+   * Geen "Optioneel" naast het label, ook al is het veld niet verplicht. Voor
+   * een venster waar de andere velden (keuzelijsten met een vaste waarde) het
+   * ook niet tonen; één badge tussen velden zonder valt op als fout.
+   */
+  hideOptional?: boolean;
+  /** Enter verstuurt (zie RichTextEditor); Shift+Enter is een nieuwe regel. */
+  onEnter?: () => void;
 }
 
 const DEFAULT_PLACEHOLDER =
@@ -31,10 +39,12 @@ export function RichTextFormField({
   rows = 3,
   placeholder = DEFAULT_PLACEHOLDER,
   required,
+  hideOptional = false,
+  onEnter,
 }: RichTextFormFieldProps) {
   return (
-    <nldd-form-field label={label} {...(required ? {} : { optional: true })}>
-      <RichTextEditor value={value} onChange={onChange} placeholder={placeholder} rows={rows} />
+    <nldd-form-field label={label} {...(required || hideOptional ? {} : { optional: true })}>
+      <RichTextEditor value={value} onChange={onChange} placeholder={placeholder} rows={rows} onEnter={onEnter} />
     </nldd-form-field>
   );
 }

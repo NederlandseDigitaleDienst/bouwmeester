@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, type ReactNode, type RefObject } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { NlddIconButton } from '@/components/nldd/NlddIconButton';
 import { useNlddEvent, useNlddValue, eventValue } from '@/components/nldd/events';
@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { VOCABULARY_LABELS, type VocabularyId } from '@/vocabulary';
 import { NotificationBell } from '@/components/common/NotificationBell';
 import { useManagedEenheden } from '@/hooks/useOrganisatie';
+import { useInitiatief } from '@/hooks/useInitiatieven';
 import { formatOrganisatieType, formatFunctie, type Person } from '@/types';
 import { useUIStore } from '@/store/ui';
 
@@ -189,9 +190,16 @@ export function Header() {
     }
     return 'Eenheid Overzicht';
   })();
+  // Op een initiatiefpagina: "Initiatieven › <naam>" als één titel, met de
+  // publieke link er direct achter (LinkNaTitel). Zo staan ze op één hoogte
+  // en hoeft de pagina zelf geen eigen kop met naam meer te tonen.
+  const initiatiefId = location.pathname.match(/^\/initiatieven\/([0-9a-f-]{36})/)?.[1];
+  const { data: initiatief } = useInitiatief(initiatiefId);
   const title = pathBase === '/eenheid-overzicht'
     ? eenheidTitle
-    : pageTitles[pathBase] || 'Bouwmeester';
+    : initiatiefId && initiatief
+      ? `${pageTitles[pathBase]} › ${initiatief.naam}`
+      : pageTitles[pathBase] || 'Bouwmeester';
 
   // Detail pages get a back affordance to the list they belong to.
   const backTarget = /^\/nodes\/.+/.test(location.pathname)
@@ -210,87 +218,171 @@ export function Header() {
   }, [navigate, backHref]);
   useNlddEvent(barRef, 'back', backTarget ? handleBack : undefined);
 
+  const publiekPad = initiatiefId && initiatief?.public_page_enabled && initiatief.slug ? `/c/${initiatief.slug}` : null;
+
   return (
     // The bar renders the h1 itself and, on a detail page, the back
-    // affordance.
-    <nldd-top-title-bar
-      ref={barRef}
-      text={title}
-      {...(backTarget ? { 'back-text': backTarget.text } : {})}
-    >
-      <>
-        {/* Only shown while the sidebar is a sheet; above lg the pane is visible. */}
-        <ShowBelow width={1024} slot="toolbar">
-          <NlddIconButton
-            icon="menu"
-            accessibleLabel="Navigatie openen"
-            onClick={toggleMobileSidebar}
-          />
-        </ShowBelow>
-        {/* Vocabulary toggle. A segmented control rather than a row of buttons:
-            it is one choice out of a set, so the items are radios and the
-            arrow keys move between them. */}
-        <ShowAbove width={640} slot="toolbar">
-          <VocabularySwitch value={vocabularyId} onChange={setVocabularyId} />
-        </ShowAbove>
+    // affordance. The wrapper only anchors the link behind the title.
+    <div style={{ position: 'relative' }}>
+      <nldd-top-title-bar
+        ref={barRef}
+        text={title}
+        {...(backTarget ? { 'back-text': backTarget.text } : {})}
+      >
+        <>
+          {/* Only shown while the sidebar is a sheet; above lg the pane is visible. */}
+          <ShowBelow width={1024} slot="toolbar">
+            <NlddIconButton
+              icon="menu"
+              accessibleLabel="Navigatie openen"
+              onClick={toggleMobileSidebar}
+            />
+          </ShowBelow>
+          {/* Vocabulary toggle. A segmented control rather than a row of buttons:
+              it is one choice out of a set, so the items are radios and the
+              arrow keys move between them. */}
+          <ShowAbove width={640} slot="toolbar">
+            <VocabularySwitch value={vocabularyId} onChange={setVocabularyId} />
+          </ShowAbove>
 
-        {/* Notification bell */}
-        <span slot="toolbar"><NotificationBell /></span>
+          {/* Notification bell */}
+          <span slot="toolbar"><NotificationBell /></span>
 
-        {/* Search. An icon button like the other toolbar actions: a labelled
-            button here competed with the page title and the profile picker for
-            the same row, and the magnifier is the one icon nobody has to
-            learn. The shortcut stays in the accessible name. */}
-        <span slot="toolbar">
-          <NlddIconButton
-            icon="magnifier"
-            accessibleLabel="Zoeken (sneltoets /)"
-            onClick={() => {
-              // On the search page itself, focus the field that is already
-              // there rather than stacking a modal on top of it: two search
-              // boxes on one screen, each with its own results. The `/`
-              // shortcut in AppLayout makes the same distinction.
-              if (location.pathname === '/search') {
-                document.querySelector<HTMLElement & { focus?: () => void }>(
-                  'nldd-search-field',
-                )?.focus?.();
-                return;
-              }
-              useUIStore.getState().setSearchModalOpen(true);
-            }}
-          />
-        </span>
-
-        {/* Dev-mode person picker (only when OIDC is not configured) */}
-        {!oidcConfigured ? (
+          {/* Search. An icon button like the other toolbar actions: a labelled
+              button here competed with the page title and the profile picker for
+              the same row, and the magnifier is the one icon nobody has to
+              learn. The shortcut stays in the accessible name. */}
           <span slot="toolbar">
-            <DevPersonPicker
-              people={people}
-              currentPerson={currentPerson}
-              onPick={setDevPersonId}
+            <NlddIconButton
+              icon="magnifier"
+              accessibleLabel="Zoeken (sneltoets /)"
+              onClick={() => {
+                // On the search page itself, focus the field that is already
+                // there rather than stacking a modal on top of it: two search
+                // boxes on one screen, each with its own results. The `/`
+                // shortcut in AppLayout makes the same distinction.
+                if (location.pathname === '/search') {
+                  document.querySelector<HTMLElement & { focus?: () => void }>(
+                    'nldd-search-field',
+                  )?.focus?.();
+                  return;
+                }
+                useUIStore.getState().setSearchModalOpen(true);
+              }}
             />
           </span>
-        ) : (
-          // The name only appears where the toolbar has room for it. It sat at
-          // `sm` and up, which is not the same thing: on a wide window the
-          // toolbar can still be full of controls, and the name then slid in
-          // behind them. Below 1280 the avatar carries the identity on its own.
-          <div className="hug hug-gap-8" slot="toolbar">
-            <nldd-avatar
-              size="24"
-              {...(currentPerson ? { name: currentPerson.naam } : { icon: 'person' })}
-              decorative
-            />
-            {currentPerson && (
-              <ShowAbove width={1280}>
-                <nldd-text size="sm" className="truncate">
-                  {currentPerson.naam}
-                </nldd-text>
-              </ShowAbove>
-            )}
-          </div>
-        )}
-      </>
-    </nldd-top-title-bar>
+
+          {/* Dev-mode person picker (only when OIDC is not configured) */}
+          {!oidcConfigured ? (
+            <span slot="toolbar">
+              <DevPersonPicker
+                people={people}
+                currentPerson={currentPerson}
+                onPick={setDevPersonId}
+              />
+            </span>
+          ) : (
+            // The name only appears where the toolbar has room for it. It sat at
+            // `sm` and up, which is not the same thing: on a wide window the
+            // toolbar can still be full of controls, and the name then slid in
+            // behind them. Below 1280 the avatar carries the identity on its own.
+            <div className="hug hug-gap-8" slot="toolbar">
+              <nldd-avatar
+                size="24"
+                {...(currentPerson ? { name: currentPerson.naam } : { icon: 'person' })}
+                decorative
+              />
+              {currentPerson && (
+                <ShowAbove width={1280}>
+                  <nldd-text size="sm" className="truncate">
+                    {currentPerson.naam}
+                  </nldd-text>
+                </ShowAbove>
+              )}
+            </div>
+          )}
+        </>
+      </nldd-top-title-bar>
+      {publiekPad && <LinkNaTitel barRef={barRef} title={title} href={publiekPad} />}
+    </div>
+  );
+}
+
+/** Ruimte tussen de titel en de link, en tussen de link en de toolbar. */
+const LINK_RUIMTE = 12;
+
+/**
+ * De publieke link van een initiatief, direct achter de titel in de kop.
+ *
+ * nldd-top-title-bar heeft naast de titel geen slot, alleen de toolbar
+ * rechts. Daarom ligt de link over de balk: hij meet waar de titeltekst
+ * eindigt en waar de toolbar begint, en staat er alleen als hij daartussen
+ * past. Op een smal scherm of bij een lange naam blijft hij weg, in plaats
+ * van over de toolbar of een afgekapte titel te vallen.
+ */
+function LinkNaTitel({ barRef, title, href }: { barRef: RefObject<HTMLElement | null>; title: string; href: string }) {
+  const linkRef = useRef<HTMLElement>(null);
+  const [plek, setPlek] = useState<{ left: number; top: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const bar = barRef.current as (HTMLElement & { updateComplete?: Promise<unknown> }) | null;
+    const link = linkRef.current;
+    const wrap = bar?.parentElement;
+    if (!bar || !link || !wrap) return;
+    let weg = false;
+
+    const meet = () => {
+      if (weg) return;
+      const h1 = bar.shadowRoot?.querySelector('.top-title-bar__title');
+      const eind = bar.shadowRoot?.querySelector<HTMLElement>('.top-title-bar__end');
+      if (!h1) return setPlek(null);
+      // De tekst zelf, niet de h1: die rekt op tot de toolbar.
+      const bereik = document.createRange();
+      bereik.selectNodeContents(h1);
+      const tekst = bereik.getBoundingClientRect();
+      const kop = h1.getBoundingClientRect();
+      const basis = wrap.getBoundingClientRect();
+      const grens = eind && !eind.hidden ? eind.getBoundingClientRect().left : kop.right;
+      const links = tekst.right + LINK_RUIMTE;
+      const past = tekst.width > 0 && tekst.right <= kop.right + 1 && links + link.getBoundingClientRect().width + LINK_RUIMTE <= grens;
+      setPlek(past ? { left: links - basis.left, top: kop.top + kop.height / 2 - basis.top } : null);
+    };
+
+    const ro = new ResizeObserver(meet);
+    ro.observe(bar);
+    ro.observe(link);
+    // De balk tekent zijn titel pas na een update; de toolbar kan daarna nog
+    // van breedte veranderen (knoppen die per schermbreedte verschijnen).
+    void customElements.whenDefined('nldd-top-title-bar').then(() => bar.updateComplete).then(() => {
+      if (weg) return;
+      const eind = bar.shadowRoot?.querySelector('.top-title-bar__end');
+      if (eind) ro.observe(eind);
+      meet();
+    });
+    void document.fonts?.ready.then(meet);
+    return () => {
+      weg = true;
+      ro.disconnect();
+    };
+  }, [barRef, title, href]);
+
+  return (
+    <nldd-link
+      ref={linkRef}
+      href={href}
+      target="_blank"
+      size="xs"
+      start-icon="globe"
+      text={href}
+      aria-hidden={plek ? undefined : 'true'}
+      style={{
+        position: 'absolute',
+        left: plek ? `${plek.left}px` : 0,
+        top: plek ? `${plek.top}px` : 0,
+        transform: 'translateY(-50%)',
+        visibility: plek ? 'visible' : 'hidden',
+        whiteSpace: 'nowrap',
+      }}
+    />
   );
 }

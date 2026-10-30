@@ -16,27 +16,41 @@ import { useOrganisatieFlat } from '@/hooks/useOrganisatie';
 import { INITIATIEF_ROL_LABELS } from '@/types';
 import type { InitiatiefDetail } from '@/types';
 import { StakeholderTab } from '@/components/stakeholders/StakeholderTab';
-import { SectionHeading } from './SectionHeading';
+import { useStakeholderAssessments } from '@/hooks/useStakeholderAssessments';
+import { InstellingenBlok } from './InstellingenBlok';
 import { NlddButton } from '@/components/nldd/NlddButton';
+
+/** "1 lid", "3 leden": een telling met het juiste woord. */
+const tel = (n: number, een: string, meer: string) => `${n} ${n === 1 ? een : meer}`;
 
 /**
  * The "Mensen" tab: who works on the initiatief (members and eenheden, which
  * both grant access) and who has a stake in it (stakeholders, which grant
  * nothing). Only an eigenaar changes membership; contributors can assess
  * stakeholders.
+ *
+ * Elk onderdeel is een inklapbaar blok met de telling in de kop, zoals de
+ * instellingen: dicht is de tab een overzicht. De leden staan open, want
+ * daar kom je meestal voor.
  */
 export function InitiatiefMensen({ initiatief }: { initiatief: InitiatiefDetail }) {
   const isEigenaar = initiatief.access_level === 'eigenaar';
   const canEdit = isEigenaar || initiatief.access_level === 'contributor';
+  const { data: stakeholders } = useStakeholderAssessments('initiatief', initiatief.id);
 
   return (
-    <nldd-container gap="32">
-      <Members initiatief={initiatief} isEigenaar={isEigenaar} />
-      <Eenheden initiatief={initiatief} isEigenaar={isEigenaar} />
-      <nldd-container gap="8">
-        <SectionHeading icon="person" text="Stakeholders" />
+    <nldd-container gap="12">
+      <InstellingenBlok icon="person" titel="Leden" samenvatting={tel(initiatief.members.length, 'lid', 'leden')} defaultOpen>
+        <Members initiatief={initiatief} isEigenaar={isEigenaar} />
+      </InstellingenBlok>
+      {(isEigenaar || initiatief.eenheden.length > 0) && (
+        <InstellingenBlok icon="apartment-building" titel="Organisatie-eenheden" samenvatting={tel(initiatief.eenheden.length, 'eenheid', 'eenheden')}>
+          <Eenheden initiatief={initiatief} isEigenaar={isEigenaar} />
+        </InstellingenBlok>
+      )}
+      <InstellingenBlok icon="centralized-network" titel="Stakeholders" samenvatting={stakeholders ? tel(stakeholders.length, 'stakeholder', 'stakeholders') : undefined}>
         <StakeholderTab scopeType="initiatief" scopeId={initiatief.id} readOnly={!canEdit} />
-      </nldd-container>
+      </InstellingenBlok>
     </nldd-container>
   );
 }
@@ -68,7 +82,6 @@ function Members({ initiatief, isEigenaar }: { initiatief: InitiatiefDetail; isE
 
   return (
     <nldd-container gap="8">
-      <SectionHeading icon="users" text={`Leden (${initiatief.members.length})`} />
 
       {initiatief.members.length > 0 && (
         <nldd-list type="list" appearance="box-tinted">
@@ -167,7 +180,6 @@ function Eenheden({ initiatief, isEigenaar }: { initiatief: InitiatiefDetail; is
 
   return (
     <nldd-container gap="8">
-      <SectionHeading icon="apartment-building" text={`Organisatie-eenheden (${initiatief.eenheden.length})`} />
       <nldd-text size="xs" color="secondary">
         Iedereen in een gekoppelde eenheid krijgt de rol die hier naast de eenheid staat.
       </nldd-text>

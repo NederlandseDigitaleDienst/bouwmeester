@@ -113,6 +113,12 @@ interface RichTextEditorProps {
   readOnly?: boolean;
   /** Rendered bare, for a composition that draws its own frame (a chat input). */
   bare?: boolean;
+  /**
+   * Enter verstuurt: deze functie in plaats van een nieuwe regel. Shift+Enter
+   * blijft een nieuwe regel, en zolang de @- of #-lijst open is kiest Enter
+   * daar een kandidaat.
+   */
+  onEnter?: () => void;
 }
 
 export function RichTextEditor({
@@ -124,8 +130,31 @@ export function RichTextEditor({
   disabled,
   readOnly,
   bare = false,
+  onEnter,
 }: RichTextEditorProps) {
   const ref = useRef<HTMLElement>(null);
+
+  // Enter vangen vóór de editor hem krijgt: een listener in de capture-fase
+  // op het element zelf loopt vóór CodeMirror in de shadow-DOM, die Enter
+  // anders als nieuwe regel verwerkt. De @- en #-lijst zijn CodeMirror-
+  // tooltips in die shadow-DOM; is er een open, dan laten we Enter gaan.
+  const onEnterRef = useRef(onEnter);
+  useEffect(() => {
+    onEnterRef.current = onEnter;
+  }, [onEnter]);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const opEnter = (e: KeyboardEvent) => {
+      if (!onEnterRef.current || e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+      if (el.shadowRoot?.querySelector('.cm-tooltip-autocomplete')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      onEnterRef.current();
+    };
+    el.addEventListener('keydown', opEnter, true);
+    return () => el.removeEventListener('keydown', opEnter, true);
+  }, []);
 
   // `typeaheads` and `mentionSource` are properties, not attributes: a function
   // cannot travel through an attribute, and React would stringify it.

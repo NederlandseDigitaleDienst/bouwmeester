@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { RichTextFormField } from '@/components/common/RichTextFormField';
 import { Icon } from '@/components/nldd/Icon';
@@ -7,13 +6,11 @@ import { eventValue, orUndef, useNlddEvent, useNlddValue } from '@/components/nl
 import {
   useUpdateInitiatief,
   useUpdateInitiatiefSettings,
-  useDeleteInitiatief,
 } from '@/hooks/useInitiatieven';
 import type { InitiatiefDetail, InitiatiefSettingsUpdate, InitiatiefUpdate } from '@/types';
 import { ColumnsManager } from '@/components/leads/ColumnsManager';
-import { INITIATIEVEN_PATH } from '@/utils/initiatiefRoutes';
 import { InitiatiefKleurPicker } from './InitiatiefKleurPicker';
-import { SectionHeading } from './SectionHeading';
+import { InstellingenBlok } from './InstellingenBlok';
 import { NlddButton } from '@/components/nldd/NlddButton';
 
 /**
@@ -21,21 +18,33 @@ import { NlddButton } from '@/components/nldd/NlddButton';
  * edited in place here, which replaces the separate edit dialog the old
  * modal needed because it had no room left. Contributors may change those;
  * everything below them is the eigenaar's.
+ *
+ * Elk onderdeel is een inklapbaar blok met de stand van zaken in de kop:
+ * dicht is de tab een overzicht, en je klapt open wat je wilt aanpassen.
  */
 export function InitiatiefInstellingen({ initiatief }: { initiatief: InitiatiefDetail }) {
   const isEigenaar = initiatief.access_level === 'eigenaar';
+  const canEdit = isEigenaar || initiatief.access_level === 'contributor';
 
   return (
-    <nldd-container gap="32">
-      <GeneralSettings initiatief={initiatief} />
+    <nldd-container gap="12">
+      {canEdit && (
+        <InstellingenBlok icon="pencil" titel="Algemeen" samenvatting={initiatief.naam}>
+          <GeneralSettings initiatief={initiatief} />
+        </InstellingenBlok>
+      )}
       {isEigenaar && (
         <>
-          <FeatureSettings initiatief={initiatief} />
-          <nldd-container gap="8">
-            <SectionHeading icon="columns-3" text="Funnel-kolommen" />
+          <InstellingenBlok
+            icon="globe"
+            titel="Publieke pagina en funnel"
+            samenvatting={`Publieke pagina ${initiatief.public_page_enabled ? 'aan' : 'uit'} · funnel-velden ${initiatief.funnel_enabled ? 'aan' : 'uit'}`}
+          >
+            <FeatureSettings initiatief={initiatief} />
+          </InstellingenBlok>
+          <InstellingenBlok icon="columns-3" titel="Funnel-kolommen">
             <ColumnsManager initiatiefId={initiatief.id} />
-          </nldd-container>
-          <DeleteInitiatief initiatief={initiatief} />
+          </InstellingenBlok>
         </>
       )}
     </nldd-container>
@@ -82,7 +91,6 @@ function GeneralSettings({ initiatief }: { initiatief: InitiatiefDetail }) {
 
   return (
     <nldd-container gap="16">
-      <SectionHeading icon="pencil" text="Algemeen" />
       <nldd-form-field label="Naam">
         <NaamField value={form.naam || ''} onChange={(v) => setForm((f) => ({ ...f, naam: v }))} />
       </nldd-form-field>
@@ -105,45 +113,6 @@ function GeneralSettings({ initiatief }: { initiatief: InitiatiefDetail }) {
           text="Opslaan"
         />
       </nldd-container>
-    </nldd-container>
-  );
-}
-
-function DeleteInitiatief({ initiatief }: { initiatief: InitiatiefDetail }) {
-  const navigate = useNavigate();
-  const deleteMutation = useDeleteInitiatief();
-  const [confirming, setConfirming] = useState(false);
-
-  const handleDelete = async () => {
-    await deleteMutation.mutateAsync(initiatief.id);
-    setConfirming(false);
-    navigate(INITIATIEVEN_PATH);
-  };
-
-  return (
-    <nldd-container gap="8">
-      <SectionHeading icon="trash" text="Verwijderen" />
-      <nldd-container layout="row" gap="12" vertical-alignment="center">
-        <nldd-container width="fit-content" className="row-fill">
-          <nldd-text size="sm" color="secondary">
-            Verwijdert het initiatief met zijn kolommen en updates. Dit kan niet ongedaan
-            gemaakt worden.
-          </nldd-text>
-        </nldd-container>
-        <NlddButton variant="destructive" size="sm" startIcon="trash" onClick={() => setConfirming(true)} text="Initiatief verwijderen" />
-      </nldd-container>
-      <ConfirmDialog
-        open={confirming}
-        onClose={() => setConfirming(false)}
-        onConfirm={handleDelete}
-        title="Initiatief verwijderen"
-        confirmLabel="Verwijderen"
-        variant="danger"
-        loading={deleteMutation.isPending}
-      >
-        Weet je zeker dat je <strong>{initiatief.naam}</strong> wilt verwijderen? Dit kan niet
-        ongedaan gemaakt worden.
-      </ConfirmDialog>
     </nldd-container>
   );
 }
@@ -189,8 +158,6 @@ function FeatureSettings({ initiatief }: { initiatief: InitiatiefDetail }) {
 
   return (
     <nldd-container gap="8">
-      <SectionHeading icon="globe" text="Publieke pagina en funnel" />
-
       <nldd-container gap="16">
         {/* Publieke pagina */}
         <nldd-card>
@@ -419,3 +386,4 @@ function ToggleRow({
     </nldd-container>
   );
 }
+
