@@ -30,6 +30,10 @@ import { StartvragenEditor } from './StartvragenEditor';
 export function InitiatiefInstellingen({ initiatief }: { initiatief: InitiatiefDetail }) {
   const isEigenaar = initiatief.access_level === 'eigenaar';
   const canEdit = isEigenaar || initiatief.access_level === 'contributor';
+  const eigenDod = initiatief.dod_items ?? [];
+  const dodSamenvatting = eigenDod.length
+    ? `${eigenDod.length} ${eigenDod.length === 1 ? 'eis' : 'eisen'}`
+    : `standaardlijst, ${initiatief.dod_standaard?.length ?? 0} eisen`;
 
   const { data: soorten } = useCasusSoorten(isEigenaar ? initiatief.id : null);
   const aantalSoorten = soorten?.length ?? 0;
@@ -54,6 +58,9 @@ export function InitiatiefInstellingen({ initiatief }: { initiatief: InitiatiefD
             samenvatting={`Publieke pagina ${initiatief.public_page_enabled ? 'aan' : 'uit'} · funnel-velden ${initiatief.funnel_enabled ? 'aan' : 'uit'}`}
           >
             <FeatureSettings initiatief={initiatief} />
+          </InstellingenBlok>
+          <InstellingenBlok icon="check-list" titel="Definition of Done" samenvatting={dodSamenvatting}>
+            <DodSettings initiatief={initiatief} />
           </InstellingenBlok>
           <InstellingenBlok icon="check-mark-circle" titel="Casus starten" samenvatting={criteriaSamenvatting}>
             <CasusStartenSettings initiatief={initiatief} />
@@ -477,3 +484,67 @@ function ToggleRow({
   );
 }
 
+/**
+ * Definition of Done: de teamstandaard waar een onderzoeksvraag aan moet
+ * voldoen voordat hij af is. Bij het afronden komt deze lijst als checklist.
+ *
+ * Zolang het initiatief geen eigen lijst heeft, geldt de standaardlijst van
+ * Bouwmeester. Die staat hier gewoon in beeld en is aan te passen: opslaan
+ * maakt er de lijst van dit initiatief van. "Terug naar de standaardlijst"
+ * maakt de eigen lijst weer leeg. Eigenaar-only, net als de andere
+ * instellingen.
+ */
+function DodSettings({ initiatief }: { initiatief: InitiatiefDetail }) {
+  const settingsMutation = useUpdateInitiatiefSettings();
+  const eigen = initiatief.dod_items ?? [];
+  const standaard = initiatief.dod_standaard ?? [];
+  const volgtStandaard = eigen.length === 0;
+  const geldend = volgtStandaard ? standaard : eigen;
+
+  const [items, setItems] = useState<string[]>(geldend);
+  // Na opslaan of een herlaadactie de lijst van de server volgen.
+  const geldendKey = JSON.stringify(geldend);
+  useEffect(() => {
+    setItems(JSON.parse(geldendKey) as string[]);
+  }, [geldendKey]);
+
+  const schoon = items.map((x) => x.trim()).filter(Boolean);
+  const dirty = JSON.stringify(schoon) !== JSON.stringify(geldend);
+  const gelijkAanStandaard = JSON.stringify(schoon) === JSON.stringify(standaard);
+
+  // Gelijk aan de standaard: niets eigens opslaan, dan volgt het initiatief
+  // de standaardlijst ook als die later verandert.
+  const opslaan = () =>
+    settingsMutation.mutate({ id: initiatief.id, data: { dod_items: gelijkAanStandaard ? [] : schoon } });
+  const naarStandaard = () => settingsMutation.mutate({ id: initiatief.id, data: { dod_items: [] } });
+
+  return (
+    <nldd-container gap="12">
+      <nldd-text size="sm" color="secondary">
+        Waar een onderzoeksvraag aan moet voldoen voordat hij af is. Bij het afronden loopt het team
+        deze lijst na. Geldt voor alle casussen van dit initiatief.
+      </nldd-text>
+      {volgtStandaard && (
+        <nldd-text size="sm" color="secondary">
+          Dit is de standaardlijst van Bouwmeester. Pas hem aan en sla op, dan wordt het de lijst van
+          dit initiatief.
+        </nldd-text>
+      )}
+      <EisenLijst
+        items={items}
+        onChange={setItems}
+        naam="Eis"
+        placeholder="Nieuwe eis, bijvoorbeeld: demo gegeven aan het team"
+        leeg="Geen eisen. Voeg er hieronder een toe."
+        nieuwLabel="Nieuwe eis"
+      />
+      <nldd-container layout="row" gap="8" horizontal-alignment="right">
+        {!volgtStandaard && (
+          <NlddButton variant="neutral-transparent" size="sm" onClick={naarStandaard} disabled={settingsMutation.isPending} text="Terug naar de standaardlijst" />
+        )}
+        <NlddButton variant="secondary" size="sm" disabled={!dirty} onClick={() => setItems(geldend)} text="Herstellen" />
+        <NlddButton size="sm" onClick={opslaan} loading={settingsMutation.isPending} disabled={!dirty} text="Opslaan" />
+      </nldd-container>
+    </nldd-container>
+  );
+}

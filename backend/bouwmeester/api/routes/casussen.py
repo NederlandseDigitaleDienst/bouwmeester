@@ -20,13 +20,17 @@ from bouwmeester.core.initiatief_context import (
     require_initiatief_member,
     require_initiatief_visible,
 )
+from bouwmeester.core.org_context import OrgContext, get_org_context
 from bouwmeester.models.casus import Casus
 from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.models.lead import Lead
 from bouwmeester.models.resource_permission import ResourcePermission
 from bouwmeester.repositories.casus import CasusRepository
 from bouwmeester.repositories.casus_soort import CasusSoortRepository
+from bouwmeester.repositories.issue import IssueRepository
+from bouwmeester.repositories.task import TaskRepository
 from bouwmeester.schema.casus import (
+    DEFAULT_DOD,
     CasusDetailResponse,
     CasusResponse,
     CasusStart,
@@ -40,6 +44,12 @@ from bouwmeester.schema.startvragen import (
     CASUSTYPE_VRAAG,
     controleer_antwoorden,
     geldende_startvragen,
+)
+from bouwmeester.schema.task import (
+    BacklogIssue,
+    BacklogLosseTaak,
+    BacklogResponse,
+    BacklogTask,
 )
 from bouwmeester.services.activity_service import log_activity
 
@@ -89,10 +99,12 @@ async def _with_summaries(
 ) -> list[CasusResponse]:
     ids = [c.id for c in casussen]
     team = await repo.team_summary(ids)
+    issues = await repo.issue_counts(ids)
     out = []
     for c in casussen:
         resp = CasusResponse.model_validate(c)
         resp.trekker_naam, resp.team_count = team.get(c.id, (None, 0))
+        resp.issue_count, resp.issue_done_count = issues.get(c.id, (0, 0))
         out.append(resp)
     return out
 
@@ -224,7 +236,49 @@ async def _detail(repo: CasusRepository, casus: Casus) -> CasusDetailResponse:
     resp = CasusDetailResponse(**base.model_dump())
     resp.lead = casus.lead
     resp.team = [_team_response(rp) for rp in await repo.list_team(casus.id)]
+    eigen = casus.initiatief.dod_items if casus.initiatief else None
+    resp.dod_items = list(eigen) if eigen else list(DEFAULT_DOD)
     return resp
+
+
+@router.get("/backlog", response_model=BacklogResponse)
+async def list_backlog(
+    current_user: OptionalUser,
+    initiatief_id: UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    org_ctx: OrgContext = Depends(get_org_context),
+) -> BacklogResponse:
+    """De backlog van een initiatief: alle issues van al zijn casussen.
+
+    Omgekeerd aan de casusweergave: per issue de casus erbij en de taken
+    eronder. Sorteren en filteren gebeurt in de
+    client; de lijst is klein genoeg. Staat vóór `/{casus_id}`, anders vangt
+    die route het pad.
+    """
+    _check_initiatief_visible(initiatief_id, init_ctx)
+    issues, losse = await IssueRepository(db).list_backlog(
+        initiatief_id, init_ctx=init_ctx, org_ctx=org_ctx
+    )
+    out: list[BacklogIssue] = []
+    for issue in issues:
+        item = BacklogIssue.model_validate(issue)
+        # Alleen hoofdtaken; een taak in een casus heeft geen subtaken.
+        tasks = [
+            BacklogTask.model_validate(t) for t in issue.tasks if t.parent_id is None
+        ]
+        tasks.sort(
+            key=lambda t: (t.order if t.order is not None else 1 << 30, t.created_at)
+        )
+        item.tasks = tasks
+        out.append(item)
+    losse_taken = [BacklogLosseTaak.model_validate(t) for t in losse]
+    # Het aantal opmerkingen per kaartje, in één query voor de hele backlog.
+    kaartjes = [t for item in out for t in item.tasks] + losse_taken
+    aantallen = await TaskRepository(db).comment_counts([t.id for t in kaartjes])
+    for t in kaartjes:
+        t.comment_count = aantallen.get(t.id, 0)
+    return BacklogResponse(issues=out, losse_taken=losse_taken)
 
 
 @router.get("/{casus_id}", response_model=CasusDetailResponse)
@@ -294,7 +348,7 @@ async def delete_casus(
     db: AsyncSession = Depends(get_db),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> None:
-    """Verwijder een casus met haar team. De lead wordt weer bewerkbaar."""
+    """Verwijder een casus met issues en taken. De lead wordt weer bewerkbaar."""
     casus = await _get_casus(db, casus_id, init_ctx)
     title = casus.title
     await db.execute(

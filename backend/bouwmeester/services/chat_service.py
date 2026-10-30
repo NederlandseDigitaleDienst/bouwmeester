@@ -1138,8 +1138,9 @@ async def _execute_read_tool(
 
             repo = TaskRepository(db)
             org_ctx = await _build_chat_org_context(db, person_id)
+            init_ctx = await _build_chat_initiatief_context(db, person_id)
             tasks = await repo.get_by_node(
-                UUID(args["node_id"]), limit=20, org_ctx=org_ctx
+                UUID(args["node_id"]), limit=20, org_ctx=org_ctx, init_ctx=init_ctx
             )
             items = [_task_to_dict(t) for t in tasks]
             return _safe_dumps({"tasks": items, "count": len(items)})
@@ -1149,8 +1150,9 @@ async def _execute_read_tool(
 
             repo = TaskRepository(db)
             org_ctx = await _build_chat_org_context(db, person_id)
+            init_ctx = await _build_chat_initiatief_context(db, person_id)
             tasks = await repo.get_by_assignee(
-                UUID(args["person_id"]), limit=20, org_ctx=org_ctx
+                UUID(args["person_id"]), limit=20, org_ctx=org_ctx, init_ctx=init_ctx
             )
             items = [_task_to_dict(t) for t in tasks]
             return _safe_dumps({"tasks": items, "count": len(items)})
@@ -1160,8 +1162,11 @@ async def _execute_read_tool(
 
             repo = TaskRepository(db)
             org_ctx = await _build_chat_org_context(db, person_id)
+            init_ctx = await _build_chat_initiatief_context(db, person_id)
             assignee_id = UUID(args["assignee_id"]) if args.get("assignee_id") else None
-            tasks = await repo.get_overdue(assignee_id=assignee_id, org_ctx=org_ctx)
+            tasks = await repo.get_overdue(
+                assignee_id=assignee_id, org_ctx=org_ctx, init_ctx=init_ctx
+            )
             items = [_task_to_dict(t) for t in tasks[:20]]
             return _safe_dumps({"tasks": items, "count": len(items)})
 
@@ -1250,7 +1255,10 @@ async def _execute_read_tool(
                 return _safe_dumps({"error": "Persoon niet gevonden"})
 
             task_repo = TaskRepository(db)
-            tasks = await task_repo.get_by_assignee(person.id, limit=10)
+            init_ctx = await _build_chat_initiatief_context(db, person_id)
+            tasks = await task_repo.get_by_assignee(
+                person.id, limit=10, init_ctx=init_ctx
+            )
             open_tasks = [t for t in tasks if t.status not in ("done", "cancelled")]
 
             # Find current org unit via active placement

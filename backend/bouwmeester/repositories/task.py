@@ -3,11 +3,14 @@
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import distinct, func, select
+from sqlalchemy import distinct, func, or_, select
 from sqlalchemy.orm import selectinload
 
+from bouwmeester.core.initiatief_context import InitiatiefContext
 from bouwmeester.core.org_context import OrgContext, apply_org_filter
+from bouwmeester.models.casus import Casus
 from bouwmeester.models.task import Task
+from bouwmeester.models.task_comment import TaskComment
 from bouwmeester.repositories.base import BaseRepository
 from bouwmeester.schema.task import TaskCreate, TaskUpdate
 
@@ -18,9 +21,36 @@ def _task_options():
         selectinload(Task.assignee),
         selectinload(Task.organisatie_eenheid),
         selectinload(Task.node),
+        selectinload(Task.casus),
+        selectinload(Task.issue),
         selectinload(Task.opdracht),
         selectinload(Task.subtasks).selectinload(Task.assignee),
     ]
+
+
+def apply_casus_filter(stmt, init_ctx: InitiatiefContext | None):
+    """Taken van een casus alleen binnen de zichtbare initiatieven.
+
+    Een casustaak is zo vertrouwelijk als de casus. Elke lijst die taken
+    teruggeeft, ook "mijn taken" en de inbox, laat casustaken buiten de
+    zichtbare initiatieven weg. Wie uit een initiatief is gehaald, ziet dus
+    ook de taken die nog op zijn naam staan niet meer. Taken zonder casus
+    (aan een node) blijven zoals ze waren: daar geldt de org-scope.
+    Zonder context (interne aanroep) wordt niets gefilterd.
+    """
+    if init_ctx is None or init_ctx.is_admin:
+        return stmt
+    if not init_ctx.is_authenticated:
+        return stmt.where(Task.casus_id.is_(None))
+    zichtbare_casussen = select(Casus.id).where(
+        or_(
+            Casus.initiatief_id.is_(None),
+            Casus.initiatief_id.in_(init_ctx.visible_initiatief_ids),
+        )
+    )
+    return stmt.where(
+        or_(Task.casus_id.is_(None), Task.casus_id.in_(zichtbare_casussen))
+    )
 
 
 class TaskRepository(BaseRepository[Task]):
@@ -40,6 +70,7 @@ class TaskRepository(BaseRepository[Task]):
         include_children: bool = False,
         opdracht_id: UUID | None = None,
         org_ctx: OrgContext | None = None,
+        init_ctx: InitiatiefContext | None = None,
     ) -> list[Task]:
         stmt = select(Task).options(*_task_options()).offset(skip).limit(limit)
         if status is not None:
@@ -53,6 +84,7 @@ class TaskRepository(BaseRepository[Task]):
         if opdracht_id is not None:
             stmt = stmt.where(Task.opdracht_id == opdracht_id)
         stmt = apply_org_filter(stmt, Task.organisatie_eenheid_id, org_ctx)
+        stmt = apply_casus_filter(stmt, init_ctx)
         stmt = stmt.order_by(Task.created_at.desc())
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
@@ -67,6 +99,7 @@ class TaskRepository(BaseRepository[Task]):
                 "assignee",
                 "organisatie_eenheid",
                 "node",
+                "casus",
                 "opdracht",
                 "subtasks",
             ],
@@ -88,6 +121,7 @@ class TaskRepository(BaseRepository[Task]):
                 "assignee",
                 "organisatie_eenheid",
                 "node",
+                "casus",
                 "opdracht",
                 "subtasks",
             ],
@@ -100,6 +134,7 @@ class TaskRepository(BaseRepository[Task]):
         skip: int = 0,
         limit: int = 100,
         org_ctx: OrgContext | None = None,
+        init_ctx: InitiatiefContext | None = None,
     ) -> list[Task]:
         stmt = (
             select(Task)
@@ -110,6 +145,7 @@ class TaskRepository(BaseRepository[Task]):
             .order_by(Task.created_at.desc())
         )
         stmt = apply_org_filter(stmt, Task.organisatie_eenheid_id, org_ctx)
+        stmt = apply_casus_filter(stmt, init_ctx)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -119,6 +155,7 @@ class TaskRepository(BaseRepository[Task]):
         skip: int = 0,
         limit: int = 100,
         org_ctx: OrgContext | None = None,
+        init_ctx: InitiatiefContext | None = None,
     ) -> list[Task]:
         stmt = (
             select(Task)
@@ -134,6 +171,9 @@ class TaskRepository(BaseRepository[Task]):
             pass  # no org filter - user sees all their own tasks
         else:
             stmt = apply_org_filter(stmt, Task.organisatie_eenheid_id, org_ctx)
+        # Casustaken wel altijd: eigen taken op een casus die je niet meer
+        # mag zien, zie je niet.
+        stmt = apply_casus_filter(stmt, init_ctx)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -143,6 +183,7 @@ class TaskRepository(BaseRepository[Task]):
         skip: int = 0,
         limit: int = 100,
         org_ctx: OrgContext | None = None,
+        init_ctx: InitiatiefContext | None = None,
     ) -> list[Task]:
         stmt = (
             select(Task)
@@ -153,14 +194,56 @@ class TaskRepository(BaseRepository[Task]):
             .order_by(Task.created_at.desc())
         )
         stmt = apply_org_filter(stmt, Task.organisatie_eenheid_id, org_ctx)
+        stmt = apply_casus_filter(stmt, init_ctx)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def get_by_casus(
+        self,
+        casus_id: UUID,
+        skip: int = 0,
+        limit: int = 100,
+        org_ctx: OrgContext | None = None,
+        init_ctx: InitiatiefContext | None = None,
+    ) -> list[Task]:
+        """Taken van een casus, met subtaken (de UI hangt die onder hun hoofdtaak).
+
+        Volgorde: eerst op `order` (handmatig), dan op aanmaakdatum oplopend,
+        zodat een casusteam de lijst leest zoals hij is opgebouwd.
+        """
+        stmt = (
+            select(Task)
+            .where(Task.casus_id == casus_id)
+            .options(*_task_options())
+            .offset(skip)
+            .limit(limit)
+            .order_by(Task.order.asc().nulls_last(), Task.created_at.asc())
+        )
+        stmt = apply_org_filter(stmt, Task.organisatie_eenheid_id, org_ctx)
+        stmt = apply_casus_filter(stmt, init_ctx)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def comment_counts(self, task_ids: list[UUID]) -> dict[UUID, int]:
+        """Per taak het aantal opmerkingen; taken zonder opmerking ontbreken.
+
+        Alleen voor taken die de aanroeper al mag zien: dit filtert niet zelf.
+        """
+        if not task_ids:
+            return {}
+        stmt = (
+            select(TaskComment.task_id, func.count(TaskComment.id))
+            .where(TaskComment.task_id.in_(task_ids))
+            .group_by(TaskComment.task_id)
+        )
+        return {tid: int(n) for tid, n in (await self.session.execute(stmt)).all()}
 
     async def get_overdue(
         self,
         assignee_id: UUID | None = None,
         *,
         org_ctx: OrgContext | None = None,
+        init_ctx: InitiatiefContext | None = None,
     ) -> list[Task]:
         stmt = (
             select(Task)
@@ -176,6 +259,7 @@ class TaskRepository(BaseRepository[Task]):
         # users always see their own tasks regardless of org-scope.
         if not (org_ctx is not None and org_ctx.person_id == assignee_id):
             stmt = apply_org_filter(stmt, Task.organisatie_eenheid_id, org_ctx)
+        stmt = apply_casus_filter(stmt, init_ctx)
         stmt = stmt.order_by(Task.deadline.asc())
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
@@ -187,6 +271,7 @@ class TaskRepository(BaseRepository[Task]):
         skip: int = 0,
         limit: int = 100,
         org_ctx: OrgContext | None = None,
+        init_ctx: InitiatiefContext | None = None,
     ) -> list[Task]:
         if include_children:
             unit_ids = await self._get_descendant_ids(eenheid_id)
@@ -200,6 +285,7 @@ class TaskRepository(BaseRepository[Task]):
             .order_by(Task.created_at.desc())
         )
         stmt = apply_org_filter(stmt, Task.organisatie_eenheid_id, org_ctx)
+        stmt = apply_casus_filter(stmt, init_ctx)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -208,6 +294,7 @@ class TaskRepository(BaseRepository[Task]):
         organisatie_eenheid_id: UUID | None = None,
         *,
         org_ctx: OrgContext | None = None,
+        init_ctx: InitiatiefContext | None = None,
     ) -> list[Task]:
         stmt = (
             select(Task)
@@ -218,6 +305,7 @@ class TaskRepository(BaseRepository[Task]):
             .options(*_task_options())
         )
         stmt = apply_org_filter(stmt, Task.organisatie_eenheid_id, org_ctx)
+        stmt = apply_casus_filter(stmt, init_ctx)
         if organisatie_eenheid_id is not None:
             stmt = stmt.where(Task.organisatie_eenheid_id == organisatie_eenheid_id)
         stmt = stmt.order_by(Task.created_at.desc())
@@ -229,6 +317,7 @@ class TaskRepository(BaseRepository[Task]):
         parent_id: UUID,
         *,
         org_ctx: OrgContext | None = None,
+        init_ctx: InitiatiefContext | None = None,
     ) -> list[Task]:
         stmt = (
             select(Task)
@@ -237,6 +326,7 @@ class TaskRepository(BaseRepository[Task]):
             .order_by(Task.order.asc().nulls_last(), Task.created_at.asc())
         )
         stmt = apply_org_filter(stmt, Task.organisatie_eenheid_id, org_ctx)
+        stmt = apply_casus_filter(stmt, init_ctx)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -280,6 +370,7 @@ class TaskRepository(BaseRepository[Task]):
         self,
         *,
         org_ctx: OrgContext | None = None,
+        init_ctx: InitiatiefContext | None = None,
     ) -> list[str]:
         """Return all distinct non-null work_type values, sorted alphabetically."""
         stmt = (
@@ -289,6 +380,7 @@ class TaskRepository(BaseRepository[Task]):
             .order_by(Task.work_type)
         )
         stmt = apply_org_filter(stmt, Task.organisatie_eenheid_id, org_ctx)
+        stmt = apply_casus_filter(stmt, init_ctx)
         result = await self.session.execute(stmt)
         return [row[0] for row in result.all()]
 

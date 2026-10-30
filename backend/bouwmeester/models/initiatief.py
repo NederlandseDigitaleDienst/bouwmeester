@@ -41,6 +41,9 @@ class Initiatief(Base):
     score_strategisch_label: Mapped[str | None] = mapped_column(nullable=True)
     score_politiek_label: Mapped[str | None] = mapped_column(nullable=True)
     score_positie_label: Mapped[str | None] = mapped_column(nullable=True)
+    # Definition of Done: teamstandaard, lijst eisen waaraan een issue moet
+    # voldoen voordat het afgerond is. Leeg = de dummy-default uit schema/casus.py.
+    dod_items: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
     # Acceptatiecriteria voor een nieuwe casus: wat het team bij het starten
     # naloopt. Per casus vastgelegd in casus.startvoorwaarden (afgevinkt, met
     # een opmerking per criterium). Leeg = geen criteria.

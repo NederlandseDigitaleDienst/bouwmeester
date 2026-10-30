@@ -45,6 +45,8 @@ export function InitiatiefCasussen({ initiatiefId }: { initiatiefId: string }) {
   const [eigenaar, setEigenaar] = useState('');
   // Het startvenster van de knop rechtsboven; dezelfde leads als het bord.
   const [nieuw, setNieuw] = useState(false);
+  // De plek in de kop voor de filters van het werk van de gekozen casus.
+  const [filterPlek, setFilterPlek] = useState<HTMLElement | null>(null);
   const { data: startLeads = [] } = useLeads({ initiatief_id: initiatiefId, stage: CASUS_START_STAGE });
   const klaar = useMemo(() => startLeads.filter((l) => !l.casus_id), [startLeads]);
 
@@ -103,6 +105,9 @@ export function InitiatiefCasussen({ initiatiefId }: { initiatiefId: string }) {
             <div className="casus-kop-keuzes">
               <Select compact label="Casuseigenaar" size="sm" width="180px" options={eigenaarOptions} value={eigenaar} onChange={(e) => setEigenaar(e.target.value)} />
               <Select compact label="Casus" size="sm" width="280px" options={casusOptions} value={gekozen} onChange={(e) => zet({ casus: e.target.value })} />
+              {/* Hier zet het werk van de gekozen casus zijn filters neer
+                  (Status, Taakeigenaar), op dezelfde regel. */}
+              <div ref={setFilterPlek} className="casus-kop-filters" />
             </div>
           )}
           <div className="casus-kop-acties">
@@ -125,7 +130,7 @@ export function InitiatiefCasussen({ initiatiefId }: { initiatiefId: string }) {
       ) : (
         <nldd-container gap="12">
           {gekozen ? (
-            <CasusOverzicht key={gekozen} casusId={gekozen} initiatiefId={initiatiefId} />
+            <CasusOverzicht key={gekozen} casusId={gekozen} initiatiefId={initiatiefId} filterPlek={filterPlek} />
           ) : (
             <EmptyState
               title="Kies een casus"

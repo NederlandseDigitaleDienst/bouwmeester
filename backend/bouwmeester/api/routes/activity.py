@@ -7,6 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bouwmeester.core.auth import OptionalUser, effective_person_id
 from bouwmeester.core.database import get_db
+from bouwmeester.core.initiatief_context import (
+    InitiatiefContext,
+    get_initiatief_context,
+)
 from bouwmeester.core.permissions import require_permission
 from bouwmeester.schema.activity import ActivityFeedResponse, ActivityResponse
 from bouwmeester.schema.inbox import InboxResponse
@@ -44,8 +48,12 @@ async def get_inbox(
     current_user: OptionalUser,
     person_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> InboxResponse:
-    """Get aggregated inbox for a person (tasks, notifications, deadlines)."""
+    """Get aggregated inbox for a person (tasks, notifications, deadlines).
+
+    Casustaken volgen het initiatief van de casus, net als in /tasks/inbox.
+    """
     pid = effective_person_id(current_user, person_id)
     service = InboxService(db)
-    return await service.get_inbox(pid)
+    return await service.get_inbox(pid, init_ctx=init_ctx)

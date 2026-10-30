@@ -4,7 +4,7 @@ import enum
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class TaskStatus(enum.StrEnum):
@@ -24,7 +24,9 @@ class TaskPriority(enum.StrEnum):
 class TaskBase(BaseModel):
     title: str = Field(min_length=1, max_length=500)
     description: str | None = Field(None, max_length=10000)
-    node_id: UUID
+    node_id: UUID | None = None
+    casus_id: UUID | None = None
+    issue_id: UUID | None = None
     assignee_id: UUID | None = None
     organisatie_eenheid_id: UUID | None = None
     parent_id: UUID | None = None
@@ -36,6 +38,15 @@ class TaskBase(BaseModel):
     work_type: str | None = Field(None, max_length=100)
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @model_validator(mode="after")
+    def _require_anchor(self) -> "TaskBase":
+        # Een taak hangt aan een corpus-node of aan een casus. Een issue
+        # alleen is genoeg: de route vult casus_id dan aan vanuit het issue.
+        # Een subtaak hangt aan een node, net als op main.
+        if self.node_id is None and self.casus_id is None and self.issue_id is None:
+            raise ValueError("node_id, casus_id of issue_id is verplicht")
+        return self
 
 
 class TaskCreate(TaskBase):
@@ -63,6 +74,8 @@ class TaskUpdate(BaseModel):
     title: str | None = Field(None, min_length=1, max_length=500)
     description: str | None = Field(None, max_length=10000)
     node_id: UUID | None = None
+    casus_id: UUID | None = None
+    issue_id: UUID | None = None
     assignee_id: UUID | None = None
     organisatie_eenheid_id: UUID | None = None
     parent_id: UUID | None = None
@@ -122,12 +135,78 @@ class TaskSubtaskSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class TaskCasusSummary(BaseModel):
+    id: UUID
+    title: str
+    fase: str
+    # Het initiatief van de casus: de UI beperkt daarmee wie te kiezen is.
+    initiatief_id: UUID | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BacklogTask(BaseModel):
+    """Eén taak in de backlog, als kaartje op het mini-kanban van zijn issue."""
+
+    id: UUID
+    title: str
+    status: TaskStatus
+    priority: TaskPriority
+    due_date: date | None = Field(None, validation_alias="deadline")
+    order: int | None = None
+    assignee_id: UUID | None = None
+    assignee: TaskAssigneeSummary | None = None
+    # Hoe besproken de taak is: het aantal opmerkingen, als getal op het kaartje.
+    comment_count: int = 0
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BacklogIssue(BaseModel):
+    """Eén issue in de backlog van een initiatief, met de casus en zijn taken.
+
+    Alleen hoofdtaken; hun subtaken hangen eronder.
+    """
+
+    id: UUID
+    casus_id: UUID
+    casus: TaskCasusSummary
+    title: str
+    status: str
+    is_onderzoeksvraag: bool = True
+    assignee_id: UUID | None = None
+    assignee: TaskAssigneeSummary | None = None
+    toelichting: str | None = None
+    sort_order: int = 0
+    dod_checked: list[str] = []
+    tasks: list[BacklogTask] = []
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BacklogResponse(BaseModel):
+    issues: list[BacklogIssue]
+    # Taken zonder issue, los op de casus, met hun casus erbij zodat ze
+    # ergens onder te hangen zijn.
+    losse_taken: list["BacklogLosseTaak"]
+
+
+class BacklogLosseTaak(BacklogTask):
+    casus_id: UUID
+    casus: TaskCasusSummary
+
+
 class TaskResponse(BaseModel):
     id: UUID
     title: str
     description: str | None = None
-    node_id: UUID
+    node_id: UUID | None = None
     node: TaskNodeSummary | None = None
+    casus_id: UUID | None = None
+    casus: TaskCasusSummary | None = None
+    issue_id: UUID | None = None
     assignee_id: UUID | None = None
     assignee: TaskAssigneeSummary | None = None
     organisatie_eenheid_id: UUID | None = None

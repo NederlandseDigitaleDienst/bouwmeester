@@ -36,6 +36,8 @@ export const queryKeys = {
     eenheidOverview: (orgId: string | null) => ['tasks', 'list', 'eenheid-overview', orgId] as const,
     byPerson: (personId: string | null) => ['tasks', 'list', 'by-person', personId] as const,
     byOpdracht: (opdrachtId: string | null) => ['tasks', 'list', 'by-opdracht', opdrachtId] as const,
+    byCasus: (casusId: string | null) => ['tasks', 'list', 'by-casus', casusId] as const,
+    backlog: (initiatiefId: string | null) => ['tasks', 'list', 'backlog', initiatiefId] as const,
     workTypes: () => ['tasks', 'work-types'] as const,
     comments: (taskId: string | null) => ['tasks', 'detail', taskId, 'comments'] as const,
     attachments: (taskId: string | null) => ['tasks', 'detail', taskId, 'attachments'] as const,
@@ -211,12 +213,16 @@ export const queryKeys = {
     metrics: () => ['leads', 'metrics'] as const,
   },
 
-  // --- Casussen ---
+  // --- Casussen en hun issues ---
   casussen: {
     all: ['casussen'] as const,
     lists: () => ['casussen', 'list'] as const,
     list: (initiatiefId: string | undefined) => ['casussen', 'list', initiatiefId] as const,
     detail: (id: string | null) => ['casussen', 'detail', id] as const,
+  },
+  issues: {
+    all: ['issues'] as const,
+    forCasus: (casusId: string | null) => ['issues', 'casus', casusId] as const,
   },
   casusSoorten: {
     all: ['casus-soorten'] as const,

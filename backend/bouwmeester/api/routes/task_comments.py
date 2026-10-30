@@ -2,7 +2,8 @@
 
 Eigen router naast tasks.py, zodat het taakdetail (opmerkingen, bijlagen)
 los staat van de taak zelf. Toegang: wie de taak mag zien, mag meepraten en
-bijlagen toevoegen: task:read plus de org-scope, net als de taak zelf.
+bijlagen toevoegen. Een casustaak is zo zichtbaar als haar casus (404
+buiten een zichtbaar initiatief); een node-taak volgt de org-scope.
 """
 
 from uuid import UUID
@@ -18,6 +19,7 @@ from bouwmeester.core.database import get_db
 from bouwmeester.core.initiatief_context import (
     InitiatiefContext,
     get_initiatief_context,
+    require_initiatief_visible,
 )
 from bouwmeester.core.org_context import (
     OrgContext,
@@ -32,6 +34,7 @@ from bouwmeester.core.storage import (
     store_upload,
     validate_upload,
 )
+from bouwmeester.models.casus import Casus
 from bouwmeester.models.task import Task
 from bouwmeester.models.task_attachment import TaskAttachment
 from bouwmeester.models.task_comment import TaskComment
@@ -57,11 +60,21 @@ async def _get_visible_task(
 ) -> Task:
     """De taak, als de aanvrager hem mag zien.
 
-    De gewone regel voor taken: task:read plus de org-scope.
+    Een casustaak volgt de casus: zichtbaar voor wie het initiatief ziet,
+    anders 404 (zoals issues en stories; geen rol vereist). Een node-taak
+    volgt de gewone regel: task:read plus de org-scope.
     """
     task = await db.get(Task, task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="Taak niet gevonden")
+    if task.casus_id is not None:
+        casus = await db.get(Casus, task.casus_id)
+        require_initiatief_visible(
+            casus.initiatief_id if casus else None,
+            init_ctx,
+            detail="Taak niet gevonden",
+        )
+        return task
     if not perm_ctx.has_permission("task:read"):
         raise HTTPException(status_code=403, detail="Onvoldoende rechten")
     await check_resource_org_scope(db, "task", task_id, org_ctx)
