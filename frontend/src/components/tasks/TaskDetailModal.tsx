@@ -1,36 +1,47 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@/components/nldd/Icon';
-import { orUndef, useNlddEvent } from '@/components/nldd/events';
+import { Select } from '@/components/common/Select';
+import { TaskCommentsSection } from './TaskCommentsSection';
+import { TaskAttachmentsSection } from './TaskAttachmentsSection';
+import { usePeople } from '@/hooks/usePeople';
 import { Modal } from '@/components/common/Modal';
-import { Badge } from '@/components/common/Badge';
-import { RichTextDisplay } from '@/components/common/RichTextDisplay';
 import { ReferencesList } from '@/components/common/ReferencesList';
-import { DetailSection } from '@/components/common/DetailSection';
-import { DetailMetadataGrid } from '@/components/common/DetailMetadataGrid';
-import { DetailModalFooter } from '@/components/common/DetailModalFooter';
+import { CreatableSelect } from '@/components/common/CreatableSelect';
+import { Input } from '@/components/common/Input';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { TaskEditForm } from './TaskEditForm';
+import { Eigenschap, Eigenschappen, TekstVeld, TitelVeld } from '@/components/common/DetailVelden';
+import { useReorderSubtasks, useTask, useUpdateTask, useWorkTypes } from '@/hooks/useTasks';
+import { DetailSection } from '@/components/common/DetailSection';
+import { Badge } from '@/components/common/Badge';
 import { TaskCreateForm } from './TaskCreateForm';
-import { useTask, useReorderSubtasks } from '@/hooks/useTasks';
+import { useTaakVerwijderen } from '@/hooks/useTaakVerwijderen';
+import { useTaskFormOptions } from '@/hooks/useTaskFormOptions';
+import { eventValue, orUndef, useNlddEvent } from '@/components/nldd/events';
+import { NlddIconButton } from '@/components/nldd/NlddIconButton';
 import { useNodeDetail } from '@/contexts/NodeDetailContext';
 import { useOpdrachtDetail } from '@/contexts/OpdrachtDetailContext';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { isOverdue as checkOverdue, formatDateLong, formatDateShort } from '@/utils/dates';
 import {
   TaskStatus,
+  TaskPriority,
   TASK_STATUS_LABELS,
   TASK_STATUS_COLORS,
   TASK_PRIORITY_LABELS,
-  TASK_PRIORITY_COLORS,
 } from '@/types';
-import type { TaskSubtask } from '@/types';
+import type { Task, TaskSubtask, TaskUpdate } from '@/types';
 import { NlddButton } from '@/components/nldd/NlddButton';
+
+const STATUS_OPTIONS = Object.values(TaskStatus).map((value) => ({ value, label: TASK_STATUS_LABELS[value] }));
+const PRIORITY_OPTIONS = Object.values(TaskPriority).map((value) => ({ value, label: TASK_PRIORITY_LABELS[value] }));
 
 interface TaskDetailModalProps {
   taskId: string | null;
   open: boolean;
   onClose: () => void;
+  /** Midden (standaard), of als paneel links of rechts naast een bord. */
+  placement?: 'center' | 'left' | 'right';
 }
 
 interface DetailLinkActionProps {
@@ -61,68 +72,100 @@ function DetailLinkAction({ text, startIcon, onClick }: DetailLinkActionProps) {
   );
 }
 
-interface SubtaskRowProps {
-  subtask: TaskSubtask;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
-  reorderPending: boolean;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  onOpen: () => void;
+/** De deadline als datumveld; opslaan zodra er een datum staat of hij leeg is. */
+function DeadlineVeld({ datum, teLaat, onOpslaan }: { datum: string; teLaat: boolean; onOpslaan: (datum: string | null) => void }) {
+  const ref = useRef<HTMLElement>(null);
+  useNlddEvent(ref, 'change', (e) => {
+    const waarde = eventValue(e);
+    if (waarde !== datum) onOpslaan(waarde || null);
+  });
+  return (
+    <>
+      <Input ref={ref} type="date" aria-label="Deadline" value={datum} />
+      {teLaat && <nldd-text size="xs" color="critical" weight="bold">Over de deadline</nldd-text>}
+    </>
+  );
+}
+
+/** Node van een taak: kiezen, en openen met het pijltje. */
+function NodeVeld({ task, onOpslaan, onOpen }: { task: Task; onOpslaan: (nodeId: string) => void; onOpen: () => void }) {
+  const { nodeOptions } = useTaskFormOptions();
+  return (
+    <nldd-container layout="row" gap="4" vertical-alignment="center">
+      <nldd-container className="row-fill">
+        <CreatableSelect
+          value={task.node_id ?? ''}
+          onChange={(v) => v && v !== task.node_id && onOpslaan(v)}
+          options={nodeOptions}
+          placeholder="Koppel aan een node"
+        />
+      </nldd-container>
+      {task.node_id && (
+        <NlddIconButton icon="external-link" accessibleLabel="Node openen" variant="neutral-transparent" size="sm" onClick={onOpen} />
+      )}
+    </nldd-container>
+  );
+}
+
+/** Werktype, zoals in het bewerkformulier op main: kiezen, nieuw maken of leeg. */
+function WerktypeVeld({ task, onOpslaan }: { task: Task; onOpslaan: (werktype: string | null) => void }) {
+  const { data: workTypes = [] } = useWorkTypes();
+  return (
+    <CreatableSelect
+      value={task.work_type ?? ''}
+      onChange={(v) => (v || null) !== (task.work_type ?? null) && onOpslaan(v || null)}
+      options={workTypes.map((wt) => ({ value: wt, label: wt }))}
+      placeholder="bijv. Analyse, Overleg, Review..."
+      onCreate={async (text) => {
+        onOpslaan(text);
+        return text;
+      }}
+      createLabel="Nieuw werktype"
+      onClear={task.work_type ? () => onOpslaan(null) : undefined}
+    />
+  );
 }
 
 /**
- * A subtask row with three actions (move up, move down, open detail), so per
- * the list-with-rows pattern the row itself carries no href/button of its own
- * and each action gets its own nldd-list-item-segment. Refs + useNlddEvent
- * bind the clicks: a JSX onClick on a custom element is not a real listener
- * (React only delegates its fixed DOM event set), and disabled is boolean, so
- * it goes through orUndef the same as every other nldd-* boolean attribute.
+ * Eén subtaak in de lijst, zoals op main: omhoog, omlaag, en openen. Een
+ * subtaak is een gewone taak met eigen kenmerken; die staan op de regel.
  */
-function SubtaskRow({
+function SubtaakRij({
   subtask,
-  canMoveUp,
-  canMoveDown,
-  reorderPending,
-  onMoveUp,
-  onMoveDown,
+  kanOmhoog,
+  kanOmlaag,
+  bezig,
+  onOmhoog,
+  onOmlaag,
   onOpen,
-}: SubtaskRowProps) {
+}: {
+  subtask: TaskSubtask;
+  kanOmhoog: boolean;
+  kanOmlaag: boolean;
+  bezig: boolean;
+  onOmhoog: () => void;
+  onOmlaag: () => void;
+  onOpen: () => void;
+}) {
   const upRef = useRef<HTMLElement>(null);
   const downRef = useRef<HTMLElement>(null);
   const openRef = useRef<HTMLElement>(null);
-  useNlddEvent(upRef, 'click', onMoveUp);
-  useNlddEvent(downRef, 'click', onMoveDown);
+  useNlddEvent(upRef, 'click', onOmhoog);
+  useNlddEvent(downRef, 'click', onOmlaag);
   useNlddEvent(openRef, 'click', onOpen);
-
-  const subDone = subtask.status === TaskStatus.DONE;
-
+  const af = subtask.status === TaskStatus.DONE;
   return (
     <nldd-list-item>
-      <nldd-list-item-segment
-        ref={upRef}
-        button
-        accessible-label="Omhoog"
-        disabled={orUndef(!canMoveUp || reorderPending)}
-      >
+      <nldd-list-item-segment ref={upRef} button accessible-label="Omhoog" disabled={orUndef(!kanOmhoog || bezig)}>
         <Icon name="chevron-up" size="xs" />
       </nldd-list-item-segment>
-      <nldd-list-item-segment
-        ref={downRef}
-        button
-        accessible-label="Omlaag"
-        disabled={orUndef(!canMoveDown || reorderPending)}
-      >
+      <nldd-list-item-segment ref={downRef} button accessible-label="Omlaag" disabled={orUndef(!kanOmlaag || bezig)}>
         <Icon name="chevron-down" size="xs" />
       </nldd-list-item-segment>
       <nldd-list-item-segment ref={openRef} button width="full">
-        <nldd-icon-cell icon={subDone ? 'check-mark-circle' : 'circle'} color={subDone ? 'success' : 'content'} />
+        <nldd-icon-cell icon={af ? 'check-mark-circle' : 'circle'} color={af ? 'success' : 'content'} />
         <nldd-spacer-cell size="8" />
-        <nldd-text-cell
-          text={subtask.title}
-          color={subDone ? 'secondary' : 'content'}
-          width="fit-content"
-        />
+        <nldd-text-cell text={subtask.title} color={af ? 'secondary' : 'content'} width="fit-content" />
         {subtask.work_type && (
           <>
             <nldd-spacer-cell size="8" />
@@ -130,9 +173,7 @@ function SubtaskRow({
           </>
         )}
         <nldd-spacer-cell size="flexible" />
-        {subtask.assignee && (
-          <nldd-text-cell text={subtask.assignee.naam} color="secondary" width="fit-content" size="sm" />
-        )}
+        {subtask.assignee && <nldd-text-cell text={subtask.assignee.naam} color="secondary" width="fit-content" size="sm" />}
         {subtask.due_date && (
           <>
             <nldd-spacer-cell size="12" />
@@ -144,47 +185,196 @@ function SubtaskRow({
   );
 }
 
-export function TaskDetailModal({ taskId, open, onClose }: TaskDetailModalProps) {
-  const { data: task, isLoading } = useTask(taskId);
-  const [showEdit, setShowEdit] = useState(false);
-  const [showSubtaskCreate, setShowSubtaskCreate] = useState(false);
+/**
+ * De subtaken van een taak, zoals op main: een lijst met
+ * omhoog en omlaag, en Subtaak toevoegen opent het formulier voor een
+ * nieuwe taak onder deze.
+ */
+function Subtaken({ task }: { task: Task }) {
+  const reorder = useReorderSubtasks();
+  const { openTaskDetail } = useTaskDetail();
+  const [nieuw, setNieuw] = useState(false);
+  const subtasks = task.subtasks ?? [];
+  const verplaats = (index: number, richting: -1 | 1) => {
+    const nieuwIndex = index + richting;
+    if (nieuwIndex < 0 || nieuwIndex >= subtasks.length) return;
+    const ids = subtasks.map((s) => s.id);
+    [ids[index], ids[nieuwIndex]] = [ids[nieuwIndex], ids[index]];
+    reorder.mutate({ taskId: task.id, taskIds: ids });
+  };
+  return (
+    <DetailSection
+      title="Subtaken"
+      icon={<Icon name="tree-structure" size="sm" />}
+      count={subtasks.length}
+      action={<NlddButton variant="neutral-transparent" size="sm" startIcon="plus" onClick={() => setNieuw(true)} text="Subtaak toevoegen" />}
+    >
+      {subtasks.length > 0 ? (
+        <nldd-list appearance="simple" accessible-label="Subtaken">
+          {subtasks.map((sub, i) => (
+            <SubtaakRij
+              key={sub.id}
+              subtask={sub}
+              kanOmhoog={i > 0}
+              kanOmlaag={i < subtasks.length - 1}
+              bezig={reorder.isPending}
+              onOmhoog={() => verplaats(i, -1)}
+              onOmlaag={() => verplaats(i, 1)}
+              onOpen={() => openTaskDetail(sub.id, task.title)}
+            />
+          ))}
+        </nldd-list>
+      ) : (
+        <nldd-text size="sm" color="secondary">Geen subtaken</nldd-text>
+      )}
+      <TaskCreateForm open={nieuw} onClose={() => setNieuw(false)} nodeId={task.node_id ?? undefined} parentId={task.id} />
+    </DetailSection>
+  );
+}
+
+function EenheidVeld({ task, onOpslaan }: { task: Task; onOpslaan: (eenheidId: string | null) => void }) {
+  const { eenheidOptions } = useTaskFormOptions();
+  return (
+    <Select
+      size="sm"
+      aria-label="Verantwoordelijke eenheid"
+      options={eenheidOptions.map((o) => ({ value: o.value, label: o.label }))}
+      value={task.organisatie_eenheid_id ?? ''}
+      onChange={(e) => onOpslaan(e.target.value || null)}
+    />
+  );
+}
+
+/**
+ * Alles van één taak, direct te bewerken: geen knop Bewerken, geen apart
+ * formulier. Keuzelijsten en de datum slaan meteen op, de beschrijving met
+ * Opslaan. De titel bewerk je in de kop, via het potloodje. Opnieuw gemount
+ * per taak, zodat half getypte tekst niet bij een andere taak terechtkomt.
+ */
+function TaakVelden({ task, onClose }: { task: Task; onClose: () => void }) {
+  const updateTask = useUpdateTask();
+  const zet = (data: TaskUpdate) => updateTask.mutate({ id: task.id, data });
   const { openNodeDetail } = useNodeDetail();
   const { openOpdrachtDetail } = useOpdrachtDetail();
-  const { openTaskDetail, taskParentLabel } = useTaskDetail();
   const navigate = useNavigate();
-  const reorderSubtasks = useReorderSubtasks();
+  // Iedereen die actief is; staat er iemand op de taak die dat niet meer
+  // is, dan blijft die zichtbaar zodat de keuze niet stil verspringt.
+  const { data: mensen } = usePeople();
+  const personOptions = useMemo(() => {
+    const opties = [
+      { value: '', label: 'Niemand' },
+      ...(mensen ?? []).filter((p) => p.is_active && !p.is_agent).map((p) => ({ value: p.id, label: p.naam })),
+    ];
+    if (task.assignee && !opties.some((o) => o.value === task.assignee!.id)) {
+      opties.push({ value: task.assignee.id, label: task.assignee.naam });
+    }
+    return opties;
+  }, [mensen, task.assignee]);
 
-  const handleMoveSubtask = (index: number, direction: 'up' | 'down') => {
-    if (!task) return;
-    const subs = [...(task.subtasks ?? [])];
-    const newIndex = direction === 'up' ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= subs.length) return;
-    [subs[index], subs[newIndex]] = [subs[newIndex], subs[index]];
-    reorderSubtasks.mutate({ taskId: task.id, taskIds: subs.map((s) => s.id) });
+  const teLaat = !!task.due_date && checkOverdue(task.due_date) && task.status !== TaskStatus.DONE;
+
+  const bewaarBeschrijving = async (tekst: string | null) => {
+    try {
+      await updateTask.mutateAsync({ id: task.id, data: { description: tekst } });
+    } catch {
+      // de melding is al getoond; de tekst blijft staan
+    }
   };
+
+  return (
+    <nldd-container gap="24">
+      <nldd-container gap="12">
+        <Eigenschappen>
+          <Eigenschap label="Status">
+            <Select size="sm" aria-label="Status" options={STATUS_OPTIONS} value={task.status} onChange={(e) => zet({ status: e.target.value as TaskStatus })} />
+          </Eigenschap>
+          <Eigenschap label="Prioriteit">
+            <Select size="sm" aria-label="Prioriteit" options={PRIORITY_OPTIONS} value={task.priority} onChange={(e) => zet({ priority: e.target.value as TaskPriority })} />
+          </Eigenschap>
+          <Eigenschap label="Toegewezen aan">
+            <Select size="sm" aria-label="Toegewezen aan" options={personOptions} value={task.assignee_id ?? ''} onChange={(e) => zet({ assignee_id: e.target.value || null })} />
+          </Eigenschap>
+          <Eigenschap label="Deadline">
+            <DeadlineVeld datum={task.due_date?.split('T')[0] ?? ''} teLaat={teLaat} onOpslaan={(due_date) => zet({ due_date })} />
+          </Eigenschap>
+          <Eigenschap label="Verantwoordelijke eenheid">
+            <EenheidVeld task={task} onOpslaan={(organisatie_eenheid_id) => zet({ organisatie_eenheid_id })} />
+          </Eigenschap>
+          <Eigenschap label="Werktype">
+            <WerktypeVeld task={task} onOpslaan={(work_type) => zet({ work_type })} />
+          </Eigenschap>
+          {/* De node is te kiezen, ook bij een subtaak. */}
+          <Eigenschap label="Node" breed>
+            <NodeVeld task={task} onOpslaan={(node_id) => zet({ node_id })} onOpen={() => openNodeDetail(task.node_id!, task.title)} />
+          </Eigenschap>
+          {task.opdracht && (
+            <Eigenschap label="Opdracht">
+              <div>
+                <DetailLinkAction
+                  text={task.opdracht.titel}
+                  startIcon="clipboard-bullet-list"
+                  onClick={() => openOpdrachtDetail(task.opdracht!.id, task.title)}
+                />
+              </div>
+            </Eigenschap>
+          )}
+          {task.parlementair_item_id && (
+            <Eigenschap label="Beoordeling">
+              <div>
+                <DetailLinkAction
+                  text="Ga naar beoordeling"
+                  startIcon="file-text"
+                  onClick={() => {
+                    onClose();
+                    navigate(`/parlementair?item=${task.parlementair_item_id}`);
+                  }}
+                />
+              </div>
+            </Eigenschap>
+          )}
+        </Eigenschappen>
+        <nldd-text size="xs" color="secondary">
+          Aangemaakt {formatDateLong(task.created_at)}
+          {task.updated_at ? `, laatst bijgewerkt ${formatDateLong(task.updated_at)}` : ''}
+        </nldd-text>
+      </nldd-container>
+
+      <TekstVeld
+        label="Beschrijving en notities"
+        placeholder="Wat moet er gebeuren, wanneer is het af, en wat wil je onthouden? Gebruik @ om iemand te noemen."
+        tekst={task.description ?? ''}
+        bezig={updateTask.isPending}
+        onOpslaan={bewaarBeschrijving}
+      />
+
+      <Subtaken task={task} />
+
+      {/* Opmerkingen: het gesprek over de taak. */}
+      <TaskCommentsSection taskId={task.id} />
+
+      {/* Verwijzingen, als die er zijn */}
+      <ReferencesList targetId={task.id} />
+    </nldd-container>
+  );
+}
+
+export function TaskDetailModal({ taskId, open, onClose, placement = 'center' }: TaskDetailModalProps) {
+  const { data: task, isLoading } = useTask(taskId);
+  const { taskParentLabel } = useTaskDetail();
+  // Verwijderen staat onderaan; daarna is er niets meer om te tonen.
+  const { vraagBevestiging, element: verwijderen } = useTaakVerwijderen({ onVerwijderd: onClose });
+  // Welke taak er een open titelveld heeft (via het potloodje in de kop). Een
+  // id en geen boolean: open je een andere taak, dan is het veld vanzelf dicht.
+  const [titelVan, setTitelVan] = useState<string | null>(null);
+  const updateTask = useUpdateTask();
 
   if (!open) return null;
 
-  if (showEdit && task) {
-    return (
-      <TaskEditForm
-        open
-        onClose={() => {
-          setShowEdit(false);
-          onClose();
-        }}
-        task={task}
-      />
-    );
-  }
-
-  const isOverdue =
-    task?.due_date &&
-    checkOverdue(task.due_date) &&
-    task.status !== TaskStatus.DONE;
-
-  const subtasks = task?.subtasks ?? [];
   const accentColor = task ? TASK_STATUS_COLORS[task.status] : undefined;
+  // Als zijpaneel naast een bord is er niets om naar terug te gaan: terug
+  // zou hetzelfde doen als Sluiten. In het midden, gestapeld op een ander
+  // venster, wel.
+  const terug = placement === 'center' && taskParentLabel ? taskParentLabel : undefined;
 
   return (
     <>
@@ -193,25 +383,35 @@ export function TaskDetailModal({ taskId, open, onClose }: TaskDetailModalProps)
         onClose={onClose}
         title={isLoading ? 'Laden...' : task?.title ?? 'Taak niet gevonden'}
         size="lg"
+        placement={placement}
         accentColor={accentColor}
         headerIcon={<Icon name="check-list" size="md" />}
-        entityLabel="Taak"
-        backLabel={taskParentLabel ?? undefined}
-        onBack={taskParentLabel ? onClose : undefined}
-        footer={
-          <DetailModalFooter
-            onClose={onClose}
-            actions={
-              <NlddButton
-                variant="secondary"
-                size="sm"
-                startIcon="pencil"
-                onClick={() => setShowEdit(true)}
-                disabled={!task}
-                text="Bewerken"
-              />
-            }
-          />
+        backLabel={terug}
+        onBack={terug ? onClose : undefined}
+        dismissText="Sluit"
+        // Het potloodje maakt van de titel in de kop meteen een invoerveld.
+        titleEditor={
+          task && titelVan === task.id ? (
+            <TitelVeld
+              key={task.id}
+              titel={task.title}
+              zonderLabel
+              onOpslaan={(title) => updateTask.mutate({ id: task.id, data: { title } })}
+              onKlaar={() => setTitelVan(null)}
+            />
+          ) : undefined
+        }
+        toolbar={
+          task ? (
+            <NlddIconButton
+              slot="toolbar"
+              icon="pencil"
+              accessibleLabel="Titel bewerken"
+              variant="neutral-transparent"
+              size="sm"
+              onClick={() => setTitelVan(task.id)}
+            />
+          ) : undefined
         }
       >
         {isLoading ? (
@@ -221,160 +421,27 @@ export function TaskDetailModal({ taskId, open, onClose }: TaskDetailModalProps)
             <nldd-text size="sm" color="secondary">Taak niet gevonden.</nldd-text>
           </nldd-container>
         ) : (
-          <nldd-container gap="20">
-            {/* Status / Priority / Deadline row */}
-            <nldd-container layout="wrap" gap="8" vertical-alignment="center">
-              <Badge color={TASK_STATUS_COLORS[task.status] ?? 'coolgray'} dot>
-                {TASK_STATUS_LABELS[task.status]}
-              </Badge>
-              <Badge color={TASK_PRIORITY_COLORS[task.priority] ?? 'coolgray'} dot>
-                {TASK_PRIORITY_LABELS[task.priority]}
-              </Badge>
-              {task.due_date && (
-                <div className="hug">
-                  <Icon name="clock" size="sm" />
-                  <nldd-text size="sm" color={isOverdue ? 'critical' : 'secondary'} weight={isOverdue ? 'bold' : 'regular'}>
-                    {formatDateLong(task.due_date)}
-                  </nldd-text>
-                </div>
-              )}
-            </nldd-container>
-
-            {/* Description */}
-            <DetailSection title="Beschrijving">
-              <RichTextDisplay content={task.description} />
-            </DetailSection>
-
-            {/* References */}
-            <ReferencesList targetId={task.id} />
-
-            {/* Metadata grid */}
-            <DetailMetadataGrid
-              items={[
-                {
-                  label: 'Toegewezen aan',
-                  value: task.assignee ? (
-                    <nldd-container layout="row" gap="6" vertical-alignment="center">
-                      {task.assignee.is_agent ? (
-                        <nldd-icon icon="sparkles" size="20" color="paars" aria-hidden="true" />
-                      ) : (
-                        <Icon name="person" size="md" />
-                      )}
-                      <nldd-text size="sm">{task.assignee.naam}</nldd-text>
-                    </nldd-container>
-                  ) : (
-                    <nldd-text size="sm" color="secondary">Niet toegewezen</nldd-text>
-                  ),
-                },
-                {
-                  label: 'Verantwoordelijke eenheid',
-                  value: task.organisatie_eenheid ? (
-                    <nldd-container layout="row" gap="6" vertical-alignment="center">
-                      <Icon name="apartment-building" size="md" />
-                      <nldd-text size="sm">{task.organisatie_eenheid.naam}</nldd-text>
-                    </nldd-container>
-                  ) : (
-                    <nldd-text size="sm" color="secondary">Geen</nldd-text>
-                  ),
-                },
-                {
-                  label: 'Node',
-                  value: task.node ? (
-                    <DetailLinkAction
-                      text={task.node.title}
-                      startIcon="link"
-                      onClick={() => openNodeDetail(task.node_id!, task.title)}
-                    />
-                  ) : (
-                    <nldd-text size="sm" color="secondary">Geen</nldd-text>
-                  ),
-                },
-                ...(task.opdracht
-                  ? [
-                      {
-                        label: 'Opdracht',
-                        value: (
-                          <DetailLinkAction
-                            text={task.opdracht.titel}
-                            startIcon="clipboard-bullet-list"
-                            onClick={() => openOpdrachtDetail(task.opdracht!.id, task.title)}
-                          />
-                        ),
-                      },
-                    ]
-                  : []),
-                ...(task.parlementair_item_id
-                  ? [
-                      {
-                        label: 'Beoordeling',
-                        value: (
-                          <DetailLinkAction
-                            text="Ga naar beoordeling"
-                            startIcon="file-text"
-                            onClick={() => {
-                              onClose();
-                              navigate(`/parlementair?item=${task.parlementair_item_id}`);
-                            }}
-                          />
-                        ),
-                      },
-                    ]
-                  : []),
-                {
-                  label: 'Aangemaakt',
-                  value: formatDateLong(task.created_at),
-                  icon: <Icon name="calendar" size="md" />,
-                },
-              ]}
-            />
-
-            {/* Subtasks */}
-            <DetailSection
-              title="Subtaken"
-              icon={<Icon name="tree-structure" size="sm" />}
-              count={subtasks.length}
-              action={
+          <nldd-container gap="24">
+            <TaakVelden key={task.id} task={task} onClose={onClose} />
+            {/* De onderste regel: bestanden met Uploaden, en links Verwijderen
+                van de taak. Verwijderen is niet terug te draaien en vraagt
+                eerst om bevestiging. */}
+            <TaskAttachmentsSection
+              taskId={task.id}
+              acties={
                 <NlddButton
                   variant="neutral-transparent"
                   size="sm"
-                  startIcon="plus"
-                  onClick={() => setShowSubtaskCreate(true)}
-                  text="Subtaak toevoegen"
+                  startIcon="trash"
+                  onClick={() => vraagBevestiging({ id: task.id, title: task.title })}
+                  text="Verwijderen"
                 />
               }
-            >
-              {subtasks.length > 0 ? (
-                <nldd-list appearance="simple" accessible-label="Subtaken">
-                  {subtasks.map((sub, idx) => (
-                    <SubtaskRow
-                      key={sub.id}
-                      subtask={sub}
-                      canMoveUp={idx > 0}
-                      canMoveDown={idx < subtasks.length - 1}
-                      reorderPending={reorderSubtasks.isPending}
-                      onMoveUp={() => handleMoveSubtask(idx, 'up')}
-                      onMoveDown={() => handleMoveSubtask(idx, 'down')}
-                      onOpen={() => openTaskDetail(sub.id, task.title)}
-                    />
-                  ))}
-                </nldd-list>
-              ) : (
-                <nldd-text size="sm" color="secondary">Geen subtaken</nldd-text>
-              )}
-            </DetailSection>
+            />
           </nldd-container>
         )}
       </Modal>
-
-      {/* Subtask create form */}
-      {task && (
-        <TaskCreateForm
-          open={showSubtaskCreate}
-          onClose={() => setShowSubtaskCreate(false)}
-          nodeId={task.node_id}
-          parentId={task.id}
-        />
-      )}
+      {verwijderen}
     </>
   );
 }

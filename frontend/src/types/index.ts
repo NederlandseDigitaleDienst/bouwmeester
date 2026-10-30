@@ -295,6 +295,8 @@ export interface TaskCreate {
 export interface TaskUpdate {
   title?: string;
   description?: string | null;
+  /** De node waar de taak aan hangt; die is in het taakdetail te kiezen. */
+  node_id?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
   due_date?: string | null;
@@ -2339,3 +2341,6 @@ export interface PersoonLidmaatschap {
   start_datum: string;
   eind_datum?: string | null;
 }
+
+// Opmerkingen en bijlagen op een taak (het taakdetail).
+export * from './taskComments';

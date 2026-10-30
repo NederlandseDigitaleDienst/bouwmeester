@@ -3,6 +3,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bouwmeester.api.deps import require_deleted, require_found, validate_list
@@ -15,7 +16,10 @@ from bouwmeester.core.org_context import (
     get_org_context,
 )
 from bouwmeester.core.permissions import require_permission
+from bouwmeester.core.storage import delete_blob
 from bouwmeester.models.person import Person
+from bouwmeester.models.task import Task
+from bouwmeester.models.task_attachment import TaskAttachment
 from bouwmeester.repositories.task import TaskRepository
 from bouwmeester.schema.inbox import InboxResponse
 from bouwmeester.schema.task import (
@@ -37,6 +41,29 @@ from bouwmeester.services.mention_helper import sync_and_notify_mentions
 from bouwmeester.services.notification_service import NotificationService
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
+
+
+async def _onderliggende_ids(db: AsyncSession, task_id: UUID) -> list[UUID]:
+    """De ids van alle subtaken onder een taak, ook die van subtaken."""
+    ids: list[UUID] = []
+    rand = [task_id]
+    while rand:
+        rand = list(
+            (await db.execute(select(Task.id).where(Task.parent_id.in_(rand))))
+            .scalars()
+            .all()
+        )
+        ids.extend(rand)
+    return ids
+
+
+async def _bijlage_paden(db: AsyncSession, task_id: UUID) -> list[str]:
+    """Paden van de bijlagebestanden van een taak en al haar subtaken."""
+    ids = [task_id, *await _onderliggende_ids(db, task_id)]
+    result = await db.execute(
+        select(TaskAttachment.pad).where(TaskAttachment.task_id.in_(ids))
+    )
+    return list(result.scalars().all())
 
 
 @router.get("", response_model=list[TaskResponse])
@@ -373,7 +400,12 @@ async def delete_task(
     task = await repo.get(id)
     task_title = task.title if task else None
     task_node_id = task.node_id if task else None
+    # Bijlagen gaan in de database mee (CASCADE), hun bestanden niet: die
+    # ruimen we hier zelf op, ook die van subtaken.
+    bijlage_paden = await _bijlage_paden(db, id) if task else []
     require_deleted(await repo.delete(id), "Task")
+    for pad in bijlage_paden:
+        await delete_blob(pad)
     await log_activity(
         db,
         current_user,
