@@ -77,7 +77,7 @@ COPY --from=stemmodel /models /models
 ENV DEBAT_STEM_MODEL_PATH=/models/voxceleb_resnet34_LM.onnx
 
 RUN useradd --create-home --uid 1001 appuser && \
-    mkdir -p /data/bijlagen/chat /data/bijlagen/leads && \
+    mkdir -p /data/bijlagen/chat /data/bijlagen/leads /data/bijlagen/taken && \
     chgrp -R 0 /data && \
     chmod -R g=u /data
 

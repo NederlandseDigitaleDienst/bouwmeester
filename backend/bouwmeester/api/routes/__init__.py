@@ -60,6 +60,7 @@ from bouwmeester.api.routes.stakeholder_assessments import (
     router as stakeholder_assessments_router,
 )
 from bouwmeester.api.routes.tags import router as tags_router
+from bouwmeester.api.routes.task_comments import router as task_comments_router
 from bouwmeester.api.routes.tasks import router as tasks_router
 from bouwmeester.api.routes.webauthn import router as webauthn_router
 
@@ -84,6 +85,7 @@ api_router.include_router(import_export_router)
 api_router.include_router(lead_columns_router)
 api_router.include_router(leads_router)
 api_router.include_router(lead_updates_router)
+api_router.include_router(task_comments_router)
 api_router.include_router(llm_router)
 api_router.include_router(mattermost_router)
 api_router.include_router(mattermost_channels_router)
