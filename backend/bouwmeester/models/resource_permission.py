@@ -67,7 +67,7 @@ class ResourcePermission(Base):
     )
     resource_type: Mapped[str] = mapped_column(
         nullable=False,
-        comment="corpus_node|initiatief|lead|opdracht",
+        comment="corpus_node|initiatief|lead|opdracht|casus",
     )
     resource_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -76,7 +76,7 @@ class ResourcePermission(Base):
     )
     rol: Mapped[str] = mapped_column(
         nullable=False,
-        comment="eigenaar|betrokken|adviseur|indiener|contributor|viewer|contactpersoon|opdrachtgever",
+        comment="eigenaar|betrokken|adviseur|indiener|contributor|viewer|contactpersoon|opdrachtgever|trekker|teamlid",
     )
     # AI matching metadata (nullable — only set for AI-generated links)
     source: Mapped[str | None] = mapped_column(

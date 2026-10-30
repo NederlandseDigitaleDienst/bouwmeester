@@ -81,3 +81,39 @@ export function leadColumnTagColor(color: string): NlddTagColor {
     ? (color as NlddTagColor)
     : 'neutral';
 }
+
+/**
+ * The closed set of nldd-tag color names `LeadColumn.color` (and
+ * `CasusSoort.kleur`) may hold,
+ * mirrored from backend `schema.lead_column.LEAD_COLUMN_COLORS` (kept in
+ * sync by hand). The swatch is an nldd-icon in that color: the icon takes the
+ * same Rijkshuisstijl names and semantic roles as the tag, except that its
+ * grey is 'secondary-content' rather than 'neutral'.
+ */
+export const TAG_KLEUR_OPTIES: { label: string; value: NlddTagColor }[] = [
+  // Semantic roles
+  { label: 'Neutraal', value: 'neutral' },
+  { label: 'Accent', value: 'accent' },
+  { label: 'Succes', value: 'success' },
+  { label: 'Waarschuwing', value: 'warning' },
+  { label: 'Kritiek', value: 'critical' },
+  // Rijkshuisstijl
+  { label: 'Lintblauw', value: 'lintblauw' },
+  { label: 'Donkerblauw', value: 'donkerblauw' },
+  { label: 'Hemelblauw', value: 'hemelblauw' },
+  { label: 'Lichtblauw', value: 'lichtblauw' },
+  { label: 'Paars', value: 'paars' },
+  { label: 'Violet', value: 'violet' },
+  { label: 'Robijnrood', value: 'robijnrood' },
+  { label: 'Roze', value: 'roze' },
+  { label: 'Rood', value: 'rood' },
+  { label: 'Oranje', value: 'oranje' },
+  { label: 'Donkergeel', value: 'donkergeel' },
+  { label: 'Geel', value: 'geel' },
+  { label: 'Donkerbruin', value: 'donkerbruin' },
+  { label: 'Bruin', value: 'bruin' },
+  { label: 'Donkergroen', value: 'donkergroen' },
+  { label: 'Groen', value: 'groen' },
+  { label: 'Mosgroen', value: 'mosgroen' },
+  { label: 'Mintgroen', value: 'mintgroen' },
+];

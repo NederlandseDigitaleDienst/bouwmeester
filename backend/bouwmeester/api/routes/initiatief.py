@@ -34,6 +34,7 @@ from bouwmeester.schema.initiatief import (
     InitiatiefListItemResponse,
     InitiatiefMemberCreate,
     InitiatiefMemberResponse,
+    InitiatiefPersoonResponse,
     InitiatiefResponse,
     InitiatiefSettingsUpdate,
     InitiatiefUpdate,
@@ -202,7 +203,39 @@ async def get_initiatief(
     resp.members = members
     resp.eenheden = eenheden
     resp.access_level = access_level
+    resp.casus_fases_is_voorstel = not initiatief.casus_fases
     return resp
+
+
+@router.get("/{id}/personen", response_model=list[InitiatiefPersoonResponse])
+async def list_initiatief_personen(
+    id: UUID,
+    current_user: OptionalUser,
+    db: AsyncSession = Depends(get_db),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
+) -> list[InitiatiefPersoonResponse]:
+    """Personen die dit initiatief kunnen zien, direct of via een eenheid.
+
+    Dit is de kandidatenlijst voor een casusteam: alleen wie het initiatief
+    ziet, kan trekker of teamlid van een casus eronder worden.
+    """
+    repo = InitiatiefRepository(db)
+    require_found(await repo.get_by_id(id), "Initiatief")
+    access_level = await _resolve_access_level(repo, id, current_user, perm_ctx)
+    if access_level is None and current_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Initiatief niet gevonden",
+        )
+    personen = await repo.list_persons_with_access(id)
+    direct, via = await repo.access_sources(id)
+    out = []
+    for p in personen:
+        resp = InitiatiefPersoonResponse.model_validate(p)
+        resp.rol = direct.get(p.id)
+        resp.via_eenheden = via.get(p.id, [])
+        out.append(resp)
+    return out
 
 
 @router.put("/{id}", response_model=InitiatiefResponse)
@@ -228,6 +261,37 @@ async def update_initiatief(
     return InitiatiefResponse.model_validate(initiatief)
 
 
+async def _geen_casussen_in_weggehaalde_fase(
+    db: AsyncSession, initiatief_id: UUID, nieuw: list
+) -> None:
+    """Een fase weghalen waar nog casussen in staan kan niet (409).
+
+    Anders staat er een casus in een fase die niet meer bestaat. Lege lijst
+    betekent het voorstel; dan gelden die fases.
+    """
+    from sqlalchemy import func
+
+    from bouwmeester.models.casus import Casus
+    from bouwmeester.schema.casus_fases import geldende_casus_fases
+
+    blijft = {f.id for f in geldende_casus_fases(nieuw)}
+    stmt = (
+        select(Casus.fase, func.count())
+        .where(Casus.initiatief_id == initiatief_id)
+        .group_by(Casus.fase)
+    )
+    vast = {fase: n for fase, n in (await db.execute(stmt)).all() if fase not in blijft}
+    if vast:
+        lijst = ", ".join(f"{fase} ({n})" for fase, n in sorted(vast.items()))
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Er staan nog casussen in fases die je weghaalt: {lijst}. "
+                "Verplaats die casussen eerst naar een andere fase."
+            ),
+        )
+
+
 @router.put("/{id}/settings", response_model=InitiatiefResponse)
 async def update_initiatief_settings(
     id: UUID,
@@ -239,6 +303,8 @@ async def update_initiatief_settings(
     """Update settings (slug, toggles, score-labels). Eigenaar only."""
     repo = InitiatiefRepository(db)
     await _require_access(repo, id, current_user, perm_ctx, "eigenaar")
+    if "casus_fases" in data.model_fields_set:
+        await _geen_casussen_in_weggehaalde_fase(db, id, data.casus_fases or [])
     initiatief = require_found(await repo.update_settings(id, data), "Initiatief")
 
     await log_activity(

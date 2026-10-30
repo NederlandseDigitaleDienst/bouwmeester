@@ -6,6 +6,18 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from bouwmeester.schema.casus_fases import (
+    DEFAULT_CASUS_FASES,
+    CasusFaseDef,
+    controleer_fases,
+    geldende_casus_fases,
+)
+from bouwmeester.schema.startvragen import (
+    Startvraag,
+    controleer_lijst,
+    geldende_startvragen,
+)
+
 # Canonical eenheid-rol type — used in schemas, routes, and repository
 InitiatiefEenheidRol = Literal["eigenaar", "contributor", "viewer"]
 EENHEID_ROL_RANK: dict[str, int] = {"eigenaar": 3, "contributor": 2, "viewer": 1}
@@ -87,6 +99,40 @@ class InitiatiefSettingsUpdate(BaseModel):
     score_strategisch_label: str | None = Field(None, max_length=120)
     score_politiek_label: str | None = Field(None, max_length=120)
     score_positie_label: str | None = Field(None, max_length=120)
+    # Acceptatiecriteria die je bij het starten van een casus naloopt.
+    acceptatiecriteria: list[str] | None = Field(None, max_length=30)
+    # De startvragen; een lege lijst zet de standaardlijst terug.
+    startvragen: list[Startvraag] | None = None
+    # De casusfunnel; een lege lijst zet het voorstel terug.
+    casus_fases: list[CasusFaseDef] | None = None
+
+    @field_validator("casus_fases")
+    @classmethod
+    def _check_casus_fases(
+        cls, fases: list[CasusFaseDef] | None
+    ) -> list[CasusFaseDef] | None:
+        if not fases:
+            return fases
+        return controleer_fases(fases)
+
+    @field_validator("startvragen")
+    @classmethod
+    def _check_startvragen(
+        cls, vragen: list[Startvraag] | None
+    ) -> list[Startvraag] | None:
+        if not vragen:
+            return vragen
+        return controleer_lijst(vragen)
+
+    @field_validator("acceptatiecriteria")
+    @classmethod
+    def _strip_criteria(cls, items: list[str] | None) -> list[str] | None:
+        if items is None:
+            return None
+        cleaned = [i.strip() for i in items if i and i.strip()]
+        if any(len(i) > 300 for i in cleaned):
+            raise ValueError("Een acceptatiecriterium is maximaal 300 tekens")
+        return cleaned
 
 
 class InitiatiefMemberCreate(BaseModel):
@@ -101,6 +147,25 @@ class InitiatiefEenheidCreate(BaseModel):
 
 class InitiatiefEenheidUpdate(BaseModel):
     rol: InitiatiefEenheidRol
+
+
+class InitiatiefPersoonResponse(BaseModel):
+    """Een persoon die dit initiatief kan zien, direct of via een eenheid.
+
+    `rol` is de directe rol (eigenaar/contributor/viewer) als die er is;
+    `via_eenheden` de namen van gekoppelde eenheden waar de persoon in zit.
+    Zo ziet het team wie erbij hoort en waarom.
+    """
+
+    id: UUID
+    naam: str
+    functie: str | None = None
+    expertise: str | None = None
+    is_agent: bool = False
+    rol: str | None = None
+    via_eenheden: list[str] = []
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class InitiatiefMemberResponse(BaseModel):
@@ -144,11 +209,26 @@ class InitiatiefResponse(BaseModel):
     score_strategisch_label: str | None = None
     score_politiek_label: str | None = None
     score_positie_label: str | None = None
+    acceptatiecriteria: list[str] = Field(default_factory=list)
+    # De startvragen die gelden: de eigen lijst, anders de standaardlijst.
+    startvragen: list[Startvraag] = Field(default_factory=list)
+    # De casusfunnel die geldt: de eigen fases, anders het voorstel.
+    casus_fases: list[CasusFaseDef] = Field(default_factory=list)
     created_by_id: UUID | None = None
     created_at: datetime
     updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("startvragen", mode="before")
+    @classmethod
+    def _geldende_startvragen(cls, opgeslagen: list | None) -> list[Startvraag]:
+        return geldende_startvragen(opgeslagen)
+
+    @field_validator("casus_fases", mode="before")
+    @classmethod
+    def _geldende_casus_fases(cls, opgeslagen: list | None) -> list[CasusFaseDef]:
+        return geldende_casus_fases(opgeslagen)
 
 
 class InitiatiefListItemResponse(InitiatiefResponse):
@@ -170,3 +250,9 @@ class InitiatiefDetailResponse(InitiatiefResponse):
     members: list[InitiatiefMemberResponse] = Field(default_factory=list)
     eenheden: list[InitiatiefEenheidResponse] = Field(default_factory=list)
     access_level: str | None = None
+    # Het voorstel voor de funnel, om naar terug te gaan vanuit de instellingen.
+    casus_fases_voorstel: list[CasusFaseDef] = Field(
+        default_factory=lambda: list(DEFAULT_CASUS_FASES)
+    )
+    # Of de funnel het voorstel is (geen eigen fases opgeslagen).
+    casus_fases_is_voorstel: bool = True

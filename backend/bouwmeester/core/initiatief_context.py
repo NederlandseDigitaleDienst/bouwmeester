@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from uuid import UUID
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 from sqlalchemy import or_, select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -135,3 +135,50 @@ def apply_initiatief_filter(stmt, column, ctx: InitiatiefContext | None):
             column.is_(None),
         )
     )
+
+
+async def require_initiatief_member(
+    db: AsyncSession, initiatief_id: UUID | None, person_id: UUID
+) -> None:
+    """400 als de persoon het initiatief niet kan zien.
+
+    Eén regel voor alles wat een persoon aan een casus hangt: trekker,
+    teamlid, en wie een taak doet. Alleen wie het initiatief ziet, kan het
+    werk eronder zien, dus alleen die mensen zijn te kiezen. Zonder
+    initiatief is er niets om lid van te zijn.
+    """
+    if initiatief_id is None:
+        return
+    from bouwmeester.repositories.initiatief import InitiatiefRepository
+
+    init_repo = InitiatiefRepository(db)
+    if await init_repo.is_member(initiatief_id, person_id):
+        return
+    initiatief = await init_repo.get_by_id(initiatief_id)
+    naam = initiatief.naam if initiatief else "dit initiatief"
+    raise HTTPException(
+        status_code=400,
+        detail=(
+            f"Deze persoon is geen lid van {naam} en kan het werk niet zien. "
+            "Voeg de persoon eerst toe aan het initiatief."
+        ),
+    )
+
+
+def require_initiatief_visible(
+    initiatief_id: UUID | None,
+    ctx: InitiatiefContext,
+    *,
+    detail: str = "Niet gevonden",
+) -> None:
+    """404 buiten de zichtbare initiatieven, 404 en geen 403: bestaan lekt niet.
+
+    Zonder initiatief is iets zichtbaar voor iedereen die is ingelogd; een
+    admin ziet alles. Voor casussen, hun stories, vragen en taken.
+    """
+    if ctx.is_admin:
+        return
+    if not ctx.is_authenticated:
+        raise HTTPException(status_code=404, detail=detail)
+    if initiatief_id is not None and initiatief_id not in ctx.visible_initiatief_ids:
+        raise HTTPException(status_code=404, detail=detail)

@@ -666,3 +666,48 @@
 .grow {
   flex-grow: 1;
 }
+
+/* De kopregel van de tab Casussen: links de keuzes (alleen per casus),
+ * rechts de schakelaar Funnel/Per casus en Nieuwe casus. De acties staan in
+ * beide weergaven op precies dezelfde plek, zodat een knop niet verspringt
+ * net nadat je erop drukte: hun vak is altijd 56px hoog (een keuzelijst met
+ * label) en staat bovenaan, ook als de keuzes ernaast over meer regels
+ * lopen. Is de tab smaller dan de keuzes plus de acties, dan gaan de acties
+ * boven de keuzes. Een container query, geen media query: de zijbalk maakt
+ * de ruimte kleiner dan het scherm. */
+.casus-kop-houder {
+  container-type: inline-size;
+}
+.casus-kop {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "keuzes acties";
+  gap: var(--primitives-space-8);
+  align-items: start;
+}
+.casus-kop-keuzes {
+  grid-area: keuzes;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--primitives-space-8);
+}
+/* Een keuzelijst met een vaste breedte past op een smal scherm niet: dan
+ * de volle breedte, niet erbuiten. */
+.casus-kop-keuzes > * {
+  max-width: 100%;
+}
+.casus-kop-acties {
+  grid-area: acties;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: var(--primitives-space-8);
+  min-height: 56px;
+}
+@container (max-width: 660px) {
+  .casus-kop {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "acties" "keuzes";
+  }
+}

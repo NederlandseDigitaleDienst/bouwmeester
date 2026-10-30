@@ -7,6 +7,8 @@ from bouwmeester.api.routes.admin import router as admin_router
 from bouwmeester.api.routes.admin_sync import router as admin_sync_router
 from bouwmeester.api.routes.auth import router as auth_router
 from bouwmeester.api.routes.bijlage import router as bijlage_router
+from bouwmeester.api.routes.casus_soorten import router as casus_soorten_router
+from bouwmeester.api.routes.casussen import router as casussen_router
 from bouwmeester.api.routes.chat import router as chat_router
 from bouwmeester.api.routes.debat_aankondiging import (
     router as debat_aankondiging_router,
@@ -85,6 +87,8 @@ api_router.include_router(import_export_router)
 api_router.include_router(lead_columns_router)
 api_router.include_router(leads_router)
 api_router.include_router(lead_updates_router)
+api_router.include_router(casussen_router)
+api_router.include_router(casus_soorten_router)
 api_router.include_router(task_comments_router)
 api_router.include_router(llm_router)
 api_router.include_router(mattermost_router)

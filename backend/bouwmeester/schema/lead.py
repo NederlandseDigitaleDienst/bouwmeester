@@ -270,6 +270,8 @@ class LeadResponse(BaseModel):
     public_summary: str | None = None
     attachment_count: int = 0
     contact_names: list[str] = Field(default_factory=list)
+    # Gevuld als uit deze lead een casus is gestart; de lead is dan alleen-lezen.
+    casus_id: UUID | None = None
     created_at: datetime
     updated_at: datetime | None = None
 
@@ -279,6 +281,14 @@ class LeadResponse(BaseModel):
     @classmethod
     def _extract_tags(cls, data: object) -> object:
         """Populate tags from the lead_tags relationship if available."""
+        # casus_id uit de relationship, maar alleen als die geladen is: een
+        # lazy load vanuit een validator breekt in een async sessie.
+        if hasattr(data, "__mapper__"):
+            from sqlalchemy import inspect as sa_inspect
+
+            if "casus" not in sa_inspect(data).unloaded:
+                casus = getattr(data, "casus", None)
+                object.__setattr__(data, "casus_id", casus.id if casus else None)
         if hasattr(data, "lead_tags"):
             lead_tags = data.lead_tags
             if lead_tags is not None:

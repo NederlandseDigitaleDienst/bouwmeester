@@ -713,6 +713,27 @@ export const LEAD_CONTACT_ROL_LABELS: Record<string, string> = {
   betrokken: 'Betrokken',
 };
 
+/** Rollen die iemand lid van het casusteam maken; de rest zijn externe contacten. */
+export const CASUSTEAM_ROLLEN: readonly string[] = ['trekker', 'teamlid'];
+
+/** Persoon die een initiatief kan zien (direct lid of via een eenheid). */
+export interface InitiatiefPersoon {
+  id: string;
+  naam: string;
+  functie?: string | null;
+  expertise?: string | null;
+  is_agent: boolean;
+  /** Directe rol op het initiatief, als die er is. */
+  rol?: string | null;
+  /** Gekoppelde eenheden waar deze persoon in zit. */
+  via_eenheden?: string[];
+}
+
+export const CASUSTEAM_ROL_LABELS: Record<string, string> = {
+  trekker: 'Trekker',
+  teamlid: 'Teamlid',
+};
+
 export const INITIATIEF_ROL_LABELS: Record<string, string> = {
   eigenaar: 'Eigenaar',
   contributor: 'Bijdrager',
@@ -1793,6 +1814,8 @@ export interface Lead {
   contact_names: string[];
   created_at: string;
   updated_at: string | null;
+  /** Gevuld als uit deze lead een casus is gestart; de lead is dan alleen-lezen. */
+  casus_id?: string | null;
 }
 
 export type GitHubLinkType =
@@ -1823,6 +1846,173 @@ export interface LeadDetail extends Lead {
   contacts: LeadContact[];
   linked_nodes: LeadNode[];
   github_links: LeadGitHubLink[];
+}
+
+// Casus: wat begint als een lead de trechter uit is. De fases staan per
+// initiatief in de casusfunnel (initiatief.casus_fases), zie backend
+// schema/casus_fases.py; casus.fase is een fase-id uit die lijst.
+
+/** Eén fase van de casusfunnel van een initiatief. */
+export interface CasusFaseDef {
+  id: string;
+  naam: string;
+  /** Een nldd-tag-kleur, zoals bij de funnel-kolommen van de leads. */
+  kleur: string;
+  /** Wat er in deze fase gebeurt. */
+  omschrijving?: string | null;
+  /** Wanneer een casus door mag (bij de laatste fase: wanneer hij klaar is). */
+  door_als?: string | null;
+}
+
+/** De lead-kolom van waaruit een casus mag starten (dummy-regel, zie backend). */
+export const CASUS_START_STAGE = 'in_the_pocket';
+
+/** Een interne casus of een satellietcasus; vervangt de vraag naar de as. */
+export const CASUS_TYPE_LABELS: Record<string, string> = {
+  intern: 'Interne casus',
+  satelliet: 'Satellietcasus',
+};
+
+/** Het soort antwoord op een startvraag (backend schema/startvragen.py). */
+export type Antwoordtype = 'ja_nee' | 'een_keuze' | 'meer_keuzes' | 'vrij';
+
+export const ANTWOORDTYPE_LABELS: Record<Antwoordtype, string> = {
+  ja_nee: 'Ja of nee',
+  een_keuze: 'Eén keuze',
+  meer_keuzes: 'Meer keuzes',
+  vrij: 'Vrij antwoord',
+};
+
+/** Eén startvraag van een initiatief, te beheren in de instellingen. */
+export interface Startvraag {
+  id: string;
+  vraag: string;
+  antwoordtype: Antwoordtype;
+  /** Alleen bij een of meer keuzes. */
+  opties: string[];
+  verplicht: boolean;
+  op_kaartje: boolean;
+}
+
+/** Het antwoord op één startvraag; vraag en antwoordtype legt de backend erbij vast. */
+export interface StartAntwoord {
+  vraag_id: string;
+  vraag?: string;
+  antwoordtype?: Antwoordtype;
+  waarde?: boolean | string | string[] | null;
+}
+
+/** Eén acceptatiecriterium zoals het team het bij de start naliep. */
+export interface AcceptatieCriterium {
+  criterium: string;
+  akkoord: boolean;
+  opmerking?: string | null;
+}
+
+export interface Startvoorwaarden {
+  /** Het antwoord op de vaste vraag: intern of satelliet. */
+  casustype?: 'intern' | 'satelliet';
+  /** De antwoorden op de andere startvragen van het initiatief. */
+  antwoorden?: StartAntwoord[];
+  /** Vervallen vraag; alleen nog bij oudere casussen. */
+  as?: 'onderzoeksvragen' | 'toepassing';
+  toelichting?: string | null;
+  /** Momentopname van de acceptatiecriteria (alleen bij een satellietcasus). */
+  acceptatiecriteria?: AcceptatieCriterium[];
+  /** Momentopname van de starteisen van de gekozen soorten. */
+  start_eisen?: SoortEis[];
+}
+
+/**
+ * Eén eis van een casussoort zoals het team hem naliep, bij de start of het
+ * afronden. De client stuurt soort_id, eis, akkoord en opmerking; de naam
+ * van de soort vult de server in.
+ */
+export interface SoortEis {
+  soort_id: string;
+  soort?: string;
+  eis: string;
+  akkoord: boolean;
+  opmerking?: string | null;
+}
+
+/** Een soort casus zoals hij op een casus staat. */
+export interface CasusSoortSummary {
+  id: string;
+  naam: string;
+  /** Een nldd-tag-kleur, zoals bij de funnel-kolommen. */
+  kleur: string;
+  /** Wat deze soort betekent: bij het kiezen en als tooltip op het label. */
+  uitleg?: string | null;
+  /** Wat je nagaat bij de start van een casus van deze soort. */
+  start_eisen?: string[];
+  /** Wat af moet zijn als een casus van deze soort klaar is. */
+  eind_eisen?: string[];
+}
+
+/** Een soort casus in de instellingen van een initiatief. */
+export interface CasusSoort extends CasusSoortSummary {
+  initiatief_id: string;
+  sort_order: number;
+  /** In detail: hoe ver we een casus van deze soort brengen. */
+  hoe_ver?: string | null;
+  casus_count: number;
+  created_at: string;
+}
+
+export interface Casus {
+  id: string;
+  lead_id: string;
+  initiatief_id?: string | null;
+  initiatief?: { id: string; naam: string; kleur?: string | null } | null;
+  title: string;
+  description?: string | null;
+  organization?: string | null;
+  /** Een fase-id uit de casusfunnel van het initiatief. */
+  fase: string;
+  startvoorwaarden: Partial<Startvoorwaarden>;
+  /** De eindeisen zoals het team ze naliep in de laatste fase; leeg is nog niet. */
+  eind_eisen?: SoortEis[];
+  started_by_id?: string | null;
+  trekker_naam?: string | null;
+  team_count: number;
+  created_at: string;
+  updated_at?: string | null;
+  /** De soorten (tags) van de casus. */
+  soorten?: CasusSoortSummary[];
+}
+
+export interface CasusTeamlid {
+  id: string;
+  person_id: string;
+  person_naam: string;
+  person_functie?: string | null;
+  rol: string;
+  created_at: string;
+}
+
+export interface CasusDetail extends Casus {
+  lead?: { id: string; title: string; stage: string; organization?: string | null } | null;
+  team: CasusTeamlid[];
+}
+
+export interface CasusStart {
+  lead_id: string;
+  startvoorwaarden: Startvoorwaarden;
+  trekker_id?: string | null;
+  teamlid_ids?: string[];
+  /** Casussoorten van het initiatief. */
+  soort_ids?: string[];
+}
+
+export interface CasusUpdate {
+  title?: string;
+  description?: string | null;
+  organization?: string | null;
+  fase?: string;
+  startvoorwaarden?: Startvoorwaarden;
+  /** De eindeisen zoals het team ze naliep, meestal samen met de laatste fase. */
+  eind_eisen?: SoortEis[];
 }
 
 export interface LeadCreate {
@@ -1929,6 +2119,12 @@ export interface Initiatief {
   score_strategisch_label: string | null;
   score_politiek_label: string | null;
   score_positie_label: string | null;
+  /** Wat het team bij het starten van een casus naloopt; leeg = geen criteria. */
+  acceptatiecriteria?: string[];
+  /** De startvragen die gelden: de eigen lijst, anders de standaardlijst. */
+  startvragen?: Startvraag[];
+  /** De casusfunnel die geldt: de eigen fases, anders het voorstel. */
+  casus_fases?: CasusFaseDef[];
   created_by_id: string | null;
   created_at: string;
   updated_at: string | null;
@@ -1962,6 +2158,11 @@ export interface InitiatiefSettingsUpdate {
   score_strategisch_label?: string | null;
   score_politiek_label?: string | null;
   score_positie_label?: string | null;
+  acceptatiecriteria?: string[];
+  /** De casusfunnel; een lege lijst zet het voorstel terug. */
+  casus_fases?: CasusFaseDef[];
+  /** De startvragen; een lege lijst zet de standaardlijst terug. */
+  startvragen?: Startvraag[];
 }
 
 export interface InitiatiefUpdatePost {
@@ -2147,6 +2348,10 @@ export interface InitiatiefDetail extends Initiatief {
   members: InitiatiefMember[];
   eenheden: InitiatiefEenheid[];
   access_level: 'eigenaar' | 'contributor' | 'viewer' | null;
+  /** Het voorstel voor de casusfunnel, om naar terug te gaan. */
+  casus_fases_voorstel?: CasusFaseDef[];
+  /** Of de funnel het voorstel is (geen eigen fases). */
+  casus_fases_is_voorstel?: boolean;
 }
 
 /**
