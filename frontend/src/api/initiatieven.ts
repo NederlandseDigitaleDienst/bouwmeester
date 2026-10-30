@@ -36,10 +36,6 @@ export async function updateInitiatief(
   return apiPut<Initiatief>(`/api/initiatieven/${id}`, data);
 }
 
-export async function deleteInitiatief(id: string): Promise<void> {
-  return apiDelete(`/api/initiatieven/${id}`);
-}
-
 export async function updateInitiatiefSettings(
   id: string,
   data: InitiatiefSettingsUpdate,

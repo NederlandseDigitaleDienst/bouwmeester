@@ -13,6 +13,10 @@ import { Select } from './Select';
  * keuze van de gebruiker `onChange` aanroept.
  */
 beforeAll(async () => {
+  // jsdom kent `CSS.supports` niet; de dropdown vraagt het op zodra hij een
+  // `width` krijgt. Zonder dit gooit hij een onafgevangen fout.
+  const g = globalThis as unknown as { CSS?: { supports?: unknown } };
+  if (typeof g.CSS?.supports !== 'function') g.CSS = { ...(g.CSS ?? {}), supports: () => false };
   await import('@nldd/design-system/dropdown');
 });
 
@@ -68,5 +72,23 @@ describe('Select', () => {
 
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0][0].target.value).toBe('40');
+  });
+
+  it('compact: veld zo breed als de keuzelijst en zonder "Optioneel"', () => {
+    const { container } = render(
+      <Select compact label="Status" width="150px" value="0" onChange={vi.fn()} options={DREMPELS} />,
+    );
+    const veld = container.querySelector('nldd-form-field') as HTMLElement;
+    expect(veld.hasAttribute('optional')).toBe(false);
+    expect(veld.style.width).toBe('150px');
+  });
+
+  it('zonder compact blijft een veld met label optioneel en volle breedte', () => {
+    const { container } = render(
+      <Select label="Status" width="150px" value="0" onChange={vi.fn()} options={DREMPELS} />,
+    );
+    const veld = container.querySelector('nldd-form-field') as HTMLElement;
+    expect(veld.hasAttribute('optional')).toBe(true);
+    expect(veld.style.width).toBe('');
   });
 });

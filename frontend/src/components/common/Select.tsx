@@ -23,6 +23,16 @@ interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'siz
   size?: 'xs' | 'sm' | 'md';
   /** Fixed width as a CSS length; without it the dropdown fills its container. */
   width?: string;
+  /**
+   * Voor filterbalken en instellingen in een rij: het veld neemt de breedte
+   * van de keuzelijst in plaats van de hele regel, en toont geen
+   * "Optioneel". Een `nldd-form-field` is standaard 100% breed (en heeft
+   * `container-type: inline-size`, dus krimpen naar de inhoud gaat niet);
+   * zonder dit valt elk veld met label op een eigen regel. De breedte geldt
+   * alleen met `width`; zonder `width` vult het veld de regel, maar zonder
+   * "Optioneel".
+   */
+  compact?: boolean;
 }
 
 /** Id linking the field's `unmet` to the validation item that explains it. */
@@ -61,6 +71,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       value,
       size,
       width,
+      compact = false,
       ...props
     },
     ref,
@@ -129,7 +140,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     if (!label) return dropdown;
 
     return (
-      <nldd-form-field label={label} {...(required ? {} : { optional: true })}>
+      <nldd-form-field
+        label={label}
+        {...(required || compact ? {} : { optional: true })}
+        {...(compact && width ? { style: { width, flex: '0 0 auto' } } : {})}
+      >
         {dropdown}
         {error && (
           <nldd-validation-list>

@@ -3,20 +3,17 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { useNlddEvent } from '@/components/nldd/events';
 import { useInitiatief } from '@/hooks/useInitiatieven';
-import { initiatiefIconColor } from '@/components/initiatieven/initiatiefColors';
 import { InitiatiefLeads } from '@/components/initiatieven/InitiatiefLeads';
 import { InitiatiefUpdates } from '@/components/initiatieven/InitiatiefUpdates';
 import { InitiatiefMensen } from '@/components/initiatieven/InitiatiefMensen';
 import { InitiatiefSignalen } from '@/components/initiatieven/InitiatiefSignalen';
 import { InitiatiefInstellingen } from '@/components/initiatieven/InitiatiefInstellingen';
 import {
-  INITIATIEVEN_PATH,
   initiatiefPath,
   isInitiatiefTab,
   type InitiatiefTab,
 } from '@/utils/initiatiefRoutes';
 import type { InitiatiefDetail } from '@/types';
-import { richTextToPlain } from '@/utils/richtext';
 
 const TAB_LABELS: Record<InitiatiefTab, string> = {
   leads: 'Leads',
@@ -71,44 +68,13 @@ export function InitiatiefPage() {
     return <Navigate to={initiatiefPath(id)} replace />;
   }
 
-  // Three levels, each set off from the next: who (name and description),
-  // where (the tabs), and what (the tab's own tools and content).
+  // Twee lagen: waar (de tabs) en wat (de inhoud van de tab). De naam en de
+  // publieke link staan in de kop van de app ("Initiatieven › naam"); terug
+  // naar het overzicht gaat via Initiatieven in de zijbalk, en de beschrijving
+  // staat bij de instellingen.
   return (
     <nldd-container gap="24">
-      <nldd-container gap="16">
-        <nldd-container gap="4">
-          <InitiatiefBreadcrumbs naam={initiatief.naam} />
-          <nldd-container layout="row" gap="8" vertical-alignment="center">
-            <nldd-icon
-              icon="circle-filled"
-              size="16"
-              color={initiatiefIconColor(initiatief.kleur)}
-              aria-hidden="true"
-            />
-            <nldd-title size={3}>
-              <h2>{initiatief.naam}</h2>
-            </nldd-title>
-            {initiatief.public_page_enabled && initiatief.slug && (
-              <nldd-link
-                href={`/c/${initiatief.slug}`}
-                target="_blank"
-                size="xs"
-                start-icon="globe"
-                text={`/c/${initiatief.slug}`}
-              />
-            )}
-          </nldd-container>
-          {/* One plain line under the name. The rendered rich text brought
-              paragraph margins that set it apart from its own heading. */}
-          {initiatief.beschrijving && (
-            <nldd-text size="sm" color="secondary">
-              {richTextToPlain(initiatief.beschrijving)}
-            </nldd-text>
-          )}
-        </nldd-container>
-
-        <InitiatiefTabBar initiatiefId={id} tabs={tabs} activeTab={activeTab} />
-      </nldd-container>
+      <InitiatiefTabBar initiatiefId={id} tabs={tabs} activeTab={activeTab} />
 
       {/* Keyed on the initiatief, so switching between two of them does not
           carry a half-typed form or a filter from one into the other. */}
@@ -120,40 +86,6 @@ export function InitiatiefPage() {
         {activeTab === 'instellingen' && <TabBody><InitiatiefInstellingen initiatief={initiatief} /></TabBody>}
       </div>
     </nldd-container>
-  );
-}
-
-/** True when the click asked for something other than plain navigation. */
-function isModifiedClick(event: MouseEvent): boolean {
-  return event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button === 1;
-}
-
-/**
- * The way back to the overview. The title bar has a back button, but the
- * design system only shows it where panes stack on a narrow screen; on a
- * desktop it is `display: none`, which left no route back at all.
- *
- * The crumb is a real link, so cmd-click opens a tab; a plain click goes
- * through the router instead of reloading the app.
- */
-function InitiatiefBreadcrumbs({ naam }: { naam: string }) {
-  const navigate = useNavigate();
-  const ref = useRef<HTMLElement>(null);
-  const onClick = useCallback(
-    (event: Event) => {
-      if (isModifiedClick(event as MouseEvent)) return;
-      event.preventDefault();
-      navigate(INITIATIEVEN_PATH);
-    },
-    [navigate],
-  );
-  useNlddEvent(ref, 'click', onClick);
-
-  return (
-    <nldd-breadcrumbs>
-      <nldd-breadcrumbs-item ref={ref} href={INITIATIEVEN_PATH} text="Initiatieven" />
-      <nldd-breadcrumbs-item current text={naam} />
-    </nldd-breadcrumbs>
   );
 }
 
