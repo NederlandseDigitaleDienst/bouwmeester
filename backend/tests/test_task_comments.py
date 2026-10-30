@@ -1,7 +1,7 @@
 """Opmerkingen en bijlagen op een taak (het taakdetail).
 
-Dekt: opmerkingen alleen op een taak die je mag zien (task:read, zoals de
-taak zelf), verwijderen alleen door auteur of beheerder, melding aan de
+Dekt: opmerkingen alleen op een zichtbare taak (404 buiten het initiatief
+van de casus), verwijderen alleen door auteur of beheerder, melding aan de
 toegewezene, en bijlagen uploaden, downloaden en verwijderen.
 """
 
@@ -10,17 +10,42 @@ import uuid
 import pytest
 from sqlalchemy import select
 
+from bouwmeester.models.casus import Casus
+from bouwmeester.models.initiatief import Initiatief
+from bouwmeester.models.lead import Lead
 from bouwmeester.models.notification import Notification
+from bouwmeester.models.resource_permission import ResourcePermission
 from bouwmeester.models.task import Task
-from tests.factories import client_as, grant_role, make_org, make_person, place
+from tests.factories import client_as, make_person
 
 
 @pytest.fixture
-async def taak(db_session, sample_node, sample_person):
+async def initiatief(db_session):
+    init = Initiatief(id=uuid.uuid4(), naam="Regelrecht test", slug="rr-tc")
+    db_session.add(init)
+    await db_session.flush()
+    return init
+
+
+@pytest.fixture
+async def taak(db_session, initiatief, sample_person):
+    lead = Lead(
+        id=uuid.uuid4(),
+        title="Casus",
+        stage="in_the_pocket",
+        initiatief_id=initiatief.id,
+    )
+    db_session.add(lead)
+    await db_session.flush()
+    casus = Casus(
+        id=uuid.uuid4(), lead_id=lead.id, title="Casus", initiatief_id=initiatief.id
+    )
+    db_session.add(casus)
+    await db_session.flush()
     task = Task(
         id=uuid.uuid4(),
         title="Taak",
-        node_id=sample_node.id,
+        casus_id=casus.id,
         assignee_id=sample_person.id,
     )
     db_session.add(task)
@@ -56,22 +81,30 @@ async def test_comments_on_unknown_task_is_404(client):
     assert resp.status_code == 404
 
 
-async def test_comments_without_task_read_is_403(db_session, taak):
+async def test_comments_invisible_task_is_404(db_session, taak):
     buitenstaander = await make_person(db_session, "Buitenstaander")
     async with client_as(db_session, buitenstaander) as c:
         resp = await c.get(f"/api/tasks/{taak.id}/comments")
-        assert resp.status_code == 403
+        assert resp.status_code == 404
         resp = await c.post(f"/api/tasks/{taak.id}/comments", json={"content": "x"})
-        assert resp.status_code == 403
+        assert resp.status_code == 404
 
 
-async def test_delete_comment_only_author_or_admin(client, db_session, taak):
+async def test_delete_comment_only_author_or_admin(
+    client, db_session, taak, initiatief
+):
     auteur = await make_person(db_session, "Auteur")
     ander = await make_person(db_session, "Ander")
-    eenheid = await make_org(db_session, "Eenheid opmerkingen")
     for p in (auteur, ander):
-        await place(db_session, p, eenheid)
-        await grant_role(db_session, p, "editor", eenheid)
+        db_session.add(
+            ResourcePermission(
+                person_id=p.id,
+                resource_type="initiatief",
+                resource_id=initiatief.id,
+                rol="contributor",
+            )
+        )
+    await db_session.flush()
     async with client_as(db_session, auteur) as c:
         resp = await c.post(f"/api/tasks/{taak.id}/comments", json={"content": "mijn"})
         assert resp.status_code == 201, resp.text
@@ -106,14 +139,14 @@ async def test_attachment_upload_download_delete(client, taak):
     assert resp.status_code == 404
 
 
-async def test_attachment_without_task_read_is_403(db_session, taak):
+async def test_attachment_invisible_task_is_404(db_session, taak):
     buitenstaander = await make_person(db_session, "Buitenstaander")
     async with client_as(db_session, buitenstaander) as c:
         resp = await c.post(
             f"/api/tasks/{taak.id}/attachments",
             files={"file": ("x.txt", b"x", "text/plain")},
         )
-    assert resp.status_code == 403
+    assert resp.status_code == 404
 
 
 async def test_task_delete_removes_attachment_files(
@@ -126,7 +159,9 @@ async def test_task_delete_removes_attachment_files(
     """
     from bouwmeester.models.task import Task
 
-    sub = Task(title="Subtaak", parent_id=taak.id, node_id=taak.node_id)
+    sub = Task(
+        title="Subtaak", parent_id=taak.id, casus_id=taak.casus_id, node_id=taak.node_id
+    )
     db_session.add(sub)
     await db_session.flush()
     for t in (taak, sub):

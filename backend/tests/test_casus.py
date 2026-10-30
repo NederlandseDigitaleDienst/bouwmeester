@@ -319,6 +319,25 @@ async def test_team_add_requires_membership(
     assert detail["team"] == []
 
 
+async def test_issues_and_tasks_hang_on_casus(client, lead_gewonnen):
+    casus_id = (await _start(client, lead_gewonnen)).json()["id"]
+    resp = await client.post(
+        f"/api/casussen/{casus_id}/issues", json={"title": "Werkt het?"}
+    )
+    assert resp.status_code == 201, resp.text
+    issue_id = resp.json()["id"]
+    resp = await client.post("/api/tasks", json={"title": "taak", "issue_id": issue_id})
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["casus_id"] == casus_id
+    assert resp.json()["casus"]["fase"] == "start"
+    detail = (await client.get(f"/api/casussen/{casus_id}")).json()
+    assert (detail["issue_count"], detail["issue_done_count"]) == (1, 0)
+
+    # Niet via de lead
+    resp = await client.get(f"/api/leads/{lead_gewonnen.id}/issues")
+    assert resp.status_code == 404
+
+
 async def test_casus_not_on_public_page(client, db_session, lead_gewonnen, initiatief):
     """De publieke pagina toont leads; een casus komt er nooit in voor."""
     initiatief.public_page_enabled = True

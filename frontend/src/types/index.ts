@@ -269,12 +269,66 @@ export interface Task {
   opdracht_id?: string;
   opdracht?: TaskOpdrachtSummary;
   subtasks?: TaskSubtask[];
-  node_id?: string;
+  node_id?: string | null;
   node?: CorpusNode;
+  casus_id?: string | null;
+  casus?: TaskCasusSummary | null;
+  issue_id?: string | null;
   order?: number;
   work_type?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface TaskCasusSummary {
+  id: string;
+  title: string;
+  fase: string;
+  /** Het initiatief van de casus: bepaalt wie op de taak te kiezen is. */
+  initiatief_id?: string | null;
+}
+
+/** Eén taak in de backlog, als kaartje op het mini-kanban van zijn issue. */
+export interface BacklogTask {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  due_date?: string | null;
+  order?: number | null;
+  assignee_id?: string | null;
+  assignee?: Person | null;
+  /** Aantal opmerkingen: hoe besproken de taak is. */
+  comment_count: number;
+  created_at: string;
+}
+
+/** Eén issue in de backlog van een initiatief, met zijn casus en taken. */
+export interface BacklogIssue {
+  id: string;
+  casus_id: string;
+  casus: TaskCasusSummary;
+  title: string;
+  status: IssueStatus;
+  is_onderzoeksvraag: boolean;
+  assignee_id?: string | null;
+  assignee?: { id: string; naam: string; is_agent: boolean } | null;
+  toelichting?: string | null;
+  sort_order: number;
+  /** Afgevinkte DoD-eisen bij het afronden. */
+  dod_checked: string[];
+  tasks: BacklogTask[];
+  created_at: string;
+}
+
+export interface BacklogLosseTaak extends BacklogTask {
+  casus_id: string;
+  casus: TaskCasusSummary;
+}
+
+export interface BacklogResponse {
+  issues: BacklogIssue[];
+  losse_taken: BacklogLosseTaak[];
 }
 
 export interface TaskCreate {
@@ -288,14 +342,17 @@ export interface TaskCreate {
   parent_id?: string;
   parlementair_item_id?: string;
   opdracht_id?: string;
-  node_id: string;
+  /** Een taak hangt aan een corpus-node of aan een casus, zie backend ck_task_anchor. */
+  node_id?: string;
+  casus_id?: string;
+  issue_id?: string;
   work_type?: string;
 }
 
 export interface TaskUpdate {
   title?: string;
   description?: string | null;
-  /** De node waar de taak aan hangt; die is in het taakdetail te kiezen. */
+  /** Alleen voor een taak buiten een casus: de node waar ze aan hangt. */
   node_id?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
@@ -305,6 +362,7 @@ export interface TaskUpdate {
   parent_id?: string | null;
   opdracht_id?: string | null;
   work_type?: string | null;
+  issue_id?: string | null;
 }
 
 export interface EenheidPersonTaskStats {
@@ -1242,6 +1300,7 @@ export interface TaskFilters {
   priority?: TaskPriority;
   assignee_id?: string;
   node_id?: string;
+  casus_id?: string;
   organisatie_eenheid_id?: string;
   opdracht_id?: string;
   include_children?: boolean;
@@ -1976,6 +2035,8 @@ export interface Casus {
   started_by_id?: string | null;
   trekker_naam?: string | null;
   team_count: number;
+  issue_count: number;
+  issue_done_count: number;
   created_at: string;
   updated_at?: string | null;
   /** De soorten (tags) van de casus. */
@@ -1994,6 +2055,8 @@ export interface CasusTeamlid {
 export interface CasusDetail extends Casus {
   lead?: { id: string; title: string; stage: string; organization?: string | null } | null;
   team: CasusTeamlid[];
+  /** De DoD die voor deze casus geldt (initiatief of default). */
+  dod_items: string[];
 }
 
 export interface CasusStart {
@@ -2119,6 +2182,8 @@ export interface Initiatief {
   score_strategisch_label: string | null;
   score_politiek_label: string | null;
   score_positie_label: string | null;
+  /** Definition of Done, teamstandaard; leeg = de dummy-default van de backend. */
+  dod_items: string[];
   /** Wat het team bij het starten van een casus naloopt; leeg = geen criteria. */
   acceptatiecriteria?: string[];
   /** De startvragen die gelden: de eigen lijst, anders de standaardlijst. */
@@ -2158,6 +2223,7 @@ export interface InitiatiefSettingsUpdate {
   score_strategisch_label?: string | null;
   score_politiek_label?: string | null;
   score_positie_label?: string | null;
+  dod_items?: string[];
   acceptatiecriteria?: string[];
   /** De casusfunnel; een lege lijst zet het voorstel terug. */
   casus_fases?: CasusFaseDef[];
@@ -2348,6 +2414,8 @@ export interface InitiatiefDetail extends Initiatief {
   members: InitiatiefMember[];
   eenheden: InitiatiefEenheid[];
   access_level: 'eigenaar' | 'contributor' | 'viewer' | null;
+  /** De standaard-DoD die geldt zolang dod_items leeg is. */
+  dod_standaard?: string[];
   /** Het voorstel voor de casusfunnel, om naar terug te gaan. */
   casus_fases_voorstel?: CasusFaseDef[];
   /** Of de funnel het voorstel is (geen eigen fases). */
@@ -2545,6 +2613,69 @@ export interface PersoonLidmaatschap {
   rol?: string | null;
   start_datum: string;
   eind_datum?: string | null;
+}
+
+// Issue: de laag tussen casus en taak. Een issue is een onderzoeksvraag of
+// niet (is_onderzoeksvraag), en heeft een eigenaar. Afronden gaat via de DoD.
+export enum IssueStatus {
+  OPEN = 'open',
+  IN_PROGRESS = 'in_progress',
+  DONE = 'done',
+}
+
+export const ISSUE_STATUS_LABELS: Record<IssueStatus, string> = {
+  [IssueStatus.OPEN]: 'Open',
+  [IssueStatus.IN_PROGRESS]: 'In behandeling',
+  [IssueStatus.DONE]: 'Afgerond',
+};
+
+/** Hoe een issue heet in de weergave. Onderzoeksvragen zijn leidend; de rest is de uitzondering. */
+export function issueSoortLabel(issue: { is_onderzoeksvraag: boolean }): string {
+  return issue.is_onderzoeksvraag ? 'Onderzoeksvraag' : 'Geen onderzoeksvraag';
+}
+
+export const ISSUE_STATUS_COLORS: Record<IssueStatus, EntityColor> = {
+  [IssueStatus.OPEN]: 'coolgray',
+  [IssueStatus.IN_PROGRESS]: 'lintblauw',
+  [IssueStatus.DONE]: 'groen',
+};
+
+export interface Issue {
+  id: string;
+  casus_id: string;
+  title: string;
+  toelichting?: string | null;
+  status: IssueStatus;
+  /** Een onderzoeksvraag, of een ander issue. */
+  is_onderzoeksvraag: boolean;
+  assignee_id?: string | null;
+  assignee?: { id: string; naam: string; is_agent: boolean } | null;
+  sort_order: number;
+  /** Afgevinkte DoD-eisen bij het afronden. */
+  dod_checked: string[];
+  task_count: number;
+  task_done_count: number;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export interface IssueCreate {
+  title: string;
+  toelichting?: string | null;
+  status?: IssueStatus;
+  is_onderzoeksvraag?: boolean;
+  assignee_id?: string | null;
+}
+
+export interface IssueUpdate {
+  title?: string;
+  toelichting?: string | null;
+  status?: IssueStatus;
+  is_onderzoeksvraag?: boolean;
+  assignee_id?: string | null;
+  /** Verhuizen naar een andere casus van hetzelfde initiatief. */
+  casus_id?: string;
+  dod_checked?: string[];
 }
 
 // Opmerkingen en bijlagen op een taak (het taakdetail).

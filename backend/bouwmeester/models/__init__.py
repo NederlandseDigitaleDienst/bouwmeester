@@ -38,6 +38,7 @@ from bouwmeester.models.import_watermerk import ImportWatermerk  # noqa: F401
 from bouwmeester.models.initiatief import Initiatief  # noqa: F401
 from bouwmeester.models.initiatief_update import InitiatiefUpdatePost  # noqa: F401
 from bouwmeester.models.instrument import Instrument  # noqa: F401
+from bouwmeester.models.issue import Issue  # noqa: F401
 from bouwmeester.models.lead import Lead  # noqa: F401
 from bouwmeester.models.lead_activity import LeadActivity  # noqa: F401
 from bouwmeester.models.lead_attachment import LeadAttachment  # noqa: F401

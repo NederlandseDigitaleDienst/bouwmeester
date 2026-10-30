@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import selectinload
 
 from bouwmeester.core.initiatief_context import (
@@ -10,6 +10,7 @@ from bouwmeester.core.initiatief_context import (
     apply_initiatief_filter,
 )
 from bouwmeester.models.casus import Casus
+from bouwmeester.models.issue import Issue
 from bouwmeester.models.lead import Lead
 from bouwmeester.models.lead_column import LeadColumn
 from bouwmeester.models.resource_permission import ResourcePermission
@@ -143,3 +144,21 @@ class CasusRepository(BaseRepository[Casus]):
                 trekker = rp.person.naam
             out[rp.resource_id] = (trekker, n + 1)
         return out
+
+    async def issue_counts(self, casus_ids: list[UUID]) -> dict[UUID, tuple[int, int]]:
+        """Per casus: (issues, issues afgerond)."""
+        if not casus_ids:
+            return {}
+        stmt = (
+            select(
+                Issue.casus_id,
+                func.count(Issue.id),
+                func.coalesce(func.sum(case((Issue.status == "done", 1), else_=0)), 0),
+            )
+            .where(Issue.casus_id.in_(casus_ids))
+            .group_by(Issue.casus_id)
+        )
+        return {
+            r[0]: (int(r[1]), int(r[2]))
+            for r in (await self.session.execute(stmt)).all()
+        }

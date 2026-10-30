@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from bouwmeester.schema.casus import DEFAULT_DOD
 from bouwmeester.schema.casus_fases import (
     DEFAULT_CASUS_FASES,
     CasusFaseDef,
@@ -99,6 +100,8 @@ class InitiatiefSettingsUpdate(BaseModel):
     score_strategisch_label: str | None = Field(None, max_length=120)
     score_politiek_label: str | None = Field(None, max_length=120)
     score_positie_label: str | None = Field(None, max_length=120)
+    # Definition of Done: lijst eisen; leeg = de dummy-default (schema/casus.py).
+    dod_items: list[str] | None = Field(None, max_length=30)
     # Acceptatiecriteria die je bij het starten van een casus naloopt.
     acceptatiecriteria: list[str] | None = Field(None, max_length=30)
     # De startvragen; een lege lijst zet de standaardlijst terug.
@@ -123,6 +126,16 @@ class InitiatiefSettingsUpdate(BaseModel):
         if not vragen:
             return vragen
         return controleer_lijst(vragen)
+
+    @field_validator("dod_items")
+    @classmethod
+    def _strip_dod(cls, items: list[str] | None) -> list[str] | None:
+        if items is None:
+            return None
+        cleaned = [i.strip() for i in items if i and i.strip()]
+        if any(len(i) > 300 for i in cleaned):
+            raise ValueError("Een DoD-eis is maximaal 300 tekens")
+        return cleaned
 
     @field_validator("acceptatiecriteria")
     @classmethod
@@ -209,6 +222,7 @@ class InitiatiefResponse(BaseModel):
     score_strategisch_label: str | None = None
     score_politiek_label: str | None = None
     score_positie_label: str | None = None
+    dod_items: list[str] = Field(default_factory=list)
     acceptatiecriteria: list[str] = Field(default_factory=list)
     # De startvragen die gelden: de eigen lijst, anders de standaardlijst.
     startvragen: list[Startvraag] = Field(default_factory=list)
@@ -250,6 +264,9 @@ class InitiatiefDetailResponse(InitiatiefResponse):
     members: list[InitiatiefMemberResponse] = Field(default_factory=list)
     eenheden: list[InitiatiefEenheidResponse] = Field(default_factory=list)
     access_level: str | None = None
+    # De standaardlijst die geldt zolang dod_items leeg is. Zo kunnen de
+    # instellingen hem tonen en als begin van een eigen lijst gebruiken.
+    dod_standaard: list[str] = Field(default_factory=lambda: list(DEFAULT_DOD))
     # Het voorstel voor de funnel, om naar terug te gaan vanuit de instellingen.
     casus_fases_voorstel: list[CasusFaseDef] = Field(
         default_factory=lambda: list(DEFAULT_CASUS_FASES)

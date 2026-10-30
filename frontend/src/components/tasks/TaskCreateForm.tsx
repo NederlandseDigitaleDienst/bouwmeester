@@ -18,6 +18,8 @@ interface TaskCreateFormProps {
   open: boolean;
   onClose: () => void;
   nodeId?: string;
+  /** Casus van de bovenliggende taak, voor subtaken op een casus. */
+  casusId?: string;
   parentId?: string;
   opdrachtId?: string;
   /** Stakeholder person IDs in order: eigenaar first, then betrokken */
@@ -28,6 +30,7 @@ export function TaskCreateForm({
   open,
   onClose,
   nodeId,
+  casusId,
   parentId,
   opdrachtId,
   stakeholderPersonIds,
@@ -88,7 +91,8 @@ export function TaskCreateForm({
       description: description.trim() || undefined,
       priority: priority as TaskPriority,
       due_date: dueDate || undefined,
-      node_id: selectedNodeId || nodeId || '',
+      node_id: selectedNodeId || nodeId || undefined,
+      casus_id: casusId,
       assignee_id: assigneeId || undefined,
       organisatie_eenheid_id: organisatieEenheidId || undefined,
       parent_id: parentId || undefined,

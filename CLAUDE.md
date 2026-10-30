@@ -135,7 +135,7 @@ Person
 
 CorpusNode (dossier/doel/instrument/beleidskader/maatregel/politieke_input/probleem/effect/beleidsoptie)
 ├── Edge (from_node_id / to_node_id, typed via EdgeType)
-├── Task (node_id)
+├── Task (node_id, nullable: een taak hangt aan een node of aan een casus, zie ck_task_anchor)
 ├── ResourcePermission (resource_type=corpus_node, resource_id=node_id)
 └── NodeTag (node_id → Tag, hierarchical tagging)
 
@@ -146,6 +146,21 @@ ParlementairItem (tracks imported parliamentary items: moties, kamervragen, toez
 ├── SuggestedEdge (proposed edges to corpus nodes, pending review)
 ├── CorpusNode (corpus_node_id, the created politieke_input node)
 └── type discriminator (motie, kamervraag, toezegging, amendement, ...)
+
+Lead ── 1:1 ──> Casus (start vanuit de kolom in_the_pocket; de lead is daarna alleen-lezen, 409 op mutaties)
+├── Casus (lead_id RESTRICT, initiatief_id, fase (dummy), startvoorwaarden JSON (dummy), nooit publiek)
+│   ├── Issue (casus_id; title, toelichting, is_onderzoeksvraag, assignee_id SET NULL (eigenaar, lid van het initiatief), status open/in_progress/done, sort_order, dod_checked JSON). Er is geen story-laag: issue > taak > subtaken. De status volgt de hoofdtaken eronder via `IssueRepository.sync_status` na elke taakwijziging (iets loopt of is af, ook alles af: in_progress; alles open: open als het done was, anders blijft hij staan). Afgerond wordt een issue alleen met de hand, via de Definition of Done (`DodModal.tsx`, ook vanuit het bewerkvenster); een afgerond issue blijft afgerond zolang alle taken af zijn. Subtaken en geannuleerde taken tellen niet mee.
+│   │   └── Task (issue_id SET NULL; casus_id wordt uit het issue gevuld)
+│   │       └── Task (parent_id: subtaak, staat als opsomming onder de hoofdtaak, nooit als eigen taak of kaartje)
+│   ├── Task (casus_id, losse taak op de casus, zonder issue)
+│   │   ├── TaskComment (task_id CASCADE, author_id SET NULL; content; @-vermeldingen via mention_helper)
+│   │   └── TaskAttachment (task_id CASCADE; bestand via core.storage onder taken/)
+│   └── ResourcePermission (resource_type=casus; rol trekker/teamlid, alleen wie het initiatief kan zien)
+
+Backlog: `GET /casussen/backlog?initiatief_id=` geeft `{issues, losse_taken}`: alle issues van alle casussen van een initiatief met hun casus en hoofdtaken (subtaken op het kaartje), plus de taken zonder issue (tab Backlog, met een mini-kanban per issue; een kaartje opent het taakdetail met opmerkingen en bijlagen via `/tasks/{id}/comments` en `/tasks/{id}/attachments` in `api/routes/task_comments.py`). Zichtbaarheid loopt via de casus, net als `GET /tasks?casus_id=`: buiten een zichtbaar initiatief 404 (`require_initiatief_visible` in `core/initiatief_context.py`).
+
+Toegang tot casuswerk (vaste regel, bewaakt door `tests/test_casus_toegang.py`): issues en taken van een casus zijn alleen zichtbaar voor wie het initiatief kan zien (direct lid of via een gekoppelde eenheid, `GET /initiatieven/{id}/personen` geeft die lijst met `rol` en `via_eenheden`). Een casustaak is daarbuiten overal 404 en ontbreekt in elke takenlijst, ook `/tasks/my`, de inbox en de chat-tools (`apply_casus_filter` in `repositories/task.py`). Wie een casustaak doet, trekker of teamlid is, moet lid zijn van het initiatief (`require_initiatief_member`, anders 400). De UI biedt alleen leden aan (`hooks/useInitiatiefPersonOptions.ts`); de backend is de bewaker. Elke nieuwe route of lijst die casuswerk teruggeeft, volgt deze regel en krijgt een test in dat bestand.
+└── ResourcePermission (resource_type=lead; rol contactpersoon/opdrachtgever/betrokken = extern)
 
 Initiatief
 ├── Lead (initiatief_id) — funnel-stage tracking
@@ -166,6 +181,7 @@ Per-initiatief feature-toggles (eigenaar-only via `PUT /api/initiatieven/{id}/se
 - `funnel_enabled` — toont engagement_type + drie 1-5 scores op leads van dit initiatief
 - `public_page_enabled` — opt-in publieke pagina op `/c/:slug`
 - `score_strategisch_label` / `score_politiek_label` / `score_positie_label` — eigen labels die de defaults overschrijven
+- `dod_items` — Definition of Done (lijst eisen) bij het afronden van een issue, voor alle casussen van het initiatief; leeg = `DEFAULT_DOD` in `schema/casus.py`
 
 Slug-rules in `backend/bouwmeester/core/slug.py`: lowercase, `[a-z0-9-]`, niet leeg, niet in `RESERVED_SLUGS`. Eenmalig instelbaar via UI (immutable na save in v1).
 
