@@ -51,7 +51,7 @@ export function FileActionChooser() {
         {/* Two choices, so a list of rows rather than two buttons carrying a
             title and a description each. The row is the control; the cells set
             the type scale and the alignment against the row height. */}
-        <nldd-list variant="simple" accessible-label="Wat wil je met dit bestand doen?">
+        <nldd-list appearance="simple" accessible-label="Wat wil je met dit bestand doen?">
           <ActionRow
             icon="users"
             title="Nieuwe lead aanmaken"

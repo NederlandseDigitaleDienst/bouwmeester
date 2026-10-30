@@ -45,7 +45,7 @@ export function EmojiPicker({
   return (
     <nldd-icon-button
       icon={icon}
-      variant={variant}
+      appearance={variant}
       size={size}
       accessible-label={accessibleLabel}
       popup-type="dialog"

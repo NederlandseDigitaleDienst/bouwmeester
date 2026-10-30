@@ -79,7 +79,7 @@ function EmailRow({ email, isDefault, onSetDefault, onRemove }: EmailRowProps) {
         {/* The Icon wrapper has no color prop, so the raw element is used
             here to reach nldd-icon's own `color`: 'warning' for the starred
             default, unset (inherits secondary) otherwise. */}
-        <nldd-icon name="star" size="16" {...(isDefault ? { color: 'warning' } : {})} aria-hidden="true" />
+        <nldd-icon icon="star" size="16" {...(isDefault ? { color: 'warning' } : {})} aria-hidden="true" />
       </nldd-list-item-segment>
       <nldd-list-item-segment ref={removeRef} button accessible-label="E-mailadres verwijderen">
         <Icon name="close" size="sm" />
@@ -110,7 +110,7 @@ function PhoneRow({ phoneNumber, label, isDefault, onSetDefault, onRemove }: Pho
         button
         accessible-label={isDefault ? 'Standaard telefoonnummer' : 'Instellen als standaard'}
       >
-        <nldd-icon name="star" size="16" {...(isDefault ? { color: 'warning' } : {})} aria-hidden="true" />
+        <nldd-icon icon="star" size="16" {...(isDefault ? { color: 'warning' } : {})} aria-hidden="true" />
       </nldd-list-item-segment>
       <nldd-list-item-segment ref={removeRef} button accessible-label="Telefoonnummer verwijderen">
         <Icon name="close" size="sm" />
@@ -632,7 +632,7 @@ export function PersonEditForm({
             {personEmails.length === 0 ? (
               <nldd-text size="sm" color="secondary">Geen e-mailadressen</nldd-text>
             ) : (
-              <nldd-list variant="box-tinted" accessible-label="E-mailadressen">
+              <nldd-list appearance="box-tinted" accessible-label="E-mailadressen">
                 {personEmails.map((em) => (
                   <EmailRow
                     key={em.id}
@@ -676,7 +676,7 @@ export function PersonEditForm({
             {personPhones.length === 0 ? (
               <nldd-text size="sm" color="secondary">Geen telefoonnummers</nldd-text>
             ) : (
-              <nldd-list variant="box-tinted" accessible-label="Telefoonnummers">
+              <nldd-list appearance="box-tinted" accessible-label="Telefoonnummers">
                 {personPhones.map((ph) => (
                   <PhoneRow
                     key={ph.id}

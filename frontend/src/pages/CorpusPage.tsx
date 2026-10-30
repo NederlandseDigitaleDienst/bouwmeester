@@ -173,7 +173,7 @@ export function CorpusPage() {
   return (
     <nldd-container gap="24">
       {/* Page header */}
-      <nldd-toolbar label="Corpusacties">
+      <nldd-toolbar accessible-label="Corpusacties">
         <nldd-toolbar-item slot="start" priority={1} min-width="60%">
           {/* Filters share the toolbar row with the actions, and wrap only
               when the room runs out. `min-width` makes the item fluid; a

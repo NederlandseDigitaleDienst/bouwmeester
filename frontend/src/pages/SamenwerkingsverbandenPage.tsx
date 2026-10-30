@@ -134,7 +134,7 @@ export function SamenwerkingsverbandenPage() {
 
   return (
     <nldd-container gap="24">
-      <nldd-toolbar label="Samenwerkingsverbandacties">
+      <nldd-toolbar accessible-label="Samenwerkingsverbandacties">
         {/* `min-width` makes the item fluid, per its own docs, and that is what
             gives the wrap row below a width to break against. Without it the
             item measures its content, the row measures the item, and both end
@@ -246,7 +246,7 @@ export function SamenwerkingsverbandenPage() {
           </nldd-text>
         </nldd-container>
       ) : (
-        <nldd-collection layout="grid" item-width="280px" gap="12">
+        <nldd-collection layout="grid" item-min-width="280px" gap="12">
           {data.map((swv) => (
             <SamenwerkingsverbandCard key={swv.id} swv={swv} />
           ))}

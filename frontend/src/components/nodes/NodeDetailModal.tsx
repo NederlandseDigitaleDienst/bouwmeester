@@ -183,7 +183,7 @@ export function NodeDetailModal({ nodeId, open, onClose }: NodeDetailModalProps)
               {node.status && <Badge color="coolgray">{NODE_STATUS_LABELS[node.status as NodeStatus] ?? node.status}</Badge>}
               {node.edge_count != null && (
                 <div className="hug">
-                  <nldd-icon name="link" size="16" aria-hidden="true" />
+                  <nldd-icon icon="link" size="16" aria-hidden="true" />
                   <nldd-text size="sm" color="secondary">{node.edge_count} verbindingen</nldd-text>
                 </div>
               )}
@@ -205,7 +205,7 @@ export function NodeDetailModal({ nodeId, open, onClose }: NodeDetailModalProps)
                 {eigenaren.length > 0 && (
                   <nldd-container width="fit-content" className="row-fill" gap="8">
                     <nldd-container layout="row" gap="4" vertical-alignment="center">
-                      <nldd-icon name="users" size="16" aria-hidden="true" />
+                      <nldd-icon icon="users" size="16" aria-hidden="true" />
                       <nldd-title size={6}><h2>Eigenaar</h2></nldd-title>
                     </nldd-container>
                     <nldd-container layout="wrap" gap="6">
@@ -239,7 +239,7 @@ export function NodeDetailModal({ nodeId, open, onClose }: NodeDetailModalProps)
             {nodeTags && nodeTags.length > 0 && (
               <nldd-container gap="6">
                 <nldd-container layout="row" gap="4" vertical-alignment="center">
-                  <nldd-icon name="tag" size="16" aria-hidden="true" />
+                  <nldd-icon icon="tag" size="16" aria-hidden="true" />
                   <nldd-title size={6}><h2>Tags</h2></nldd-title>
                 </nldd-container>
                 <nldd-container layout="wrap" gap="6">
@@ -307,10 +307,10 @@ export function NodeDetailModal({ nodeId, open, onClose }: NodeDetailModalProps)
                   id: task.id,
                   label: task.title,
                   icon: task.status === TaskStatus.DONE
-                    ? <nldd-icon name="check-mark-circle" size="16" color="success" aria-hidden="true" />
+                    ? <nldd-icon icon="check-mark-circle" size="16" color="success" aria-hidden="true" />
                     : task.status === TaskStatus.IN_PROGRESS
-                      ? <nldd-icon name="clock" size="16" color="accent" aria-hidden="true" />
-                      : <nldd-icon name="circle" size="16" color="" aria-hidden="true" />,
+                      ? <nldd-icon icon="clock" size="16" color="accent" aria-hidden="true" />
+                      : <nldd-icon icon="circle" size="16" color="" aria-hidden="true" />,
                   secondaryText: task.assignee?.naam,
                   onClick: () => openTaskDetail(task.id, node.title),
                 }))}

@@ -162,7 +162,7 @@ export function ColumnsManager({ initiatiefId }: ColumnsManagerProps) {
         toont casuses op de publieke pagina.
       </nldd-text>
 
-      <nldd-list variant="box-tinted" dividers="always" accessible-label="Funnel-kolommen">
+      <nldd-list appearance="box-tinted" dividers="always" accessible-label="Funnel-kolommen">
         {sortedColumns.map((col, idx) => (
           <ColumnRow
             key={col.id}
@@ -468,7 +468,7 @@ function swatchIconColor(color: NlddTagColor): NlddIconColor {
 
 /** A filled circle in the color: the swatch in both controls below. */
 function Swatch({ color }: { color: NlddTagColor }) {
-  return <nldd-icon slot="icon" name="circle-filled" color={swatchIconColor(color)} />;
+  return <nldd-icon slot="icon" icon="circle-filled" color={swatchIconColor(color)} />;
 }
 
 /** The column's color as one swatch; pressing it opens the palette. */
@@ -487,7 +487,7 @@ function CurrentColorButton({
   return (
     <nldd-icon-button
       ref={ref}
-      variant="neutral-transparent"
+      appearance="neutral-transparent"
       size="xs"
       accessible-label={`Kleur wijzigen, nu ${preset.label}`}
       expanded={orUndef(expanded)}

@@ -170,7 +170,7 @@ function SwvCheckboxList({
 }: SwvListProps) {
   return (
     <nldd-form-field label="Samenwerkingsverbanden (optioneel)">
-      <nldd-list variant="box-tinted" dividers="always" height="8rem" accessible-label="Samenwerkingsverbanden">
+      <nldd-list appearance="box-tinted" dividers="always" height="8rem" accessible-label="Samenwerkingsverbanden">
         {samenwerkingsverbanden.map((s) => (
           <SwvCheckboxRow
             key={s.id}

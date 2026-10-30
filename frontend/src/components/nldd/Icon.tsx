@@ -67,7 +67,7 @@ export function Icon({ name, size = 'md', label, color, className, style }: Icon
 
   return (
     <nldd-icon
-      name={name}
+      icon={name}
       size={px}
       className={className}
       style={style}

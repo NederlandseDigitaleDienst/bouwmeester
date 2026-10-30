@@ -365,7 +365,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
               <Card>
                 <nldd-title size={3}><h3>Bijlage</h3></nldd-title>
                 {bijlageInfo ? (
-                  <nldd-list variant="box-tinted" dividers="never">
+                  <nldd-list appearance="box-tinted" dividers="never">
                     <nldd-list-item>
                       <nldd-icon-cell icon="file-text" />
                       <nldd-title-cell
@@ -453,7 +453,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
             {references && references.length > 0 && (
               <Card>
                 <nldd-title size={3}><h3>Verwijzingen ({references.length})</h3></nldd-title>
-                <nldd-list variant="box-tinted" dividers="never">
+                <nldd-list appearance="box-tinted" dividers="never">
                   {references.map((ref) => (
                     <NlddListItemButton
                       key={`${ref.source_type}-${ref.source_id}`}
@@ -518,7 +518,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
             {neighbors && neighbors.length > 0 && (
               <Card>
                 <nldd-title size={3}><h3>Verbonden nodes ({neighbors.length})</h3></nldd-title>
-                <nldd-list variant="box-tinted" dividers="never">
+                <nldd-list appearance="box-tinted" dividers="never">
                   {neighbors.slice(0, 5).map((neighbor) => (
                     <NlddListItemButton key={neighbor.id} onClick={() => navigate(`/nodes/${neighbor.id}`)}>
                       <nldd-text-cell width="fit-content">
@@ -678,7 +678,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
                 <nldd-list dividers="never">
                   {titleHistory.map((record, idx) => (
                     <nldd-list-item key={record.id}>
-                      <nldd-timeline-track-cell
+                      <nldd-step-cell
                         status={!record.geldig_tot ? 'current' : 'past'}
                         direction="up"
                         position={
@@ -712,7 +712,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
                 <nldd-list dividers="never">
                   {statusHistory.map((record, idx) => (
                     <nldd-list-item key={record.id}>
-                      <nldd-timeline-track-cell
+                      <nldd-step-cell
                         status={!record.geldig_tot ? 'current' : 'past'}
                         direction="up"
                         position={

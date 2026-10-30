@@ -124,7 +124,7 @@ export function AppLayout() {
   return (
     <>
       <nldd-skip-link href="#main-content" text="Direct naar de inhoud" />
-      <nldd-app-view background="tinted">
+      <nldd-shell background="tinted">
         <nldd-navigation-split-view
           ref={splitViewRef}
           primary-sidebar-accessible-label="Navigatie"
@@ -134,7 +134,7 @@ export function AppLayout() {
           primary-sidebar-as-sheet={orUndef(isMobile)}
           /* The width of the sidebar column lives on the split view, not on the
              pane. Its shadow DOM wraps the pane in a div whose width is entirely
-             `min-width: var(--_primary-sidebar-min-width)` with flex-shrink: 0,
+             `min-width: var(--_navigation-split-view-primary-sidebar-min-width)` with flex-shrink: 0,
              so a width set on the pane itself only shrinks the pane INSIDE a
              wrapper that stays 320px — the icons narrow, the column does not,
              and the main content never moves left.
@@ -144,7 +144,7 @@ export function AppLayout() {
              DOM. */
           style={
             {
-              '--_primary-sidebar-min-width': sidebarOpen || isMobile ? '240px' : '64px',
+              '--_navigation-split-view-primary-sidebar-min-width': sidebarOpen || isMobile ? '240px' : '64px',
               transition: 'none',
             } as React.CSSProperties
           }
@@ -176,7 +176,7 @@ export function AppLayout() {
             </nldd-split-view-pane>
           )}
         </nldd-navigation-split-view>
-      </nldd-app-view>
+      </nldd-shell>
 
       {/* Overlays live at the document root. Left as light-DOM siblings of the
           split view they get slotted into the main pane and steal its height. */}

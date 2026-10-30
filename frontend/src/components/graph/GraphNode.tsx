@@ -22,8 +22,7 @@ function GraphNodeComponent({ data }: NodeProps<GraphNodeData>) {
       onClick={data.onClick}
       style={{
         background: 'var(--semantics-surfaces-base-background-color)',
-        borderRadius: 'var(--components-card-corner-radius)',
-        boxShadow: 'var(--components-card-box-shadow)',
+        borderRadius: 'var(--semantics-surfaces-corner-radius)',
         // The type color at 20%: a var() takes no hex alpha suffix, so mix instead.
         border: `1px solid color-mix(in oklch, ${color} 20%, transparent)`,
         minWidth: '180px',

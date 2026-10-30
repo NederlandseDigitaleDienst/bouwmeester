@@ -45,7 +45,7 @@ export function GapAnalysisPanel({ dossierId }: GapAnalysisPanelProps) {
           {/* Score */}
           <nldd-container layout="row" gap="8" vertical-alignment="center">
             <nldd-icon
-              name={result.completed_count === result.total_steps ? 'check-mark-circle' : 'exclamation-triangle'}
+              icon={result.completed_count === result.total_steps ? 'check-mark-circle' : 'exclamation-triangle'}
               size="16"
               color={result.completed_count === result.total_steps ? 'success' : 'warning'}
               aria-hidden="true"
@@ -87,7 +87,7 @@ export function GapAnalysisPanel({ dossierId }: GapAnalysisPanelProps) {
           {result.recommendations.length > 0 && (
             <nldd-container gap="4">
               <nldd-container layout="row" gap="6" vertical-alignment="center">
-                <nldd-icon name="lightbulb" size="16" color="warning" aria-hidden="true" />
+                <nldd-icon icon="lightbulb" size="16" color="warning" aria-hidden="true" />
                 <nldd-text size="xs" color="secondary" weight="medium">Aanbevelingen</nldd-text>
               </nldd-container>
               <nldd-rich-text>

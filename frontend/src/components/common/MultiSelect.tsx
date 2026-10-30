@@ -71,7 +71,7 @@ export function MultiSelect({
   return (
     <nldd-button
       text={displayLabel}
-      variant="secondary"
+      appearance="secondary"
       width="full"
       expandable
       popup-type="menu"

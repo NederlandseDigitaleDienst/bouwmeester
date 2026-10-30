@@ -88,7 +88,7 @@ export function SearchModal({ open, onClose }: SearchModalProps) {
         <nldd-list
           ref={listRef}
           type="listbox"
-          variant="box-base"
+          appearance="box-base"
           height="50vh"
           accessible-label="Zoeken"
         >

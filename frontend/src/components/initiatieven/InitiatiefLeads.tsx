@@ -129,7 +129,7 @@ export function InitiatiefLeads({ initiatiefId }: { initiatiefId: string }) {
 
   return (
     <nldd-container gap="16">
-      <nldd-toolbar label="Leadacties">
+      <nldd-toolbar accessible-label="Leadacties">
         {/* Search and filters share one fluid item, so on a wide screen they
             sit on the same line as the view switcher and the add button, and
             only wrap when the room runs out. `min-width` is what makes a

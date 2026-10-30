@@ -346,7 +346,7 @@ export function ReconciliationManager() {
                 )}
               </nldd-container>
 
-              <nldd-icon name="arrow-right" size="20" color="secondary-content" />
+              <nldd-icon icon="arrow-right" size="20" color="secondary-content" />
 
               {/* Kandidaat */}
               <nldd-container width="fit-content" min-width="200px" padding="12" gap="4">

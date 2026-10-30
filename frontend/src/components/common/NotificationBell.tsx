@@ -97,7 +97,7 @@ function NotificationItem({
         <nldd-cell width="fit-content">
           <NlddIconButton
             icon="check-mark"
-            variant="neutral-transparent"
+            appearance="neutral-transparent"
             size="sm"
             accessible-label="Markeer als gelezen"
             no-tab
@@ -252,7 +252,7 @@ export function NotificationBell() {
           itself, which is what the fixed/absolute breakpoint dance replaced. */}
       <nldd-icon-button
         icon="bell"
-        variant="neutral-transparent"
+        appearance="neutral-transparent"
         accessible-label={
           unreadCount > 0 ? `Meldingen (${unreadCount} ongelezen)` : 'Meldingen'
         }
@@ -292,7 +292,7 @@ export function NotificationBell() {
               {unreadCount > 0 && (
                 <NlddIconButton
                   icon="checked"
-                  variant="neutral-transparent"
+                  appearance="neutral-transparent"
                   size="sm"
                   accessible-label="Alles markeren als gelezen"
                   onClick={() => markAllRead.mutate()}
@@ -304,7 +304,7 @@ export function NotificationBell() {
             <nldd-divider />
 
             {notifications && notifications.length > 0 ? (
-              <nldd-list variant="simple" accessible-label="Meldingen">
+              <nldd-list appearance="simple" accessible-label="Meldingen">
                 {notifications.map((notification) => (
                   <NotificationItem
                     key={notification.id}

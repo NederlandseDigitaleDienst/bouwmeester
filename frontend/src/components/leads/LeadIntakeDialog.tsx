@@ -520,7 +520,7 @@ export function LeadIntakeDialog({ open, onClose, defaultInitiatiefId, sharedPar
           {parsedEmail && !emailParsing && (
             <nldd-card background="tinted">
               <nldd-container layout="row" gap="8" vertical-alignment="center" padding="8" padding-inline="12">
-                <nldd-icon name="envelope" size="16" color="accent" aria-hidden="true" />
+                <nldd-icon icon="envelope" size="16" color="accent" aria-hidden="true" />
                 <nldd-text size="sm" color="accent">
                   E-mail van {parsedEmail.senderName || parsedEmail.senderEmail}
                   {parsedEmail.subject ? `: ${parsedEmail.subject}` : ''}
@@ -571,7 +571,7 @@ export function LeadIntakeDialog({ open, onClose, defaultInitiatiefId, sharedPar
                 }}
               >
                 <nldd-container layout="row" gap="8" vertical-alignment="center">
-                  <nldd-icon name="upload" size="20" aria-hidden="true" />
+                  <nldd-icon icon="upload" size="20" aria-hidden="true" />
                   <nldd-text size="sm" weight="medium" color="accent">Sleep bestanden hierheen</nldd-text>
                 </nldd-container>
               </div>
@@ -594,7 +594,7 @@ export function LeadIntakeDialog({ open, onClose, defaultInitiatiefId, sharedPar
                         loading="eager"
                       />
                     ) : (
-                      <nldd-icon name="file-text" size="16" aria-hidden="true" />
+                      <nldd-icon icon="file-text" size="16" aria-hidden="true" />
                     )}
                     <nldd-text size="sm" color="secondary" className="truncate row-fill">
                       {file.name}

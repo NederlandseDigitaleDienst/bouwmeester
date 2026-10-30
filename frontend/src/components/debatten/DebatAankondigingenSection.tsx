@@ -216,7 +216,7 @@ export function DebatAankondigingenSection({
           />
         )}
         {lijst.length > 0 && (
-          <nldd-list variant="box-tinted" dividers="always" accessible-label="Aangekondigde debatten">
+          <nldd-list appearance="box-tinted" dividers="always" accessible-label="Aangekondigde debatten">
             {lijst.map((debat) => (
               <AankondigingRow
                 key={debat.id}
@@ -251,7 +251,7 @@ export function DebatAankondigingenSection({
           />
         )}
         {resultaten.length > 0 && (
-          <nldd-list variant="box-tinted" dividers="always" accessible-label="Gevonden vergaderingen">
+          <nldd-list appearance="box-tinted" dividers="always" accessible-label="Gevonden vergaderingen">
             {resultaten.map(({ debat, aangekondigd }) => (
               <ResultaatRow
                 key={debat.activiteit_id}

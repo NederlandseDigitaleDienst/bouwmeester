@@ -204,7 +204,7 @@ function EenheidDetailPanel({ eenheidId }: { eenheidId: string }) {
       {/* Initiatieven */}
       <nldd-container gap="12">
         <nldd-container layout="row" gap="6" vertical-alignment="center">
-          <nldd-icon name="lightbulb" size="16" />
+          <nldd-icon icon="lightbulb" size="16" />
           <nldd-title size={6}><h3>Initiatieven</h3></nldd-title>
         </nldd-container>
 
@@ -215,7 +215,7 @@ function EenheidDetailPanel({ eenheidId }: { eenheidId: string }) {
         )}
 
         {!initiativeLoading && initiatieven && initiatieven.length > 0 && (
-          <nldd-list type="form" variant="box-base" dividers="always" accessible-label="Gekoppelde initiatieven">
+          <nldd-list type="form" appearance="box-base" dividers="always" accessible-label="Gekoppelde initiatieven">
             {initiatieven.map((link) => (
               <InitiatiefRow
                 key={link.initiatief_id}
@@ -251,7 +251,7 @@ function EenheidDetailPanel({ eenheidId }: { eenheidId: string }) {
       {/* Modules */}
       <nldd-container gap="12">
         <nldd-container layout="row" gap="6" vertical-alignment="center">
-          <nldd-icon name="blocks-9" size="16" />
+          <nldd-icon icon="blocks-9" size="16" />
           <nldd-title size={6}><h3>Modules</h3></nldd-title>
         </nldd-container>
 
@@ -262,7 +262,7 @@ function EenheidDetailPanel({ eenheidId }: { eenheidId: string }) {
         )}
 
         {!modulesLoading && moduleConfig && (
-          <nldd-list type="form" variant="box-base" dividers="always" accessible-label="Modules per eenheid">
+          <nldd-list type="form" appearance="box-base" dividers="always" accessible-label="Modules per eenheid">
             {moduleConfig.modules.map((mod) => {
               const isInherited = mod.inherited_from !== null && !mod.enabled;
               const label = moduleLabels?.[mod.module] ?? mod.module;

@@ -146,7 +146,7 @@ function TaskRow({ task, showPersonAssign, selectedEenheidId, personOptions }: {
         <nldd-button
           ref={titleRef}
           text={task.title}
-          variant="neutral-transparent"
+          appearance="neutral-transparent"
           size="sm"
           width="full"
           single-line
