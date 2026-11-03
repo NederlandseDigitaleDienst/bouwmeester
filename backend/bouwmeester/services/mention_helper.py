@@ -1,6 +1,7 @@
 """Helper to sync mentions from content and notify mentioned persons."""
 
 import logging
+from collections.abc import Awaitable, Callable
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +26,7 @@ async def sync_and_notify_mentions(
     source_lead_id: UUID | None = None,
     exclude_person_id: UUID | None = None,
     alleen_leden_van: UUID | None = None,
+    ontvanger_ziet: Callable[[UUID], Awaitable[bool]] | None = None,
 ) -> None:
     """Sync mentions from content and send notifications to mentioned persons.
 
@@ -44,6 +46,10 @@ async def sync_and_notify_mentions(
         alleen_leden_van: Initiatief-id. Alleen wie lid is, krijgt een
             melding: de titel van een casustaak hoort niet bij mensen die de
             casus niet kunnen zien. De vermelding zelf wordt wel vastgelegd.
+        ontvanger_ziet: Of een genoemde persoon de bron mag zien. Wie dat niet
+            mag, krijgt geen melding: die zou de titel lezen van iets waar
+            hij geen toegang toe heeft. De vermelding zelf wordt wel
+            vastgelegd.
     """
     if not content:
         return
@@ -63,6 +69,10 @@ async def sync_and_notify_mentions(
                         continue
                     if alleen_leden_van is not None and not await init_repo.is_member(
                         alleen_leden_van, m.target_id
+                    ):
+                        continue
+                    if ontvanger_ziet is not None and not await ontvanger_ziet(
+                        m.target_id
                     ):
                         continue
                     await notif_svc.notify_mention(

@@ -16,10 +16,10 @@ from bouwmeester.core.database import get_db
 from bouwmeester.core.initiatief_context import (
     InitiatiefContext,
     get_initiatief_context,
+    initiatief_niveau,
 )
 from bouwmeester.core.permissions import (
     PermissionContext,
-    build_permission_context,
     get_permission_context,
 )
 from bouwmeester.repositories.initiatief import InitiatiefRepository
@@ -56,35 +56,11 @@ async def _resolve_access_level(
     - Super admin / system RBAC permissions
     - Direct membership via ResourcePermission
     - Eenheid membership via resource_permission (eenheid-scoped)
+
+    The rule itself lives in ``core.initiatief_context.initiatief_niveau``,
+    so the casus guards in ``core.authority`` use the same one.
     """
-    if not user:
-        return "eigenaar"  # dev mode, no OIDC
-    if perm_ctx is None:
-        perm_ctx = await build_permission_context(repo.session, user)
-    if perm_ctx.is_super_admin:
-        return "eigenaar"
-
-    levels: list[str] = []
-
-    # System RBAC permissions
-    if perm_ctx.has_permission("initiatief:delete"):
-        levels.append("eigenaar")
-    elif perm_ctx.has_permission("initiatief:update"):
-        levels.append("contributor")
-
-    # Direct membership
-    direct_role = await repo.get_member_role(initiatief_id, user.id)
-    if direct_role:
-        levels.append(direct_role)
-
-    # Eenheid membership
-    eenheid_role = await repo.get_eenheid_access_level(initiatief_id, user.id)
-    if eenheid_role:
-        levels.append(eenheid_role)
-
-    if not levels:
-        return None
-    return max(levels, key=lambda r: EENHEID_ROL_RANK.get(r, 0))
+    return await initiatief_niveau(repo.session, initiatief_id, user, perm_ctx)
 
 
 async def _require_access(
@@ -342,6 +318,21 @@ async def delete_initiatief(
         sa_delete(ResourcePermission).where(
             ResourcePermission.resource_type == "initiatief",
             ResourcePermission.resource_id == id,
+        )
+    )
+    # De casussen gaan via de cascade mee; hun teams (resource_permission
+    # zonder FK) ruimen we hier op, anders blijven er rollen op een casus
+    # staan die niet meer bestaat.
+    from sqlalchemy import select as sa_select
+
+    from bouwmeester.models.casus import Casus
+
+    await db.execute(
+        sa_delete(ResourcePermission).where(
+            ResourcePermission.resource_type == "casus",
+            ResourcePermission.resource_id.in_(
+                sa_select(Casus.id).where(Casus.initiatief_id == id)
+            ),
         )
     )
 

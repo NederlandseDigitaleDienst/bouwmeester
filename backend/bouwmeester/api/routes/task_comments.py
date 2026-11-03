@@ -4,12 +4,15 @@ Eigen router naast tasks.py, zodat het taakdetail (opmerkingen, bijlagen)
 los staat van de taak zelf. Toegang: wie de taak mag zien, mag meepraten en
 bijlagen toevoegen. Een casustaak is zo zichtbaar als haar casus (404
 buiten een zichtbaar initiatief); een node-taak volgt de org-scope.
+Weghalen is anders: een opmerking of bijlage verwijdert alleen wie hem
+plaatste, of een beheerder. Een melding (toegewezene, @-vermelding) gaat
+alleen naar wie de taak mag zien.
 """
 
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -23,10 +26,15 @@ from bouwmeester.core.initiatief_context import (
 )
 from bouwmeester.core.org_context import (
     OrgContext,
+    build_org_context,
     check_resource_org_scope,
     get_org_context,
 )
-from bouwmeester.core.permissions import PermissionContext, get_permission_context
+from bouwmeester.core.permissions import (
+    PermissionContext,
+    build_permission_context,
+    get_permission_context,
+)
 from bouwmeester.core.storage import (
     blob_download,
     delete_blob,
@@ -35,9 +43,11 @@ from bouwmeester.core.storage import (
     validate_upload,
 )
 from bouwmeester.models.casus import Casus
+from bouwmeester.models.person import Person
 from bouwmeester.models.task import Task
 from bouwmeester.models.task_attachment import TaskAttachment
 from bouwmeester.models.task_comment import TaskComment
+from bouwmeester.repositories.mention import MentionRepository
 from bouwmeester.schema.notification import NotificationCreate
 from bouwmeester.schema.task_comment import (
     TaskAttachmentResponse,
@@ -46,9 +56,51 @@ from bouwmeester.schema.task_comment import (
 )
 from bouwmeester.services.activity_service import log_activity
 from bouwmeester.services.mention_helper import sync_and_notify_mentions
+from bouwmeester.services.mention_service import MentionService
 from bouwmeester.services.notification_service import NotificationService
 
 router = APIRouter(prefix="/tasks/{task_id}", tags=["task-comments"])
+
+# Een opmerking noemt hooguit zoveel mensen; ieder krijgt een melding.
+MAX_GENOEMDEN = 20
+# Zoveel bijlagen per taak. Met 20 MB per bestand is dat genoeg voor het werk
+# aan één taak en houdt het de opslag per taak begrensd.
+MAX_BIJLAGEN_PER_TAAK = 20
+
+
+def _ziet_taak(db: AsyncSession, task: Task):
+    """Of een persoon deze taak mag zien.
+
+    Voor meldingen: wie de taak niet mag zien, krijgt geen bericht met haar
+    titel. Dezelfde regels als `_get_visible_task`, maar voor een ander dan
+    de aanvrager: een casustaak voor wie lid is van het initiatief, een
+    node-taak met task:read plus de org-scope.
+    """
+
+    async def ziet(person_id: UUID) -> bool:
+        if task.casus_id is not None:
+            from bouwmeester.repositories.initiatief import InitiatiefRepository
+
+            casus = await db.get(Casus, task.casus_id)
+            if casus is None or casus.initiatief_id is None:
+                return casus is not None
+            return await InitiatiefRepository(db).is_member(
+                casus.initiatief_id, person_id
+            )
+        person = await db.get(Person, person_id)
+        if person is None:
+            return False
+        perm = await build_permission_context(db, person)
+        if not perm.has_permission("task:read"):
+            return False
+        org = await build_org_context(db, person, perm_ctx=perm)
+        try:
+            await check_resource_org_scope(db, "task", task.id, org)
+        except HTTPException:
+            return False
+        return True
+
+    return ziet
 
 
 async def _get_visible_task(
@@ -124,6 +176,16 @@ async def add_comment(
 ) -> TaskCommentResponse:
     """Plaats een opmerking. De toegewezene krijgt een melding, genoemden ook."""
     task = await _get_visible_task(db, task_id, org_ctx, init_ctx, perm_ctx)
+    genoemd = {
+        m["target_id"]
+        for m in MentionService.extract_mentions(data.content)
+        if m["mention_type"] == "person"
+    }
+    if len(genoemd) > MAX_GENOEMDEN:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Noem hooguit {MAX_GENOEMDEN} mensen in één opmerking",
+        )
     author_id = current_user.id if current_user else None
     comment = TaskComment(task_id=task_id, author_id=author_id, content=data.content)
     db.add(comment)
@@ -141,8 +203,8 @@ async def add_comment(
                 related_task_id=task.id,
             )
         )
-    # Op een casustaak alleen meldingen voor leden van het initiatief.
-    casus = await db.get(Casus, task.casus_id) if task.casus_id else None
+    # Alleen meldingen voor wie de taak mag zien; op een casustaak de leden
+    # van het initiatief.
     await sync_and_notify_mentions(
         db,
         "task_comment",
@@ -152,7 +214,7 @@ async def add_comment(
         sender_id=author_id,
         source_task_id=task.id,
         exclude_person_id=task.assignee_id,
-        alleen_leden_van=casus.initiatief_id if casus else None,
+        ontvanger_ziet=_ziet_taak(db, task),
     )
     await log_activity(
         db,
@@ -186,6 +248,8 @@ async def delete_comment(
             detail="Alleen de auteur of een beheerder kan deze opmerking verwijderen",
         )
     await db.delete(comment)
+    # Zijn vermeldingen gaan mee; anders wijzen ze naar niets.
+    await MentionRepository(db).delete_by_source("task_comment", comment_id)
     await log_activity(
         db,
         current_user,
@@ -236,6 +300,16 @@ async def upload_attachment(
 ) -> TaskAttachmentResponse:
     """Upload een bijlage; dezelfde controles op inhoud als bij een lead."""
     task = await _get_visible_task(db, task_id, org_ctx, init_ctx, perm_ctx)
+    aantal = await db.scalar(
+        select(func.count())
+        .select_from(TaskAttachment)
+        .where(TaskAttachment.task_id == task_id)
+    )
+    if aantal >= MAX_BIJLAGEN_PER_TAAK:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Een taak heeft hooguit {MAX_BIJLAGEN_PER_TAAK} bijlagen",
+        )
     content_type = file.content_type or "application/octet-stream"
     content = await read_upload_content(file)
     validate_upload(content, content_type)
@@ -252,6 +326,7 @@ async def upload_attachment(
         content_type=content_type,
         bestandsgrootte=len(content),
         pad=f"taken/{relative_path}",
+        uploaded_by_id=current_user.id if current_user else None,
     )
     db.add(attachment)
     await db.flush()
@@ -308,12 +383,21 @@ async def delete_attachment(
     org_ctx: OrgContext = Depends(get_org_context),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> None:
+    """Alleen wie de bijlage plaatste, of een beheerder, verwijdert hem."""
     task = await _get_visible_task(db, task_id, org_ctx, init_ctx, perm_ctx)
     attachment = await _get_attachment(db, task_id, attachment_id)
+    actor_id = current_user.id if current_user else None
+    if not init_ctx.is_admin and (
+        actor_id is None or attachment.uploaded_by_id != actor_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Alleen wie de bijlage plaatste of een beheerder kan hem verwijderen"
+            ),
+        )
     pad, naam = attachment.pad, attachment.bestandsnaam
     await db.delete(attachment)
-    await db.flush()
-    await delete_blob(pad)
     await log_activity(
         db,
         current_user,
@@ -321,3 +405,7 @@ async def delete_attachment(
         "task_attachment.deleted",
         details={"task_id": str(task_id), "task_title": task.title, "filename": naam},
     )
+    # Eerst vastleggen, dan het bestand weg: mislukt de commit, dan wijst de
+    # rij niet naar een verdwenen bestand.
+    await db.commit()
+    await delete_blob(pad)

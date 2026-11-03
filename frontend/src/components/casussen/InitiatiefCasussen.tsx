@@ -7,6 +7,7 @@ import { Select } from '@/components/common/Select';
 import { ViewToggle, type ViewToggleOption } from '@/components/common/ViewToggle';
 import { NlddButton } from '@/components/nldd/NlddButton';
 import { useCasussen } from '@/hooks/useCasussen';
+import { useInitiatief } from '@/hooks/useInitiatieven';
 import { useLeads } from '@/hooks/useLeads';
 import { CASUS_START_STAGE } from '@/types';
 import { CasusFunnelBord } from './CasusFunnelBord';
@@ -49,6 +50,10 @@ export function InitiatiefCasussen({ initiatiefId }: { initiatiefId: string }) {
   const [filterPlek, setFilterPlek] = useState<HTMLElement | null>(null);
   const { data: startLeads = [] } = useLeads({ initiatief_id: initiatiefId, stage: CASUS_START_STAGE });
   const klaar = useMemo(() => startLeads.filter((l) => !l.casus_id), [startLeads]);
+  // Starten vraagt bijdrager of eigenaar; wie alleen kijkt, ziet de knop niet
+  // (de backend weigert het ook).
+  const { data: initiatief } = useInitiatief(initiatiefId);
+  const magStarten = initiatief?.access_level === 'eigenaar' || initiatief?.access_level === 'contributor';
 
   const gekozen = searchParams.get('casus') ?? '';
   const gevraagd = searchParams.get('weergave');
@@ -120,7 +125,7 @@ export function InitiatiefCasussen({ initiatiefId }: { initiatiefId: string }) {
             />
             {/* In beide weergaven: een casus starten uit een lead die klaarstaat.
                 Hij begint in de eerste fase; per casus opent hij meteen. */}
-            <NlddButton size="sm" startIcon="plus" onClick={() => setNieuw(true)} text="Nieuwe casus" />
+            {magStarten && <NlddButton size="sm" startIcon="plus" onClick={() => setNieuw(true)} text="Nieuwe casus" />}
           </div>
         </div>
       </div>

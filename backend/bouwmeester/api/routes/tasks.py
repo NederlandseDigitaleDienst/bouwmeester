@@ -624,8 +624,6 @@ async def delete_task(
     bijlage_paden = await _bijlage_paden(db, id)
     require_deleted(await repo.delete(id), "Task")
     await issue_repo.sync_status(issue_id)
-    for pad in bijlage_paden:
-        await delete_blob(pad)
     await log_activity(
         db,
         current_user,
@@ -637,3 +635,8 @@ async def delete_task(
             "title": task_title,
         },
     )
+    # Eerst vastleggen, dan de bestanden weg: mislukt de commit, dan wijzen
+    # de rijen niet naar verdwenen bestanden.
+    await db.commit()
+    for pad in bijlage_paden:
+        await delete_blob(pad)

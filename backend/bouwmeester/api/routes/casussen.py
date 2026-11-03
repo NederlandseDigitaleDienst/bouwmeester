@@ -13,6 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bouwmeester.api.deps import require_found
 from bouwmeester.core.auth import OptionalUser
+from bouwmeester.core.authority import (
+    require_can_change_casus,
+    require_can_delete_casus,
+    require_can_manage_casus_team,
+    require_can_start_casus,
+)
 from bouwmeester.core.database import get_db
 from bouwmeester.core.initiatief_context import (
     InitiatiefContext,
@@ -21,6 +27,7 @@ from bouwmeester.core.initiatief_context import (
     require_initiatief_visible,
 )
 from bouwmeester.core.org_context import OrgContext, get_org_context
+from bouwmeester.core.permissions import PermissionContext, get_permission_context
 from bouwmeester.models.casus import Casus
 from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.models.lead import Lead
@@ -129,6 +136,7 @@ async def start_casus(
     current_user: OptionalUser,
     db: AsyncSession = Depends(get_db),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
 ) -> CasusDetailResponse:
     """Start een casus vanuit een lead die de trechter uit is.
 
@@ -151,6 +159,8 @@ async def start_casus(
             status_code=400,
             detail="Casussen staan niet aan voor het initiatief van deze lead",
         )
+    # Zien is niet genoeg: starten vraagt bijdrager of eigenaar.
+    await require_can_start_casus(db, perm_ctx, current_user, init.id)
     repo = CasusRepository(db)
     if await repo.get_by_lead(lead.id) is not None:
         raise HTTPException(
@@ -302,8 +312,10 @@ async def update_casus(
     current_user: OptionalUser,
     db: AsyncSession = Depends(get_db),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
 ) -> CasusDetailResponse:
     bestaand = await _get_casus(db, casus_id, init_ctx)
+    await require_can_change_casus(db, perm_ctx, current_user, bestaand)
     if data.fase is not None:
         # Alleen een fase uit de funnel van het initiatief.
         fases = geldende_casus_fases(
@@ -350,9 +362,15 @@ async def delete_casus(
     current_user: OptionalUser,
     db: AsyncSession = Depends(get_db),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
 ) -> None:
-    """Verwijder een casus met issues en taken. De lead wordt weer bewerkbaar."""
+    """Verwijder een casus met issues, taken en team. De lead wordt weer
+    bewerkbaar.
+
+    Alleen de eigenaar van het initiatief of de trekker.
+    """
     casus = await _get_casus(db, casus_id, init_ctx)
+    await require_can_delete_casus(db, perm_ctx, current_user, casus)
     title = casus.title
     await db.execute(
         sa_delete(ResourcePermission).where(
@@ -382,8 +400,10 @@ async def add_teamlid(
     current_user: OptionalUser,
     db: AsyncSession = Depends(get_db),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
 ) -> CasusTeamResponse:
     casus = await _get_casus(db, casus_id, init_ctx)
+    await require_can_manage_casus_team(db, perm_ctx, current_user, casus)
     await _require_team_candidate(db, casus, data.person_id)
     rp = ResourcePermission(
         person_id=data.person_id,
@@ -415,11 +435,20 @@ async def remove_teamlid(
     current_user: OptionalUser,
     db: AsyncSession = Depends(get_db),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
 ) -> None:
-    await _get_casus(db, casus_id, init_ctx)
+    casus = await _get_casus(db, casus_id, init_ctx)
     rp = await db.get(ResourcePermission, rp_id)
     if rp is None or rp.resource_type != "casus" or rp.resource_id != casus_id:
         raise HTTPException(status_code=404, detail="Teamlid niet gevonden")
+    await require_can_manage_casus_team(
+        db,
+        perm_ctx,
+        current_user,
+        casus,
+        target_person_id=rp.person_id,
+        verwijderen=True,
+    )
     await db.delete(rp)
     await db.flush()
     await log_activity(

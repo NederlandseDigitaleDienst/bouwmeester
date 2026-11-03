@@ -333,6 +333,10 @@ async def merge_leads(
             detail="Leads van verschillende initiatieven kunnen niet"
             " worden samengevoegd",
         )
+    # Een lead met een casus is alleen-lezen; samenvoegen zou hem wijzigen
+    # of (als bron) weghalen, wat de RESTRICT op de casus blokkeert.
+    await _require_lead_open(db, source)
+    await _require_lead_open(db, target)
     repo = LeadRepository(db)
     result = require_found(await repo.merge(data.source_id, data.target_id), "Lead")
 
@@ -691,6 +695,7 @@ async def delete_activity(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
+    await _require_lead_open(db, lead)
 
     activity = await db.get(LeadActivity, activity_id)
     if activity is None or activity.lead_id != lead_id:
@@ -809,6 +814,7 @@ async def remove_contact(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
+    await _require_lead_open(db, lead)
     from bouwmeester.models.resource_permission import ResourcePermission
 
     result = await db.execute(
@@ -899,6 +905,7 @@ async def unlink_node(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
+    await _require_lead_open(db, lead)
     result = await db.execute(
         select(LeadNode).where(
             LeadNode.id == link_id,
@@ -1020,6 +1027,7 @@ async def remove_tag_from_lead(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
+    await _require_lead_open(db, lead)
     tag_repo = TagRepository(db)
     require_deleted(await tag_repo.remove_tag_from_lead(lead_id, tag_id), "Tag link")
 
@@ -1149,6 +1157,7 @@ async def delete_attachment(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
+    await _require_lead_open(db, lead)
     result = await db.execute(
         select(LeadAttachment).where(
             LeadAttachment.id == attachment_id,
@@ -1220,6 +1229,7 @@ async def create_github_link(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
+    await _require_lead_open(db, lead)
 
     parsed = parse_github_url(payload.url)
     if parsed is None:
@@ -1284,6 +1294,7 @@ async def update_github_link(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
+    await _require_lead_open(db, lead)
 
     repo = GitHubLinkRepository(db)
     link = await repo.get(link_id)
@@ -1309,6 +1320,7 @@ async def delete_github_link(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
+    await _require_lead_open(db, lead)
 
     repo = GitHubLinkRepository(db)
     link = await repo.get(link_id)

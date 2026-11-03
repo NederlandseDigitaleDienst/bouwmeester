@@ -40,7 +40,7 @@ import {
 } from '@/hooks/useLeads';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePeople, useCreatePerson } from '@/hooks/usePeople';
-import { useInitiatieven, useCreateInitiatief } from '@/hooks/useInitiatieven';
+import { useInitiatief, useInitiatieven, useCreateInitiatief } from '@/hooks/useInitiatieven';
 import { getLeadAttachmentDownloadUrl } from '@/api/leads';
 import { isOverdue, formatDateLong, timeAgo } from '@/utils/dates';
 import {
@@ -170,7 +170,10 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
   // Alleen bij een initiatief dat met casussen werkt (de schakelaar in de
   // instellingen); de backend weigert het anders ook.
   const casussenAan = !!initiatieven?.find((i) => i.id === lead?.initiatief_id)?.casussen_enabled;
-  const kanCasusStarten = !!lead && !casusGestart && casussenAan && lead.stage === CASUS_START_STAGE;
+  // Starten vraagt bijdrager of eigenaar van het initiatief.
+  const { data: leadInitiatief } = useInitiatief(casussenAan ? (lead?.initiatief_id ?? undefined) : undefined);
+  const magStarten = leadInitiatief?.access_level === 'eigenaar' || leadInitiatief?.access_level === 'contributor';
+  const kanCasusStarten = !!lead && !casusGestart && casussenAan && magStarten && lead.stage === CASUS_START_STAGE;
   const gaNaarCasus = () => {
     if (!lead?.casus_id) return;
     onClose();
