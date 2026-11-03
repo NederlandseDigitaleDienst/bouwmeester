@@ -29,11 +29,12 @@ from bouwmeester.core.initiatief_context import (
 )
 from bouwmeester.core.org_context import OrgContext, get_org_context
 from bouwmeester.core.permissions import PermissionContext, get_permission_context
+from bouwmeester.core.storage import delete_blob
 from bouwmeester.models.casus import Casus
 from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.models.lead import Lead
 from bouwmeester.models.resource_permission import ResourcePermission
-from bouwmeester.repositories.casus import CasusRepository
+from bouwmeester.repositories.casus import CasusRepository, bijlage_paden_van_casussen
 from bouwmeester.repositories.casus_soort import CasusSoortRepository
 from bouwmeester.repositories.issue import IssueRepository
 from bouwmeester.repositories.task import TaskRepository
@@ -373,6 +374,9 @@ async def delete_casus(
     casus = await _get_casus(db, casus_id, init_ctx)
     await require_can_delete_casus(db, perm_ctx, current_user, casus)
     title = casus.title
+    # Bijlagen van de taken gaan in de database mee (CASCADE), hun bestanden
+    # niet: die ruimen we na de commit op, anders blijven ze staan.
+    bijlage_paden = await bijlage_paden_van_casussen(db, [casus_id])
     await db.execute(
         sa_delete(ResourcePermission).where(
             ResourcePermission.resource_type == "casus",
@@ -388,6 +392,9 @@ async def delete_casus(
         "casus.deleted",
         details={"casus_id": str(casus_id), "title": title},
     )
+    await db.commit()
+    for pad in bijlage_paden:
+        await delete_blob(pad)
 
 
 @router.post(

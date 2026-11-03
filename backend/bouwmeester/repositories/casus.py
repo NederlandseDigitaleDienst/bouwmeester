@@ -162,3 +162,22 @@ class CasusRepository(BaseRepository[Casus]):
             r[0]: (int(r[1]), int(r[2]))
             for r in (await self.session.execute(stmt)).all()
         }
+
+
+async def bijlage_paden_van_casussen(session, casus_ids: list[UUID]) -> list[str]:
+    """Paden van de bijlagebestanden van alle taken in deze casussen.
+
+    Voor het verwijderen van een casus of initiatief: de rijen gaan via de
+    cascade mee, de bestanden in de opslag niet.
+    """
+    from bouwmeester.models.task import Task
+    from bouwmeester.models.task_attachment import TaskAttachment
+
+    if not casus_ids:
+        return []
+    stmt = (
+        select(TaskAttachment.pad)
+        .join(Task, Task.id == TaskAttachment.task_id)
+        .where(Task.casus_id.in_(casus_ids))
+    )
+    return list((await session.execute(stmt)).scalars().all())

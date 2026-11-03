@@ -1711,6 +1711,23 @@ async def _require_chat_task_visible(
     await _require_task_visible(db, task, init_ctx)
     if arg == "parent_task_id":
         _geen_subtaak_in_casus(task, casus_taak=False)
+    elif task.casus_id is not None:
+        # Zoals PUT /api/tasks/{id}: een casustaak wijzigen vraagt een rol op
+        # de casus, behalve de eigen voortgang door de uitvoerder.
+        from bouwmeester.api.routes.tasks import EIGEN_WERK_VELDEN
+        from bouwmeester.core.authority import require_can_change_casus
+        from bouwmeester.models.casus import Casus
+
+        access = await _chat_access(db, person_id)
+        velden = set(args) - {"task_id"}
+        eigen = (
+            access.person is not None
+            and task.assignee_id == access.person.id
+            and velden <= EIGEN_WERK_VELDEN
+        )
+        if not eigen:
+            casus = await db.get(Casus, task.casus_id)
+            await require_can_change_casus(db, access.perm_ctx, access.person, casus)
 
 
 async def _lead_open_of_weiger(db: AsyncSession, lead) -> dict | None:

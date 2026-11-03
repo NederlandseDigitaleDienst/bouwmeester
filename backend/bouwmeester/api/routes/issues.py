@@ -1,8 +1,9 @@
 """API routes voor issues binnen een casus.
 
-Zelfde toegangsregel als de casus: wie de casus ziet, mag de issues zien en
-bewerken. Bij verwijderen van een issue blijven de taken op de casus staan
-(issue_id wordt leeg).
+Zelfde toegangsregel als de casus: wie de casus ziet, mag de issues zien;
+wijzigen vraagt dezelfde rol als de casus (bijdrager, eigenaar of trekker).
+Bij verwijderen van een issue blijven de taken op de casus staan (issue_id
+wordt leeg).
 """
 
 from uuid import UUID
@@ -12,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bouwmeester.api.deps import require_deleted, require_found
 from bouwmeester.core.auth import OptionalUser
+from bouwmeester.core.authority import require_can_change_casus
 from bouwmeester.core.database import get_db
 from bouwmeester.core.initiatief_context import (
     InitiatiefContext,
@@ -19,6 +21,7 @@ from bouwmeester.core.initiatief_context import (
     require_initiatief_member,
     require_initiatief_visible,
 )
+from bouwmeester.core.permissions import PermissionContext, get_permission_context
 from bouwmeester.models.casus import Casus
 from bouwmeester.repositories.issue import IssueRepository
 from bouwmeester.schema.issue import (
@@ -73,8 +76,10 @@ async def create_issue(
     current_user: OptionalUser,
     db: AsyncSession = Depends(get_db),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
 ) -> IssueResponse:
     casus = await _get_casus(db, casus_id, init_ctx)
+    await require_can_change_casus(db, perm_ctx, current_user, casus)
     if data.assignee_id is not None:
         await require_initiatief_member(db, casus.initiatief_id, data.assignee_id)
     repo = IssueRepository(db)
@@ -100,8 +105,10 @@ async def reorder_issues(
     current_user: OptionalUser,
     db: AsyncSession = Depends(get_db),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
 ) -> list[IssueResponse]:
-    await _get_casus(db, casus_id, init_ctx)
+    casus = await _get_casus(db, casus_id, init_ctx)
+    await require_can_change_casus(db, perm_ctx, current_user, casus)
     repo = IssueRepository(db)
     try:
         issues = await repo.reorder(casus_id, data.issue_ids)
@@ -118,6 +125,7 @@ async def update_issue(
     current_user: OptionalUser,
     db: AsyncSession = Depends(get_db),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
 ) -> IssueResponse:
     """Werk een issue bij. Met `casus_id` verhuist het naar een andere casus.
 
@@ -126,6 +134,7 @@ async def update_issue(
     en uitvoerders van de taken geldig. De taken gaan mee.
     """
     casus = await _get_casus(db, casus_id, init_ctx)
+    await require_can_change_casus(db, perm_ctx, current_user, casus)
     repo = IssueRepository(db)
     existing = require_found(await repo.get(issue_id), "Issue")
     if existing.casus_id != casus_id:
@@ -134,6 +143,7 @@ async def update_issue(
     nieuwe_casus: Casus | None = None
     if data.casus_id is not None and data.casus_id != casus_id:
         nieuwe_casus = await _get_casus(db, data.casus_id, init_ctx)
+        await require_can_change_casus(db, perm_ctx, current_user, nieuwe_casus)
         if nieuwe_casus.initiatief_id != casus.initiatief_id:
             raise HTTPException(
                 status_code=400,
@@ -169,9 +179,11 @@ async def delete_issue(
     current_user: OptionalUser,
     db: AsyncSession = Depends(get_db),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
 ) -> None:
     """Verwijder een issue. De taken eronder blijven los op de casus."""
     casus = await _get_casus(db, casus_id, init_ctx)
+    await require_can_change_casus(db, perm_ctx, current_user, casus)
     repo = IssueRepository(db)
     existing = await repo.get(issue_id)
     if existing is None or existing.casus_id != casus_id:

@@ -131,11 +131,20 @@ async def test_issue_with_direct_tasks(client, casus):
     assert (i["task_count"], i["task_done_count"]) == (1, 0)
 
 
-async def test_task_on_issue_of_other_casus_is_400(client, db_session, casus):
-    lead2 = Lead(id=uuid.uuid4(), title="Ander", stage="in_the_pocket")
+async def test_task_on_issue_of_other_casus_is_400(
+    client, db_session, casus, initiatief
+):
+    lead2 = Lead(
+        id=uuid.uuid4(),
+        title="Ander",
+        stage="in_the_pocket",
+        initiatief_id=initiatief.id,
+    )
     db_session.add(lead2)
     await db_session.flush()
-    other = Casus(id=uuid.uuid4(), lead_id=lead2.id, title="Ander")
+    other = Casus(
+        id=uuid.uuid4(), lead_id=lead2.id, title="Ander", initiatief_id=initiatief.id
+    )
     db_session.add(other)
     await db_session.flush()
     issue = await _vraag(client, other)

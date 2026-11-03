@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bouwmeester.api.deps import require_deleted, require_found, validate_list
 from bouwmeester.core.auth import OptionalUser, effective_person_id
+from bouwmeester.core.authority import require_can_change_casus
 from bouwmeester.core.database import get_db
 from bouwmeester.core.initiatief_context import (
     InitiatiefContext,
@@ -21,7 +22,11 @@ from bouwmeester.core.org_context import (
     check_resource_org_scope,
     get_org_context,
 )
-from bouwmeester.core.permissions import require_permission
+from bouwmeester.core.permissions import (
+    PermissionContext,
+    get_permission_context,
+    require_permission,
+)
 from bouwmeester.core.storage import delete_blob
 from bouwmeester.models.casus import Casus
 from bouwmeester.models.issue import Issue
@@ -120,8 +125,9 @@ async def _require_parent_visible(
     parent = await db.get(Task, parent_id)
     if parent is None:
         raise HTTPException(status_code=404, detail="Hoofdtaak niet gevonden")
-    await check_resource_org_scope(db, "task", parent_id, org_ctx)
+    # Eerst de casus (404), dan de org-scope (403): bestaan lekt niet.
     await _require_task_visible(db, parent, init_ctx)
+    await check_resource_org_scope(db, "task", parent_id, org_ctx)
     return parent
 
 
@@ -145,6 +151,45 @@ async def _bijlage_paden(db: AsyncSession, task_id: UUID) -> list[str]:
         select(TaskAttachment.pad).where(TaskAttachment.task_id.in_(ids))
     )
     return list(result.scalars().all())
+
+
+# Velden die de uitvoerder van een casustaak zelf mag bijwerken, zonder rol
+# op het initiatief: de voortgang van het eigen werk. Verplaatsen,
+# verwijderen of aan een ander geven vraagt wel een rol.
+EIGEN_WERK_VELDEN = frozenset({"status", "description", "deadline", "priority"})
+
+
+async def _require_task_rights(
+    db: AsyncSession,
+    perm_ctx: PermissionContext,
+    current_user,
+    casus: Casus | None,
+    systeemrecht: str,
+    *,
+    task: Task | None = None,
+    data: TaskUpdate | None = None,
+) -> None:
+    """Wie een taak mag aanmaken, wijzigen of verwijderen.
+
+    Een taak aan een node: het systeemrecht (task:create enzovoort), zoals
+    op main. Een casustaak: de rol op de casus (bijdrager, eigenaar of
+    trekker), niet het systeemrecht. Zo kan een bijdrager zonder task:*
+    zijn werk doen, en een kijker die elders editor is niet. De uitvoerder
+    mag zijn eigen casustaak wel bijwerken (EIGEN_WERK_VELDEN) zonder rol.
+    """
+    if casus is None:
+        if not perm_ctx.has_permission(systeemrecht):
+            raise HTTPException(status_code=403, detail="Onvoldoende rechten")
+        return
+    if (
+        task is not None
+        and data is not None
+        and current_user is not None
+        and task.assignee_id == current_user.id
+        and data.model_fields_set <= EIGEN_WERK_VELDEN
+    ):
+        return
+    await require_can_change_casus(db, perm_ctx, current_user, casus)
 
 
 async def _require_assignee_in_initiatief(
@@ -233,14 +278,15 @@ async def create_task(
     current_user: OptionalUser,
     actor_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _perm=Depends(require_permission("task:create")),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
     org_ctx: OrgContext = Depends(get_org_context),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> TaskResponse:
     """Create a task linked to a node or a casus. Notifies assignee and manager.
 
-    Op een casus: de casus moet zichtbaar zijn en wie de taak doet moet het
-    initiatief kunnen zien.
+    Op een casus: de casus moet zichtbaar zijn, wie de taak maakt heeft een
+    rol op de casus, en wie de taak doet moet het initiatief kunnen zien.
+    Aan een node: task:create, zoals op main.
     """
     check_org_scope(data.organisatie_eenheid_id, org_ctx)
     if data.parent_id is not None:
@@ -251,6 +297,7 @@ async def create_task(
             parent, data.casus_id is not None or data.issue_id is not None
         )
     casus = await _resolve_casus_anchor(db, data, init_ctx)
+    await _require_task_rights(db, perm_ctx, current_user, casus, "task:create")
     await _require_assignee_in_initiatief(db, casus, data.assignee_id)
     repo = TaskRepository(db)
     task = await repo.create(data)
@@ -457,20 +504,27 @@ async def update_task(
     current_user: OptionalUser,
     actor_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _perm=Depends(require_permission("task:update")),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
     org_ctx: OrgContext = Depends(get_org_context),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> TaskResponse:
     """Update a task. Notifies on assignee change, completion, or org unit change.
 
-    Een casustaak: alleen binnen een zichtbare casus, en wie de taak doet
-    moet lid zijn van het initiatief. Dat geldt ook als de taak naar een
-    andere casus verhuist of als alleen de uitvoerder verandert.
+    Een casustaak: alleen binnen een zichtbare casus, met een rol op de
+    casus (of als uitvoerder, alleen de eigen voortgang), en wie de taak
+    doet moet lid zijn van het initiatief. Dat geldt ook als de taak naar
+    een andere casus verhuist of als alleen de uitvoerder verandert. Uit
+    een casus verhuist een taak niet: aan een node volgt ze ruimere regels,
+    met haar opmerkingen en bijlagen.
     """
     repo = TaskRepository(db)
     old_task = require_found(await repo.get(id), "Task")
     await _require_task_visible(db, old_task, init_ctx)
     await check_resource_org_scope(db, "task", id, org_ctx)
+    oude_casus = await db.get(Casus, old_task.casus_id) if old_task.casus_id else None
+    await _require_task_rights(
+        db, perm_ctx, current_user, oude_casus, "task:update", task=old_task, data=data
+    )
     if data.organisatie_eenheid_id is not None:
         check_org_scope(data.organisatie_eenheid_id, org_ctx)
     # Een taak in een casus heeft geen subtaken en hangt onder geen taak:
@@ -496,9 +550,18 @@ async def update_task(
         casus = await db.get(Casus, old_task.casus_id)
     else:
         casus = None
+    if oude_casus is not None and casus is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Een taak verhuist niet uit een casus; verwijder haar, of "
+            "maak een nieuwe taak aan de node",
+        )
+    if casus is not None and (oude_casus is None or casus.id != oude_casus.id):
+        # Een casus in: daar hoort een rol bij.
+        await require_can_change_casus(db, perm_ctx, current_user, casus)
     # Na de wijziging precies één anker: een node of een casus. Wie een
     # nodetaak naar een casus verhuist, haalt de node er in dezelfde
-    # wijziging af (en andersom).
+    # wijziging af.
     node_na = data.node_id if "node_id" in data.model_fields_set else old_task.node_id
     if node_na is not None and casus is not None:
         raise HTTPException(status_code=400, detail=ANKER_FOUT)
@@ -606,15 +669,18 @@ async def delete_task(
     current_user: OptionalUser,
     actor_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _perm=Depends(require_permission("task:delete")),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
     org_ctx: OrgContext = Depends(get_org_context),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> None:
-    """Delete a task permanently."""
+    """Delete a task permanently. Een casustaak: met een rol op de casus;
+    verwijderen haalt ook andermans bijlagen weg."""
     repo = TaskRepository(db)
     task = require_found(await repo.get(id), "Task")
     await _require_task_visible(db, task, init_ctx)
     await check_resource_org_scope(db, "task", id, org_ctx)
+    casus = await db.get(Casus, task.casus_id) if task.casus_id else None
+    await _require_task_rights(db, perm_ctx, current_user, casus, "task:delete")
     task_title = task.title
     task_node_id = task.node_id
     issue_repo = IssueRepository(db)

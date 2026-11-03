@@ -759,3 +759,195 @@ async def test_meldingen_over_casustaak_alleen_voor_leden(
 
     assert await meldingen(buitenstaander) == []
     assert await meldingen(lid) != []
+
+
+# ---------------------------------------------------------------------------
+# Ronde 2 van de review: schrijven vraagt een rol, ook op vragen en taken
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def kijker(db_session, initiatief, werkeenheid):
+    """Kijker op het initiatief, met taakrechten elders (editor): die
+    tellen niet voor een casus."""
+    p = await make_person(db_session, "Kijker")
+    await grant_role(db_session, p, "editor", werkeenheid)
+    await _lid_van(db_session, initiatief.id, p.id, rol="viewer")
+    return p
+
+
+@pytest.fixture
+async def bijdrager_zonder_rechten(db_session, initiatief):
+    """Bijdrager op het initiatief zonder enige systeemrol (geen task:*)."""
+    p = await make_person(db_session, "Bijdrager zonder rol")
+    await _lid_van(db_session, initiatief.id, p.id, rol="contributor")
+    return p
+
+
+async def test_kijker_wijzigt_geen_onderzoeksvraag(client, db_session, kijker, casus):
+    cid = casus["id"]
+    vraag = (
+        await client.post(f"/api/casussen/{cid}/issues", json={"title": "V"})
+    ).json()
+    async with client_as(db_session, kijker) as c:
+        assert (await c.get(f"/api/casussen/{cid}/issues")).status_code == 200
+        resp = await c.post(f"/api/casussen/{cid}/issues", json={"title": "Stiekem"})
+        assert resp.status_code == 403
+        resp = await c.put(
+            f"/api/casussen/{cid}/issues/{vraag['id']}", json={"title": "x"}
+        )
+        assert resp.status_code == 403
+        resp = await c.put(
+            f"/api/casussen/{cid}/issues/reorder", json={"issue_ids": [vraag["id"]]}
+        )
+        assert resp.status_code == 403
+        assert (
+            await c.delete(f"/api/casussen/{cid}/issues/{vraag['id']}")
+        ).status_code == 403
+    vragen = (await client.get(f"/api/casussen/{cid}/issues")).json()
+    assert [v["title"] for v in vragen] == ["V"]
+
+
+async def test_casustaak_verhuist_niet_naar_een_node(client, casus, taak, sample_node):
+    resp = await client.put(
+        f"/api/tasks/{taak['id']}",
+        json={"casus_id": None, "issue_id": None, "node_id": str(sample_node.id)},
+    )
+    assert resp.status_code == 400
+    assert "verhuist niet uit een casus" in resp.json()["detail"]
+    resp = await client.get(f"/api/tasks/{taak['id']}")
+    assert resp.json()["casus_id"] == casus["id"] and resp.json()["node_id"] is None
+
+
+async def test_kijker_met_taakrechten_elders_wijzigt_geen_casustaak(
+    db_session, kijker, casus, taak
+):
+    async with client_as(db_session, kijker) as c:
+        assert (await c.get(f"/api/tasks/{taak['id']}")).status_code == 200
+        resp = await c.post(
+            "/api/tasks", json={"title": "Stiekem", "casus_id": casus["id"]}
+        )
+        assert resp.status_code == 403
+        resp = await c.put(f"/api/tasks/{taak['id']}", json={"title": "x"})
+        assert resp.status_code == 403
+        assert (await c.delete(f"/api/tasks/{taak['id']}")).status_code == 403
+
+
+async def test_bijdrager_zonder_taakrechten_doet_zijn_werk(
+    db_session, bijdrager_zonder_rechten, casus, sample_node
+):
+    """Op een casus telt de rol op het initiatief, niet task:*; aan een node
+    blijft task:create gelden."""
+    async with client_as(db_session, bijdrager_zonder_rechten) as c:
+        resp = await c.post(
+            "/api/tasks", json={"title": "Werk", "casus_id": casus["id"]}
+        )
+        assert resp.status_code == 201, resp.text
+        tid = resp.json()["id"]
+        assert (
+            await c.put(f"/api/tasks/{tid}", json={"title": "Werk 2"})
+        ).status_code == 200
+        assert (await c.delete(f"/api/tasks/{tid}")).status_code == 204
+        resp = await c.post(
+            "/api/tasks", json={"title": "Nodetaak", "node_id": str(sample_node.id)}
+        )
+        assert resp.status_code == 403
+
+
+async def test_uitvoerder_werkt_eigen_casustaak_bij_zonder_rol(
+    client, db_session, kijker, casus, taak
+):
+    """Wie de taak doet, mag zijn voortgang bijwerken; verplaatsen, aan een
+    ander geven of verwijderen vraagt een rol."""
+    tid = taak["id"]
+    resp = await client.put(f"/api/tasks/{tid}", json={"assignee_id": str(kijker.id)})
+    assert resp.status_code == 200, resp.text
+    async with client_as(db_session, kijker) as c:
+        resp = await c.put(
+            f"/api/tasks/{tid}",
+            json={
+                "status": "in_progress",
+                "description": "Bezig",
+                "due_date": "2026-12-01",
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        assert (
+            await c.put(f"/api/tasks/{tid}", json={"title": "x"})
+        ).status_code == 403
+        assert (
+            await c.put(f"/api/tasks/{tid}", json={"assignee_id": None})
+        ).status_code == 403
+        assert (await c.delete(f"/api/tasks/{tid}")).status_code == 403
+
+
+async def _bijlage(client, task_id, naam="notitie.txt"):
+    resp = await client.post(
+        f"/api/tasks/{task_id}/attachments",
+        files={"file": (naam, b"vertrouwelijk", "text/plain")},
+    )
+    assert resp.status_code == 201, resp.text
+
+
+def _bestanden(blob_root):
+    return [p for p in blob_root.rglob("*") if p.is_file()]
+
+
+async def test_casus_weg_dan_ook_de_bijlagebestanden(client, casus, taak, blob_root):
+    await _bijlage(client, taak["id"])
+    assert len(_bestanden(blob_root)) == 1
+    assert (await client.delete(f"/api/casussen/{casus['id']}")).status_code == 204
+    assert _bestanden(blob_root) == []
+
+
+async def test_initiatief_weg_dan_ook_de_bijlagebestanden(
+    client, initiatief, casus, taak, blob_root
+):
+    await _bijlage(client, taak["id"])
+    assert len(_bestanden(blob_root)) == 1
+    assert (
+        await client.delete(f"/api/initiatieven/{initiatief.id}")
+    ).status_code == 204
+    assert _bestanden(blob_root) == []
+
+
+async def test_hoofdtaak_in_vreemde_casus_en_eenheid_geeft_404(
+    client, db_session, buitenstaander, taak, sample_node
+):
+    elders = await make_org(db_session, "Eenheid elders")
+    resp = await client.put(
+        f"/api/tasks/{taak['id']}", json={"organisatie_eenheid_id": str(elders.id)}
+    )
+    assert resp.status_code == 200, resp.text
+    async with client_as(db_session, buitenstaander) as c:
+        resp = await c.post(
+            "/api/tasks",
+            json={
+                "title": "Sub",
+                "parent_id": taak["id"],
+                "node_id": str(sample_node.id),
+            },
+        )
+    assert resp.status_code == 404
+
+
+async def test_chat_volgt_de_rol_op_de_casus(client, db_session, kijker, taak):
+    from bouwmeester.services.chat_service import _execute_write_tool
+
+    args = {"task_id": taak["id"], "title": "Via de chat"}
+    result = await _execute_write_tool(
+        "update_task", args, db_session, person_id=kijker.id
+    )
+    assert result["success"] is False
+    # Als uitvoerder mag de kijker zijn eigen voortgang wel bijwerken.
+    resp = await client.put(
+        f"/api/tasks/{taak['id']}", json={"assignee_id": str(kijker.id)}
+    )
+    assert resp.status_code == 200, resp.text
+    result = await _execute_write_tool(
+        "update_task",
+        {"task_id": taak["id"], "status": "in_progress"},
+        db_session,
+        person_id=kijker.id,
+    )
+    assert result["success"] is True, result
