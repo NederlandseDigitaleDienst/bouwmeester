@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bouwmeester.api.routes.leads import _require_lead_open
 from bouwmeester.core.auth import OptionalUser
 from bouwmeester.core.database import get_db
 from bouwmeester.core.initiatief_context import (
@@ -249,7 +250,9 @@ async def create_lead_channel(
     db: AsyncSession = Depends(get_db),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> MattermostChannelLinkResponse:
-    await _resolve_lead(db, lead_id, init_ctx)
+    lead = await _resolve_lead(db, lead_id, init_ctx)
+    # Een lead met een casus is alleen-lezen; het kanaal hoort dan bij de casus.
+    await _require_lead_open(db, lead)
     repo = MattermostChannelLinkRepository(db)
     existing = await repo.get_by_channel_id(data.channel_id)
     if existing is not None:

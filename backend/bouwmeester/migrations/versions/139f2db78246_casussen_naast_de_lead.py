@@ -148,6 +148,16 @@ def upgrade() -> None:
             "casussen_enabled", sa.Boolean(), server_default="false", nullable=False
         ),
     )
+    # Eén rij per persoon en rol in een casusteam. De bestaande unieke
+    # constraint helpt niet: organisatie_eenheid_id is daar leeg, en twee
+    # lege waarden tellen in Postgres als verschillend.
+    op.create_index(
+        "uq_resource_permission_casus_team",
+        "resource_permission",
+        ["resource_id", "person_id", "rol"],
+        unique=True,
+        postgresql_where=sa.text("resource_type = 'casus'"),
+    )
 
 
 def downgrade() -> None:
@@ -159,5 +169,6 @@ def downgrade() -> None:
     op.drop_table("casus_casus_soort")
     op.drop_table("casus_soort")
     # De casusteams (resource_permission zonder FK) gaan mee met de casussen.
+    op.drop_index("uq_resource_permission_casus_team", table_name="resource_permission")
     op.execute("DELETE FROM resource_permission WHERE resource_type = 'casus'")
     op.drop_table("casus")
