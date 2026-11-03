@@ -182,3 +182,47 @@ def require_initiatief_visible(
         raise HTTPException(status_code=404, detail=detail)
     if initiatief_id is not None and initiatief_id not in ctx.visible_initiatief_ids:
         raise HTTPException(status_code=404, detail=detail)
+
+
+async def initiatief_niveau(
+    db: AsyncSession,
+    initiatief_id: UUID,
+    person: Person | None,
+    perm_ctx: PermissionContext | None = None,
+) -> str | None:
+    """Het hoogste niveau van een persoon op een initiatief, of None.
+
+    Eigenaar, contributor of viewer, uit alle bronnen: systeemrechten
+    (initiatief:delete telt als eigenaar, initiatief:update als
+    contributor), een directe rol en een rol via een eenheid. Zonder persoon
+    (dev-modus, geen OIDC) eigenaar. Eén regel voor de initiatiefroutes en
+    voor wat iemand met een casus mag.
+    """
+    from bouwmeester.core.permissions import build_permission_context
+    from bouwmeester.repositories.initiatief import InitiatiefRepository
+    from bouwmeester.schema.initiatief import EENHEID_ROL_RANK
+
+    if person is None:
+        return "eigenaar"
+    if perm_ctx is None:
+        perm_ctx = await build_permission_context(db, person)
+    if perm_ctx.is_super_admin:
+        return "eigenaar"
+
+    levels: list[str] = []
+    if perm_ctx.has_permission("initiatief:delete"):
+        levels.append("eigenaar")
+    elif perm_ctx.has_permission("initiatief:update"):
+        levels.append("contributor")
+
+    repo = InitiatiefRepository(db)
+    direct_role = await repo.get_member_role(initiatief_id, person.id)
+    if direct_role:
+        levels.append(direct_role)
+    eenheid_role = await repo.get_eenheid_access_level(initiatief_id, person.id)
+    if eenheid_role:
+        levels.append(eenheid_role)
+
+    if not levels:
+        return None
+    return max(levels, key=lambda r: EENHEID_ROL_RANK.get(r, 0))

@@ -734,3 +734,107 @@ async def require_can_change_resource_role(
         target_person_id=grant.person_id,
         target_eenheid_id=grant.organisatie_eenheid_id,
     )
+
+
+# ---------------------------------------------------------------------------
+# Casussen
+# ---------------------------------------------------------------------------
+# Een casus hoort bij een initiatief. Zien volgt het initiatief (zie
+# core.initiatief_context); wijzigen vraagt een rol. Het casusteam is een
+# toekenning van rollen (resource_permission, resource_type "casus") en gaat
+# daarom hier langs, met dezelfde regel als de casus zelf.
+
+
+async def _casus_niveau(
+    db: AsyncSession, perm_ctx: PermissionContext, person: Person | None, casus
+) -> tuple[int, bool]:
+    """(rang op het initiatief, is trekker van deze casus)."""
+    from bouwmeester.core.initiatief_context import initiatief_niveau
+    from bouwmeester.schema.initiatief import EENHEID_ROL_RANK
+
+    niveau = (
+        await initiatief_niveau(db, casus.initiatief_id, person, perm_ctx)
+        if casus.initiatief_id is not None
+        else None
+    )
+    rang = EENHEID_ROL_RANK.get(niveau or "", 0)
+    trekker = False
+    if person is not None:
+        trekker = (
+            await db.scalar(
+                select(func.count())
+                .select_from(ResourcePermission)
+                .where(
+                    ResourcePermission.resource_type == "casus",
+                    ResourcePermission.resource_id == casus.id,
+                    ResourcePermission.person_id == person.id,
+                    ResourcePermission.rol == "trekker",
+                )
+            )
+            or 0
+        ) > 0
+    return rang, trekker
+
+
+async def require_can_start_casus(
+    db: AsyncSession,
+    perm_ctx: PermissionContext,
+    person: Person | None,
+    initiatief_id: UUID,
+) -> None:
+    """Een casus starten: bijdrager of eigenaar van het initiatief."""
+    from bouwmeester.core.initiatief_context import initiatief_niveau
+    from bouwmeester.schema.initiatief import EENHEID_ROL_RANK
+
+    niveau = await initiatief_niveau(db, initiatief_id, person, perm_ctx)
+    if EENHEID_ROL_RANK.get(niveau or "", 0) < EENHEID_ROL_RANK["contributor"]:
+        raise _forbidden(
+            "Een casus starten kan een bijdrager of eigenaar van het initiatief"
+        )
+
+
+async def require_can_change_casus(
+    db: AsyncSession, perm_ctx: PermissionContext, person: Person | None, casus
+) -> None:
+    """Een casus wijzigen (fase, gegevens, soorten, eisen): bijdrager of
+    eigenaar van het initiatief, of de trekker van deze casus."""
+    from bouwmeester.schema.initiatief import EENHEID_ROL_RANK
+
+    rang, trekker = await _casus_niveau(db, perm_ctx, person, casus)
+    if rang < EENHEID_ROL_RANK["contributor"] and not trekker:
+        raise _forbidden(
+            "Een casus wijzigen kan een bijdrager of eigenaar van het initiatief, "
+            "of de trekker"
+        )
+
+
+async def require_can_delete_casus(
+    db: AsyncSession, perm_ctx: PermissionContext, person: Person | None, casus
+) -> None:
+    """Een casus verwijderen: eigenaar van het initiatief, of de trekker."""
+    from bouwmeester.schema.initiatief import EENHEID_ROL_RANK
+
+    rang, trekker = await _casus_niveau(db, perm_ctx, person, casus)
+    if rang < EENHEID_ROL_RANK["eigenaar"] and not trekker:
+        raise _forbidden(
+            "Een casus verwijderen kan de eigenaar van het initiatief of de trekker"
+        )
+
+
+async def require_can_manage_casus_team(
+    db: AsyncSession,
+    perm_ctx: PermissionContext,
+    person: Person | None,
+    casus,
+    *,
+    target_person_id: UUID | None = None,
+    verwijderen: bool = False,
+) -> None:
+    """Het casusteam beheren: wie de casus mag wijzigen.
+
+    Jezelf uit het team halen mag altijd, zoals bij andere rollen. Wie in
+    het team mag, bewaakt de route: alleen leden van het initiatief.
+    """
+    if verwijderen and person is not None and target_person_id == person.id:
+        return
+    await require_can_change_casus(db, perm_ctx, person, casus)

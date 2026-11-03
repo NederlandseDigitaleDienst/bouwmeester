@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bouwmeester.api.deps import require_found
 from bouwmeester.api.routes.initiatief import _require_access
 from bouwmeester.core.auth import OptionalUser
+from bouwmeester.core.authority import require_can_change_casus
 from bouwmeester.core.database import get_db
 from bouwmeester.core.initiatief_context import (
     InitiatiefContext,
@@ -224,14 +225,17 @@ async def zet_casussoorten(
     current_user: OptionalUser,
     db: AsyncSession = Depends(get_db),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
 ) -> list[CasusSoortSummary]:
-    """Vervang de soorten van een casus. Alleen soorten van zijn initiatief."""
+    """Vervang de soorten van een casus. Alleen soorten van zijn initiatief,
+    en alleen door wie de casus mag wijzigen."""
     casus = await db.get(Casus, casus_id)
     if casus is None:
         raise HTTPException(status_code=404, detail="Casus niet gevonden")
     require_initiatief_visible(
         casus.initiatief_id, init_ctx, detail="Casus niet gevonden"
     )
+    await require_can_change_casus(db, perm_ctx, current_user, casus)
     repo = CasusSoortRepository(db)
     toegestaan = (
         {s.id for s in await repo.list_for_initiatief(casus.initiatief_id)}
