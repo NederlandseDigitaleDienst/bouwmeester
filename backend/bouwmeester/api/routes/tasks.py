@@ -32,6 +32,7 @@ from bouwmeester.repositories.issue import IssueRepository
 from bouwmeester.repositories.task import TaskRepository
 from bouwmeester.schema.inbox import InboxResponse
 from bouwmeester.schema.task import (
+    ANKER_FOUT,
     EenheidOverviewResponse,
     ReorderRequest,
     TaskCreate,
@@ -495,6 +496,16 @@ async def update_task(
         casus = await db.get(Casus, old_task.casus_id)
     else:
         casus = None
+    # Na de wijziging precies één anker: een node of een casus. Wie een
+    # nodetaak naar een casus verhuist, haalt de node er in dezelfde
+    # wijziging af (en andersom).
+    node_na = data.node_id if "node_id" in data.model_fields_set else old_task.node_id
+    if node_na is not None and casus is not None:
+        raise HTTPException(status_code=400, detail=ANKER_FOUT)
+    if node_na is None and casus is None:
+        raise HTTPException(
+            status_code=400, detail="Een taak hangt aan een node of aan een casus"
+        )
     assignee_na = (
         data.assignee_id
         if "assignee_id" in data.model_fields_set

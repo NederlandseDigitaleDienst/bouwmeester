@@ -286,9 +286,11 @@ async def test_verhuizen_naar_casus_controleert_de_uitvoerder(
     )
     assert resp.status_code == 201, resp.text
     resp = await client.put(
-        f"/api/tasks/{resp.json()['id']}", json={"casus_id": casus["id"]}
+        f"/api/tasks/{resp.json()['id']}",
+        json={"casus_id": casus["id"], "node_id": None},
     )
     assert resp.status_code == 400
+    assert "geen lid" in resp.json()["detail"]
 
 
 async def test_nodetaak_blijft_vrij(client, buitenstaander, sample_node):
@@ -536,19 +538,62 @@ async def test_mentions_tonen_casustaak_alleen_aan_leden(
     assert tid in {r["source_id"] for r in refs.json()}
 
 
-async def test_takenlijst_van_node_toont_casustaak_alleen_aan_leden(
-    client, db_session, buitenstaander, lid, casus, sample_node
+async def test_taak_hangt_aan_node_of_casus_niet_aan_allebei(
+    client, casus, taak, sample_node
 ):
-    resp = await client.post(
-        "/api/tasks",
-        json={
-            "title": "Op node en casus",
-            "casus_id": casus["id"],
-            "node_id": str(sample_node.id),
-        },
+    vraag = await client.post(
+        f"/api/casussen/{casus['id']}/issues", json={"title": "V"}
     )
-    assert resp.status_code == 201, resp.text
-    tid = resp.json()["id"]
+    for anker in [{"casus_id": casus["id"]}, {"issue_id": vraag.json()["id"]}]:
+        resp = await client.post(
+            "/api/tasks",
+            json={"title": "Beide", "node_id": str(sample_node.id), **anker},
+        )
+        assert resp.status_code == 422, (anker, resp.text)
+        assert "niet aan allebei" in resp.text
+
+    # Een casustaak krijgt er geen node bij.
+    resp = await client.put(
+        f"/api/tasks/{taak['id']}", json={"node_id": str(sample_node.id)}
+    )
+    assert resp.status_code == 400
+    assert "niet aan allebei" in resp.json()["detail"]
+
+    # Een nodetaak gaat alleen een casus in als de node er tegelijk af gaat.
+    node_taak = await client.post(
+        "/api/tasks", json={"title": "Nodetaak", "node_id": str(sample_node.id)}
+    )
+    tid = node_taak.json()["id"]
+    resp = await client.put(f"/api/tasks/{tid}", json={"casus_id": casus["id"]})
+    assert resp.status_code == 400
+    resp = await client.put(
+        f"/api/tasks/{tid}", json={"casus_id": casus["id"], "node_id": None}
+    )
+    assert resp.status_code == 200, resp.text
+    assert (resp.json()["casus_id"], resp.json()["node_id"]) == (casus["id"], None)
+
+    # En zonder anker blijft niets over: ook dat geeft een nette 400.
+    resp = await client.put(
+        f"/api/tasks/{tid}", json={"casus_id": None, "issue_id": None}
+    )
+    assert resp.status_code == 400
+
+
+async def test_takenlijst_van_node_toont_casustaak_alleen_aan_leden(
+    db_session, buitenstaander, lid, casus, sample_node
+):
+    """Kan via de API niet meer ontstaan, maar mocht zo'n taak toch bestaan
+    (een script, oude data), dan blijft ze binnen het initiatief."""
+    from bouwmeester.models.task import Task
+
+    taak = Task(
+        title="Op node en casus",
+        node_id=sample_node.id,
+        casus_id=uuid.UUID(casus["id"]),
+    )
+    db_session.add(taak)
+    await db_session.flush()
+    tid = str(taak.id)
     async with client_as(db_session, buitenstaander) as c:
         resp = await c.get(f"/api/nodes/{sample_node.id}/tasks")
     assert resp.status_code == 200, resp.text

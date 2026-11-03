@@ -21,6 +21,9 @@ class TaskPriority(enum.StrEnum):
     kritiek = "kritiek"
 
 
+ANKER_FOUT = "Een taak hangt aan een node of aan een casus, niet aan allebei"
+
+
 class TaskBase(BaseModel):
     title: str = Field(min_length=1, max_length=500)
     description: str | None = Field(None, max_length=10000)
@@ -41,11 +44,17 @@ class TaskBase(BaseModel):
 
     @model_validator(mode="after")
     def _require_anchor(self) -> "TaskBase":
-        # Een taak hangt aan een corpus-node of aan een casus. Een issue
-        # alleen is genoeg: de route vult casus_id dan aan vanuit het issue.
+        # Een taak hangt aan een corpus-node of aan een casus, niet aan
+        # allebei: een casustaak hoort niet in de takenlijst van een node, en
+        # de mensen bij die node zien de casus niet. Een issue alleen is
+        # genoeg: de route vult casus_id dan aan vanuit het issue.
         # Een subtaak hangt aan een node, net als op main.
         if self.node_id is None and self.casus_id is None and self.issue_id is None:
             raise ValueError("node_id, casus_id of issue_id is verplicht")
+        if self.node_id is not None and (
+            self.casus_id is not None or self.issue_id is not None
+        ):
+            raise ValueError(ANKER_FOUT)
         return self
 
 
