@@ -5,7 +5,7 @@ voor zichtbare leads, geen tweede casus, geen mutaties op de lead erna
 (ook niet samenvoegen of iets weghalen), en trekker/teamlid alleen uit wie
 het initiatief kan zien. Rechten: zien volgt het initiatief; starten,
 wijzigen en het team beheren vraagt bijdrager of eigenaar (of de trekker,
-behalve bij starten); verwijderen de eigenaar of de trekker.
+behalve bij starten); verwijderen alleen de eigenaar.
 """
 
 import uuid
@@ -528,7 +528,7 @@ async def test_bijdrager_start_en_wijzigt_maar_verwijdert_niet(
         assert (await c.delete(f"/api/casussen/{cid}")).status_code == 403
 
 
-async def test_trekker_wijzigt_en_verwijdert_ook_als_kijker(
+async def test_trekker_wijzigt_ook_als_kijker_maar_verwijdert_niet(
     client, db_session, initiatief, lead_gewonnen
 ):
     from tests.factories import client_as
@@ -540,7 +540,22 @@ async def test_trekker_wijzigt_en_verwijdert_ook_als_kijker(
     async with client_as(db_session, trekker) as c:
         resp = await c.put(f"/api/casussen/{cid}", json={"title": "Door de trekker"})
         assert resp.status_code == 200, resp.text
-        assert (await c.delete(f"/api/casussen/{cid}")).status_code == 204
+        # Verwijderen is aan de eigenaar, ook voor een trekker.
+        assert (await c.delete(f"/api/casussen/{cid}")).status_code == 403
+
+
+async def test_bijdrager_die_zichzelf_trekker_maakt_verwijdert_niet(
+    db_session, initiatief, lead_gewonnen
+):
+    """Uit de security-review: zelf trekker worden opent het verwijderen niet."""
+    from tests.factories import client_as
+
+    bijdrager = await _met_rol(db_session, initiatief, "Starter", "contributor")
+    async with client_as(db_session, bijdrager) as c:
+        resp = await _start(c, lead_gewonnen, trekker_id=str(bijdrager.id))
+        assert resp.status_code == 201, resp.text
+        cid = resp.json()["id"]
+        assert (await c.delete(f"/api/casussen/{cid}")).status_code == 403
 
 
 async def test_eigenaar_verwijdert_een_casus(db_session, initiatief, lead_gewonnen):
