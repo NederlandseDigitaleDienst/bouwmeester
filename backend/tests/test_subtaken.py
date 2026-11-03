@@ -69,7 +69,12 @@ async def _subtaak(client, hoofdtaak, **extra):
 
 @pytest.fixture
 async def casustaak(client, db_session):
-    init = Initiatief(id=uuid.uuid4(), naam="Subtaken casus", slug="rr-subtaken")
+    init = Initiatief(
+        id=uuid.uuid4(),
+        naam="Subtaken casus",
+        slug="rr-subtaken",
+        casussen_enabled=True,
+    )
     db_session.add(init)
     await db_session.flush()
     await LeadColumnRepository(db_session).seed_defaults(init.id)

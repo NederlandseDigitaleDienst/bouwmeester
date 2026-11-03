@@ -22,7 +22,9 @@ from tests.factories import make_person
 
 @pytest.fixture
 async def initiatief(db_session):
-    init = Initiatief(id=uuid.uuid4(), naam="Regelrecht test", slug="rr-ov")
+    init = Initiatief(
+        id=uuid.uuid4(), naam="Regelrecht test", slug="rr-ov", casussen_enabled=True
+    )
     db_session.add(init)
     await db_session.flush()
     return init
@@ -361,7 +363,9 @@ async def test_issue_moves_to_other_casus_with_its_tasks(
 
 
 async def test_issue_does_not_move_to_other_initiatief(client, db_session, casus):
-    ander = Initiatief(id=uuid.uuid4(), naam="Ander initiatief", slug="ander-ov")
+    ander = Initiatief(
+        id=uuid.uuid4(), naam="Ander initiatief", slug="ander-ov", casussen_enabled=True
+    )
     db_session.add(ander)
     await db_session.flush()
     elders = await _casus(db_session, ander, "Elders")
@@ -389,7 +393,12 @@ async def test_issue_move_to_invisible_casus_is_404(db_session, casus, initiatie
     from bouwmeester.models.resource_permission import ResourcePermission
     from tests.factories import client_as
 
-    ander = Initiatief(id=uuid.uuid4(), naam="Geheim initiatief", slug="geheim-ov")
+    ander = Initiatief(
+        id=uuid.uuid4(),
+        naam="Geheim initiatief",
+        slug="geheim-ov",
+        casussen_enabled=True,
+    )
     db_session.add(ander)
     await db_session.flush()
     geheim = await _casus(db_session, ander, "Geheim")

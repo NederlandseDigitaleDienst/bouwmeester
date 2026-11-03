@@ -30,12 +30,16 @@ const TAB_LABELS: Record<InitiatiefTab, string> = {
 /**
  * The tabs this person gets. Ordered by how often they are used: the leads
  * daily, updates weekly, people and signals now and then, settings once.
- * A viewer changes nothing, so has no settings tab.
+ * A viewer changes nothing, so has no settings tab. Casussen and Backlog only
+ * when the initiatief works with casussen (a switch in the settings, off by
+ * default).
  */
 function visibleTabs(initiatief: InitiatiefDetail): InitiatiefTab[] {
   const canEdit =
     initiatief.access_level === 'eigenaar' || initiatief.access_level === 'contributor';
-  const tabs: InitiatiefTab[] = ['leads', 'casussen', 'backlog', 'updates', 'mensen', 'signalen'];
+  const tabs: InitiatiefTab[] = ['leads'];
+  if (initiatief.casussen_enabled) tabs.push('casussen', 'backlog');
+  tabs.push('updates', 'mensen', 'signalen');
   if (canEdit) tabs.push('instellingen');
   return tabs;
 }

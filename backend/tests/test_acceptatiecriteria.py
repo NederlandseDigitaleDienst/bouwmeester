@@ -24,7 +24,9 @@ SATELLIET = {**START, "casustype": "satelliet"}
 
 @pytest.fixture
 async def initiatief(db_session):
-    init = Initiatief(id=uuid.uuid4(), naam="Criteria", slug="rr-criteria")
+    init = Initiatief(
+        id=uuid.uuid4(), naam="Criteria", slug="rr-criteria", casussen_enabled=True
+    )
     db_session.add(init)
     await db_session.flush()
     return init

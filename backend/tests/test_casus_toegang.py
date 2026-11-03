@@ -44,7 +44,12 @@ START = START_INTERN
 
 @pytest.fixture
 async def initiatief(db_session):
-    init = Initiatief(id=uuid.uuid4(), naam="Regelrecht toegang", slug="rr-toegang")
+    init = Initiatief(
+        id=uuid.uuid4(),
+        naam="Regelrecht toegang",
+        slug="rr-toegang",
+        casussen_enabled=True,
+    )
     db_session.add(init)
     await db_session.flush()
     await LeadColumnRepository(db_session).seed_defaults(init.id)

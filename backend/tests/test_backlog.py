@@ -20,7 +20,12 @@ BACKLOG = "/api/casussen/backlog"
 
 @pytest.fixture
 async def initiatief(db_session):
-    init = Initiatief(id=uuid.uuid4(), naam="Regelrecht backlog", slug="rr-backlog")
+    init = Initiatief(
+        id=uuid.uuid4(),
+        naam="Regelrecht backlog",
+        slug="rr-backlog",
+        casussen_enabled=True,
+    )
     db_session.add(init)
     await db_session.flush()
     await LeadColumnRepository(db_session).seed_defaults(init.id)
@@ -107,7 +112,9 @@ async def test_backlog_comment_count_per_card(client, initiatief, gevuld):
 
 
 async def test_backlog_only_this_initiatief(client, db_session, initiatief, gevuld):
-    other = Initiatief(id=uuid.uuid4(), naam="Ander", slug="ander-backlog")
+    other = Initiatief(
+        id=uuid.uuid4(), naam="Ander", slug="ander-backlog", casussen_enabled=True
+    )
     db_session.add(other)
     await db_session.flush()
     await LeadColumnRepository(db_session).seed_defaults(other.id)

@@ -21,7 +21,9 @@ from tests.factories import client_as, make_person
 
 @pytest.fixture
 async def initiatief(db_session):
-    init = Initiatief(id=uuid.uuid4(), naam="Regelrecht test", slug="rr-tc")
+    init = Initiatief(
+        id=uuid.uuid4(), naam="Regelrecht test", slug="rr-tc", casussen_enabled=True
+    )
     db_session.add(init)
     await db_session.flush()
     return init

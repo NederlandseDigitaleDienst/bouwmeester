@@ -20,7 +20,9 @@ START = START_INTERN
 
 @pytest.fixture
 async def initiatief(db_session):
-    init = Initiatief(id=uuid.uuid4(), naam="Regelrecht test", slug="rr-test")
+    init = Initiatief(
+        id=uuid.uuid4(), naam="Regelrecht test", slug="rr-test", casussen_enabled=True
+    )
     db_session.add(init)
     await db_session.flush()
     await LeadColumnRepository(db_session).seed_defaults(init.id)
@@ -63,6 +65,50 @@ async def _start(client, lead, **extra):
 # ---------------------------------------------------------------------------
 # Starten
 # ---------------------------------------------------------------------------
+
+
+async def test_casussen_staan_standaard_uit(
+    client, db_session, lead_gewonnen, initiatief
+):
+    """Een initiatief werkt pas met casussen als de eigenaar dat aanzet.
+
+    Bestaande initiatieven merken zo niets; uitzetten verbergt alleen.
+    """
+    initiatief.casussen_enabled = False
+    await db_session.flush()
+    resp = await _start(client, lead_gewonnen)
+    assert resp.status_code == 400
+    assert "Casussen staan niet aan" in resp.json()["detail"]
+
+    resp = await client.put(
+        f"/api/initiatieven/{initiatief.id}/settings",
+        json={"casussen_enabled": True},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["casussen_enabled"] is True
+    assert (await _start(client, lead_gewonnen)).status_code == 201
+
+    # Weer uit: de casus blijft bestaan.
+    resp = await client.put(
+        f"/api/initiatieven/{initiatief.id}/settings",
+        json={"casussen_enabled": False},
+    )
+    assert resp.json()["casussen_enabled"] is False
+    resp = await client.get(f"/api/leads/{lead_gewonnen.id}")
+    assert resp.json()["casus_id"] is not None
+
+
+async def test_alleen_de_eigenaar_zet_casussen_aan(db_session, initiatief):
+    from tests.factories import client_as, make_person
+
+    bijdrager = await make_person(db_session, "Bijdrager")
+    await _lid(db_session, initiatief.id, bijdrager.id)
+    async with client_as(db_session, bijdrager) as c:
+        resp = await c.put(
+            f"/api/initiatieven/{initiatief.id}/settings",
+            json={"casussen_enabled": False},
+        )
+    assert resp.status_code == 403
 
 
 async def test_start_casus_from_won_lead(client, lead_gewonnen, initiatief):

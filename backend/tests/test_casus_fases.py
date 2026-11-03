@@ -26,7 +26,12 @@ from tests.factories import START_INTERN, client_as, make_person
 
 @pytest.fixture
 async def initiatief(db_session):
-    init = Initiatief(id=uuid.uuid4(), naam="Regelrecht funnel", slug="rr-funnel")
+    init = Initiatief(
+        id=uuid.uuid4(),
+        naam="Regelrecht funnel",
+        slug="rr-funnel",
+        casussen_enabled=True,
+    )
     db_session.add(init)
     await db_session.flush()
     await LeadColumnRepository(db_session).seed_defaults(init.id)

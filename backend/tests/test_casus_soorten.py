@@ -28,7 +28,12 @@ START = START_INTERN
 
 
 async def _initiatief(db_session, naam):
-    init = Initiatief(id=uuid.uuid4(), naam=naam, slug=f"cs-{uuid.uuid4().hex[:8]}")
+    init = Initiatief(
+        id=uuid.uuid4(),
+        naam=naam,
+        slug=f"cs-{uuid.uuid4().hex[:8]}",
+        casussen_enabled=True,
+    )
     db_session.add(init)
     await db_session.flush()
     await LeadColumnRepository(db_session).seed_defaults(init.id)
