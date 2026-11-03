@@ -508,14 +508,23 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
         return result.scalar_one()
 
     async def get_member_role(self, initiatief_id: UUID, person_id: UUID) -> str | None:
-        """Get the direct (person-scoped) role on an initiatief."""
+        """De hoogste directe (persoonlijke) rol op een initiatief.
+
+        Iemand kan meer dan één directe rij hebben, bijvoorbeeld viewer en
+        eigenaar: de unieke index telt een lege eenheid niet als gelijk. Dan
+        geldt de hoogste, net als bij rollen via een eenheid.
+        """
+        from bouwmeester.schema.initiatief import EENHEID_ROL_RANK
+
         stmt = select(ResourcePermission.rol).where(
             ResourcePermission.resource_type == "initiatief",
             ResourcePermission.resource_id == initiatief_id,
             ResourcePermission.person_id == person_id,
         )
-        result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        roles = (await self.session.execute(stmt)).scalars().all()
+        if not roles:
+            return None
+        return max(roles, key=lambda r: EENHEID_ROL_RANK.get(r, 0))
 
     async def get_eenheid_access_level(
         self, initiatief_id: UUID, person_id: UUID

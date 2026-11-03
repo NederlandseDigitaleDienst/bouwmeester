@@ -10,6 +10,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bouwmeester.api.deps import require_found
@@ -351,8 +352,9 @@ async def add_teamlid(
     casus = await _get_casus(db, casus_id, init_ctx)
     await require_can_manage_casus_team(db, perm_ctx, current_user, casus, rol=data.rol)
     await _require_team_candidate(db, casus, data.person_id)
-    # Geen tweede rij voor dezelfde persoon en rol (een dubbelklik); de
-    # unieke index helpt hier niet, want organisatie_eenheid_id is leeg.
+    # Geen tweede rij voor dezelfde persoon en rol. Deze controle geeft de
+    # nette melding; twee verzoeken tegelijk (een dubbelklik) komen er
+    # allebei door, en die vangt de unieke index hieronder.
     bestaat = await db.scalar(
         select(ResourcePermission.id).where(
             ResourcePermission.resource_type == "casus",
@@ -371,8 +373,14 @@ async def add_teamlid(
         resource_id=casus_id,
         rol=data.rol,
     )
-    db.add(rp)
-    await db.flush()
+    try:
+        async with db.begin_nested():
+            db.add(rp)
+            await db.flush()
+    except IntegrityError:
+        raise HTTPException(
+            status_code=409, detail="Deze persoon heeft die rol al op de casus"
+        ) from None
     await db.refresh(rp, attribute_names=["person"])
     await log_activity(
         db,

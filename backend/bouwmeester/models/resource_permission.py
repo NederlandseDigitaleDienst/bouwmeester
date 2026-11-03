@@ -11,6 +11,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Numeric,
     Text,
     UniqueConstraint,
@@ -45,6 +46,15 @@ class ResourcePermission(Base):
         CheckConstraint(
             "source IN ('manual', 'ai')",
             name="ck_resource_permission_source",
+        ),
+        # Eén rij per persoon en rol in een casusteam (migratie 139f2db78246).
+        Index(
+            "uq_resource_permission_casus_team",
+            "resource_id",
+            "person_id",
+            "rol",
+            unique=True,
+            postgresql_where=text("resource_type = 'casus'"),
         ),
     )
 

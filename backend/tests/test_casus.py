@@ -700,6 +700,54 @@ async def test_lid_via_twee_eenheden_geeft_geen_500(
     assert resp.status_code == 201, resp.text
 
 
+async def test_twee_directe_rollen_geven_geen_500(
+    db_session, initiatief, lead_gewonnen, client
+):
+    """Twee directe rijen op het initiatief (viewer en contributor): de
+    hoogste telt, en niemand krijgt een 500."""
+    from tests.factories import client_as
+
+    cid = (await _start(client, lead_gewonnen)).json()["id"]
+    p = await _met_rol(db_session, initiatief, "Dubbel direct", "viewer")
+    db_session.add(
+        ResourcePermission(
+            person_id=p.id,
+            resource_type="initiatief",
+            resource_id=initiatief.id,
+            rol="contributor",
+        )
+    )
+    await db_session.flush()
+    async with client_as(db_session, p) as c:
+        resp = await c.put(f"/api/casussen/{cid}", json={"title": "Bijgewerkt"})
+        assert resp.status_code == 200, resp.text
+
+
+async def test_de_database_weigert_een_dubbele_teamrij(
+    client, db_session, initiatief, lead_gewonnen, sample_person
+):
+    """Twee verzoeken tegelijk komen allebei langs de controle in de route;
+    de unieke index houdt de tweede rij tegen."""
+    from sqlalchemy.exc import IntegrityError
+
+    cid = (await _start(client, lead_gewonnen)).json()["id"]
+
+    def rij():
+        return ResourcePermission(
+            person_id=sample_person.id,
+            resource_type="casus",
+            resource_id=uuid.UUID(cid),
+            rol="teamlid",
+        )
+
+    db_session.add(rij())
+    await db_session.flush()
+    with pytest.raises(IntegrityError):
+        async with db_session.begin_nested():
+            db_session.add(rij())
+            await db_session.flush()
+
+
 async def test_dezelfde_rol_twee_keer_is_409(
     client, db_session, initiatief, lead_gewonnen, sample_person
 ):
