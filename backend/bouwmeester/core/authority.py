@@ -811,13 +811,17 @@ async def require_can_change_casus(
 async def require_can_delete_casus(
     db: AsyncSession, perm_ctx: PermissionContext, person: Person | None, casus
 ) -> None:
-    """Een casus verwijderen: eigenaar van het initiatief, of de trekker."""
+    """Een casus verwijderen: alleen de eigenaar van het initiatief.
+
+    De trekker niet: een bijdrager kan zichzelf trekker maken, en dan zou
+    "alleen de eigenaar verwijdert" geen grens meer zijn.
+    """
     from bouwmeester.schema.initiatief import EENHEID_ROL_RANK
 
-    rang, trekker = await _casus_niveau(db, perm_ctx, person, casus)
-    if rang < EENHEID_ROL_RANK["eigenaar"] and not trekker:
+    rang, _ = await _casus_niveau(db, perm_ctx, person, casus)
+    if rang < EENHEID_ROL_RANK["eigenaar"]:
         raise _forbidden(
-            "Een casus verwijderen kan de eigenaar van het initiatief of de trekker"
+            "Een casus verwijderen kan alleen de eigenaar van het initiatief"
         )
 
 

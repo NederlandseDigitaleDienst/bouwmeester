@@ -312,7 +312,7 @@ async def delete_casus(
 ) -> None:
     """Verwijder een casus met haar team. De lead wordt weer bewerkbaar.
 
-    Alleen de eigenaar van het initiatief of de trekker.
+    Alleen de eigenaar van het initiatief.
     """
     casus = await _get_casus(db, casus_id, init_ctx)
     await require_can_delete_casus(db, perm_ctx, current_user, casus)
