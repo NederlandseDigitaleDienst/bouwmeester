@@ -7,13 +7,15 @@ export interface MattermostChannelLink {
   channel_display_name: string;
   team_id: string | null;
   team_name?: string | null;
-  scope_type: 'initiatief' | 'lead';
+  scope_type: 'initiatief' | 'lead' | 'casus';
   scope_id: string;
   auto_note_enabled: boolean;
   suggest_leads_enabled: boolean;
   /** Kamerstukken die op een zoekterm van dit initiatief matchen. */
   parlementaire_alerts_enabled: boolean;
   nieuws_alerts_enabled: boolean;
+  /** Alleen bij een casus: fase en onderzoeksvragen in het kanaal. */
+  casus_updates_enabled: boolean;
   last_seen_post_at: number | null;
   disabled_at: string | null;
   created_by_id: string | null;
@@ -29,6 +31,8 @@ export interface MattermostChannelSearchResult {
   team_name?: string | null;
   member_count: number | null;
   is_bot_member: boolean;
+  /** Een casus krijgt alleen een privékanaal. */
+  is_private?: boolean;
 }
 
 export interface MattermostChannelLinkCreate {
@@ -41,6 +45,7 @@ export interface MattermostChannelLinkCreate {
   suggest_leads_enabled?: boolean;
   parlementaire_alerts_enabled?: boolean;
   nieuws_alerts_enabled?: boolean;
+  casus_updates_enabled?: boolean;
 }
 
 export interface MattermostChannelLinkUpdate {
@@ -48,6 +53,7 @@ export interface MattermostChannelLinkUpdate {
   suggest_leads_enabled?: boolean;
   parlementaire_alerts_enabled?: boolean;
   nieuws_alerts_enabled?: boolean;
+  casus_updates_enabled?: boolean;
   /** Alleen ``true`` is geldig; backend rejecteert ``false``. */
   reenable?: true;
 }
@@ -65,6 +71,14 @@ export async function listLeadChannels(
 ): Promise<MattermostChannelLink[]> {
   return apiGet<MattermostChannelLink[]>(
     `/api/leads/${leadId}/mattermost-channels`,
+  );
+}
+
+export async function listCasusChannels(
+  casusId: string,
+): Promise<MattermostChannelLink[]> {
+  return apiGet<MattermostChannelLink[]>(
+    `/api/casussen/${casusId}/mattermost-channels`,
   );
 }
 
@@ -86,6 +100,33 @@ export async function createLeadChannelLink(
     `/api/leads/${leadId}/mattermost-channels`,
     data,
   );
+}
+
+export async function createCasusChannelLink(
+  casusId: string,
+  data: MattermostChannelLinkCreate,
+): Promise<MattermostChannelLink> {
+  return apiPost<MattermostChannelLink>(
+    `/api/casussen/${casusId}/mattermost-channels`,
+    data,
+  );
+}
+
+/** Een voortgangsbericht van een casus, zoals het in het kanaal staat of zou staan. */
+export interface CasusKanaalbericht {
+  id: string;
+  /** Mattermost-markdown. */
+  tekst: string;
+  /** Namen van de kanalen met voortgang aan, op het moment van het bericht. */
+  kanalen: string[];
+  status: 'geen_kanaal' | 'wacht' | 'verstuurd' | 'mislukt' | 'uit';
+  created_at: string;
+}
+
+export async function listCasusKanaalberichten(
+  casusId: string,
+): Promise<CasusKanaalbericht[]> {
+  return apiGet<CasusKanaalbericht[]>(`/api/casussen/${casusId}/kanaalberichten`);
 }
 
 export async function updateChannelLink(

@@ -43,13 +43,14 @@ class MattermostChannelOverview(BaseModel):
     # Bij het tonen opgehaald, niet opgeslagen: een opgeslagen naam
     # veroudert zodra iemand het team hernoemt.
     team_name: str | None = None
-    scope_type: str  # "lead" | "initiatief"
+    scope_type: str  # "lead" | "initiatief" | "casus"
     scope_id: UUID
     scope_label: str | None
     auto_note_enabled: bool
     suggest_leads_enabled: bool
     parlementaire_alerts_enabled: bool
     nieuws_alerts_enabled: bool
+    casus_updates_enabled: bool = False
     last_seen_post_at: datetime | None
     disabled_at: datetime | None
     created_at: datetime

@@ -981,11 +981,18 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
             )}
           </DetailSection>
 
-          {/* Mattermost-kanalen */}
+          {/* Mattermost-kanalen. Na de start van een casus hangt het
+              kanaal aan de casus, en een nieuw kanaal hoort daar ook. */}
           <DetailSection title="Mattermost" separated>
-            <MattermostChannelsSection
-              scope={{ type: 'lead', id: lead.id }}
-            />
+            {casusGestart ? (
+              <nldd-text size="sm" color="secondary">
+                Het kanaal van deze lead is meegegaan naar de casus. Koppel kanalen daar.
+              </nldd-text>
+            ) : (
+              <MattermostChannelsSection
+                scope={{ type: 'lead', id: lead.id }}
+              />
+            )}
           </DetailSection>
         </nldd-container>
       )}

@@ -10,6 +10,7 @@ from bouwmeester.models.beleidsoptie import Beleidsoptie  # noqa: F401
 from bouwmeester.models.bron import Bron  # noqa: F401
 from bouwmeester.models.bron_bijlage import BronBijlage  # noqa: F401
 from bouwmeester.models.casus import Casus  # noqa: F401
+from bouwmeester.models.casus_kanaalbericht import CasusKanaalbericht  # noqa: F401
 from bouwmeester.models.casus_soort import CasusCasusSoort, CasusSoort  # noqa: F401
 from bouwmeester.models.chat_attachment import ChatAttachment  # noqa: F401
 from bouwmeester.models.chat_conversation import ChatConversation  # noqa: F401

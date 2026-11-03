@@ -5,7 +5,11 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bouwmeester.models.mattermost_channel_link import MattermostChannelLink
+from bouwmeester.models.mattermost_channel_link import (
+    SCOPE_CASUS,
+    SCOPE_LEAD,
+    MattermostChannelLink,
+)
 
 
 class MattermostChannelLinkRepository:
@@ -61,6 +65,7 @@ class MattermostChannelLinkRepository:
         created_by_id: UUID | None,
         parlementaire_alerts_enabled: bool = False,
         nieuws_alerts_enabled: bool = False,
+        casus_updates_enabled: bool = False,
     ) -> MattermostChannelLink:
         link = MattermostChannelLink(
             channel_id=channel_id,
@@ -73,6 +78,7 @@ class MattermostChannelLinkRepository:
             suggest_leads_enabled=suggest_leads_enabled,
             parlementaire_alerts_enabled=parlementaire_alerts_enabled,
             nieuws_alerts_enabled=nieuws_alerts_enabled,
+            casus_updates_enabled=casus_updates_enabled,
             created_by_id=created_by_id,
         )
         self.session.add(link)
@@ -88,6 +94,7 @@ class MattermostChannelLinkRepository:
         suggest_leads_enabled: bool | None = None,
         parlementaire_alerts_enabled: bool | None = None,
         nieuws_alerts_enabled: bool | None = None,
+        casus_updates_enabled: bool | None = None,
         reenable: bool | None = None,
     ) -> MattermostChannelLink:
         if auto_note_enabled is not None:
@@ -98,11 +105,52 @@ class MattermostChannelLinkRepository:
             link.parlementaire_alerts_enabled = parlementaire_alerts_enabled
         if nieuws_alerts_enabled is not None:
             link.nieuws_alerts_enabled = nieuws_alerts_enabled
+        if casus_updates_enabled is not None:
+            link.casus_updates_enabled = casus_updates_enabled
         if reenable:
             link.disabled_at = None
         await self.session.flush()
         await self.session.refresh(link)
         return link
+
+    async def verhuis(
+        self,
+        *,
+        van: tuple[str, UUID],
+        naar: tuple[str, UUID],
+        casus_updates_enabled: bool | None = None,
+        van_de_lead: bool | None = None,
+    ) -> list[MattermostChannelLink]:
+        """Hang alle kanalen van één scope aan een andere.
+
+        Voor een lead die een casus wordt. Geeft de verhuisde koppelingen
+        terug. Terug als de casus weggaat: zie `casus_weg`.
+        """
+        links = await self.list_for_scope(*van)
+        for link in links:
+            link.scope_type, link.scope_id = naar
+            if casus_updates_enabled is not None:
+                link.casus_updates_enabled = casus_updates_enabled
+            if van_de_lead is not None:
+                link.van_de_lead = van_de_lead
+        await self.session.flush()
+        return links
+
+    async def casus_weg(self, casus_id: UUID, lead_id: UUID) -> None:
+        """De casus verdwijnt: kanalen van de lead terug, de rest ontkoppeld.
+
+        Een kanaal dat het team zelf aan de casus hing, is vaak een
+        privékanaal voor het casuswerk. Op de lead zou het weer meelezen
+        onder de ruimere regels van een lead, en dat is nooit gekozen.
+        """
+        for link in await self.list_for_scope(SCOPE_CASUS, casus_id):
+            if link.van_de_lead:
+                link.scope_type, link.scope_id = SCOPE_LEAD, lead_id
+                link.van_de_lead = False
+                link.casus_updates_enabled = False
+            else:
+                await self.session.delete(link)
+        await self.session.flush()
 
     async def update_last_seen(
         self, link: MattermostChannelLink, last_seen_post_at: int

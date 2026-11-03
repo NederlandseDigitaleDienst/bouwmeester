@@ -1240,6 +1240,8 @@ class MattermostService:
                     "team_name": namen.get(ch.get("team_id") or "") or None,
                     "member_count": ch.get("total_msg_count"),
                     "is_bot_member": True,
+                    # Een casus krijgt alleen een privékanaal.
+                    "is_private": ch_type == "P",
                 }
             )
             if len(results) >= 25:
