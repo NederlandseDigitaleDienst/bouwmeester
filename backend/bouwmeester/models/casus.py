@@ -42,10 +42,10 @@ class Casus(Base):
         unique=True,
         index=True,
     )
-    initiatief_id: Mapped[uuid.UUID | None] = mapped_column(
+    initiatief_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("initiatief.id", ondelete="CASCADE"),
-        nullable=True,
+        nullable=False,
         index=True,
     )
     title: Mapped[str] = mapped_column(nullable=False)

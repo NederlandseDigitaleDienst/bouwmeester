@@ -350,8 +350,10 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
             ResourcePermission.resource_id == initiatief_id,
             ResourcePermission.person_id == person_id,
         )
-        result = await self.session.execute(direct)
-        if result.scalar_one_or_none() is not None:
+        # first(), niet scalar_one_or_none(): iemand kan twee rijen hebben
+        # (twee eenheden aan het initiatief, of twee directe rollen).
+        result = await self.session.execute(direct.limit(1))
+        if result.first() is not None:
             return True
 
         # Via eenheid membership
@@ -381,8 +383,8 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
                 ),
             )
         )
-        result = await self.session.execute(eenheid_stmt)
-        return result.scalar_one_or_none() is not None
+        result = await self.session.execute(eenheid_stmt.limit(1))
+        return result.first() is not None
 
     async def list_persons_with_access(self, initiatief_id: UUID) -> list[Person]:
         """Alle actieve personen die dit initiatief kunnen zien.
