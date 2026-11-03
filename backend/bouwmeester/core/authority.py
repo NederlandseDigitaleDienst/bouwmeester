@@ -753,9 +753,7 @@ async def _casus_niveau(
     from bouwmeester.schema.initiatief import EENHEID_ROL_RANK
 
     niveau = (
-        await initiatief_niveau(
-            db, casus.initiatief_id, person, perm_ctx, alleen_op_initiatief=True
-        )
+        await initiatief_niveau(db, casus.initiatief_id, person, perm_ctx)
         if casus.initiatief_id is not None
         else None
     )
@@ -788,9 +786,7 @@ async def require_can_start_casus(
     from bouwmeester.core.initiatief_context import initiatief_niveau
     from bouwmeester.schema.initiatief import EENHEID_ROL_RANK
 
-    niveau = await initiatief_niveau(
-        db, initiatief_id, person, perm_ctx, alleen_op_initiatief=True
-    )
+    niveau = await initiatief_niveau(db, initiatief_id, person, perm_ctx)
     if EENHEID_ROL_RANK.get(niveau or "", 0) < EENHEID_ROL_RANK["contributor"]:
         raise _forbidden(
             "Een casus starten kan een bijdrager of eigenaar van het initiatief"
