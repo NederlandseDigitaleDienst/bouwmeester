@@ -256,6 +256,8 @@ async def create_task(
     issue_repo = IssueRepository(db)
     await issue_repo.sync_status(task.issue_id)
 
+    # Bij een casustaak alleen meldingen voor leden van het initiatief.
+    leden_van = casus.initiatief_id if casus else None
     await sync_and_notify_mentions(
         db,
         "task",
@@ -265,6 +267,7 @@ async def create_task(
         sender_id=data.assignee_id,
         source_task_id=task.id,
         source_node_id=task.node_id,
+        alleen_leden_van=leden_van,
     )
 
     resolved_id, resolved_naam = await resolve_actor(current_user, actor_id, db)
@@ -279,7 +282,10 @@ async def create_task(
     # Notify team manager
     if task.organisatie_eenheid_id:
         await notif_svc.notify_team_manager(
-            task, task.organisatie_eenheid_id, exclude_person_id=task.assignee_id
+            task,
+            task.organisatie_eenheid_id,
+            exclude_person_id=task.assignee_id,
+            alleen_leden_van=leden_van,
         )
 
     assignee_naam = assignee.naam if task.assignee_id and assignee else None
@@ -376,10 +382,11 @@ async def get_eenheid_overview(
     db: AsyncSession = Depends(get_db),
     _perm=Depends(require_permission("task:read")),
     org_ctx: OrgContext = Depends(get_org_context),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> EenheidOverviewResponse:
     """Overview of tasks for an organisatie-eenheid."""
     check_org_scope(organisatie_eenheid_id, org_ctx)
-    service = EenheidOverviewService(db)
+    service = EenheidOverviewService(db, init_ctx)
     return await service.get_overview(organisatie_eenheid_id)
 
 
@@ -393,10 +400,12 @@ async def get_task(
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> TaskResponse:
     """Get a single task by ID, including assignee and node summaries."""
-    await check_resource_org_scope(db, "task", id, org_ctx)
     repo = TaskRepository(db)
     task = require_found(await repo.get(id), "Task")
+    # Eerst de casus: buiten het initiatief 404, ook als de org-check 403
+    # zou geven. Zo verraadt een casustaak haar bestaan niet.
     await _require_task_visible(db, task, init_ctx)
+    await check_resource_org_scope(db, "task", id, org_ctx)
     return TaskResponse.model_validate(task)
 
 
@@ -410,10 +419,10 @@ async def get_task_subtasks(
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> list[TaskResponse]:
     """List subtasks of a parent task."""
-    await check_resource_org_scope(db, "task", id, org_ctx)
     repo = TaskRepository(db)
     parent = require_found(await repo.get(id), "Task")
     await _require_task_visible(db, parent, init_ctx)
+    await check_resource_org_scope(db, "task", id, org_ctx)
     subtasks = await repo.get_subtasks(id, org_ctx=org_ctx, init_ctx=init_ctx)
     return [TaskResponse.model_validate(t) for t in subtasks]
 
@@ -429,10 +438,10 @@ async def reorder_subtasks(
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> list[TaskResponse]:
     """Reorder subtasks of a parent task."""
-    await check_resource_org_scope(db, "task", id, org_ctx)
     repo = TaskRepository(db)
     parent = require_found(await repo.get(id), "Task")
     await _require_task_visible(db, parent, init_ctx)
+    await check_resource_org_scope(db, "task", id, org_ctx)
     try:
         subtasks = await repo.reorder_subtasks(id, data.task_ids)
     except ValueError as exc:
@@ -457,10 +466,10 @@ async def update_task(
     moet lid zijn van het initiatief. Dat geldt ook als de taak naar een
     andere casus verhuist of als alleen de uitvoerder verandert.
     """
-    await check_resource_org_scope(db, "task", id, org_ctx)
     repo = TaskRepository(db)
     old_task = require_found(await repo.get(id), "Task")
     await _require_task_visible(db, old_task, init_ctx)
+    await check_resource_org_scope(db, "task", id, org_ctx)
     if data.organisatie_eenheid_id is not None:
         check_org_scope(data.organisatie_eenheid_id, org_ctx)
     # Een taak in een casus heeft geen subtaken en hangt onder geen taak:
@@ -507,6 +516,8 @@ async def update_task(
     if old_issue_id != new_issue_id:
         await issue_repo.sync_status(old_issue_id)
 
+    # Bij een casustaak alleen meldingen voor leden van het initiatief.
+    leden_van = casus.initiatief_id if casus else None
     await sync_and_notify_mentions(
         db,
         "task",
@@ -516,6 +527,7 @@ async def update_task(
         sender_id=data.assignee_id,
         source_task_id=task.id,
         source_node_id=task.node_id,
+        alleen_leden_van=leden_van,
     )
 
     resolved_id, resolved_naam = await resolve_actor(current_user, actor_id, db)
@@ -547,7 +559,10 @@ async def update_task(
     new_org_unit_id = task.organisatie_eenheid_id
     if new_org_unit_id and new_org_unit_id != old_org_unit_id:
         await notif_svc.notify_team_manager(
-            task, new_org_unit_id, exclude_person_id=task.assignee_id
+            task,
+            new_org_unit_id,
+            exclude_person_id=task.assignee_id,
+            alleen_leden_van=leden_van,
         )
 
     # Build change details for audit log
@@ -585,18 +600,17 @@ async def delete_task(
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> None:
     """Delete a task permanently."""
-    await check_resource_org_scope(db, "task", id, org_ctx)
     repo = TaskRepository(db)
-    task = await repo.get(id)
-    if task is not None:
-        await _require_task_visible(db, task, init_ctx)
-    task_title = task.title if task else None
-    task_node_id = task.node_id if task else None
+    task = require_found(await repo.get(id), "Task")
+    await _require_task_visible(db, task, init_ctx)
+    await check_resource_org_scope(db, "task", id, org_ctx)
+    task_title = task.title
+    task_node_id = task.node_id
     issue_repo = IssueRepository(db)
-    issue_id = task.issue_id if task else None
+    issue_id = task.issue_id
     # Bijlagen gaan in de database mee (CASCADE), hun bestanden niet: die
     # ruimen we hier zelf op, ook die van subtaken.
-    bijlage_paden = await _bijlage_paden(db, id) if task else []
+    bijlage_paden = await _bijlage_paden(db, id)
     require_deleted(await repo.delete(id), "Task")
     await issue_repo.sync_status(issue_id)
     for pad in bijlage_paden:

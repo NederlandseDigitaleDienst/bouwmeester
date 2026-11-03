@@ -141,6 +141,8 @@ async def add_comment(
                 related_task_id=task.id,
             )
         )
+    # Op een casustaak alleen meldingen voor leden van het initiatief.
+    casus = await db.get(Casus, task.casus_id) if task.casus_id else None
     await sync_and_notify_mentions(
         db,
         "task_comment",
@@ -150,6 +152,7 @@ async def add_comment(
         sender_id=author_id,
         source_task_id=task.id,
         exclude_person_id=task.assignee_id,
+        alleen_leden_van=casus.initiatief_id if casus else None,
     )
     await log_activity(
         db,

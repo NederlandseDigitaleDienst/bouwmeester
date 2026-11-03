@@ -1398,6 +1398,14 @@ async def _execute_read_tool(
         elif tool_name == "get_recent_activity":
             from bouwmeester.repositories.activity import ActivityRepository
 
+            # Zelfde recht als /api/activity/feed: het log noemt titels van
+            # alles, ook van casussen en hun onderzoeksvragen.
+            access = await _chat_access(db, person_id)
+            if not access.perm_ctx.has_permission("audit:read"):
+                return _safe_dumps(
+                    {"error": "Je hebt geen rechten om de activiteit te bekijken."}
+                )
+
             repo = ActivityRepository(db)
             limit = min(int(args.get("limit", 10)), 20)
             activities = await repo.get_recent(limit=limit)
@@ -1675,6 +1683,36 @@ _WRITE_TOOL_POLICY: dict[str, tuple[str | None, tuple[tuple[str, str], ...]]] = 
 }
 
 
+async def _require_chat_task_visible(
+    tool_name: str, args: dict, db: AsyncSession, person_id: UUID | None
+) -> None:
+    """De regels van de taakroutes voor ``update_task`` en ``create_task``.
+
+    Een taak bijwerken kan alleen als je haar kunt zien; een subtaak hangt
+    alleen onder een zichtbare taak, en nooit onder een taak in een casus.
+    Gooit dezelfde HTTPException als de route.
+    """
+    from bouwmeester.api.routes.tasks import (
+        _geen_subtaak_in_casus,
+        _require_task_visible,
+    )
+    from bouwmeester.models.task import Task
+
+    if tool_name == "update_task":
+        arg = "task_id"
+    elif tool_name == "create_task" and args.get("parent_task_id"):
+        arg = "parent_task_id"
+    else:
+        return
+    task = await db.get(Task, UUID(args[arg]))
+    if task is None:
+        return  # de org-check hierna geeft 404
+    init_ctx = await _build_chat_initiatief_context(db, person_id)
+    await _require_task_visible(db, task, init_ctx)
+    if arg == "parent_task_id":
+        _geen_subtaak_in_casus(task, casus_taak=False)
+
+
 async def _authorize_write_tool(
     tool_name: str,
     args: dict,
@@ -1699,6 +1737,9 @@ async def _authorize_write_tool(
     if perm is not None and not perm_ctx.has_permission(perm):
         return "Je hebt geen rechten voor deze actie."
     try:
+        # Een casustaak is buiten het initiatief onvindbaar, ook voor de chat:
+        # eerst die controle, zodat de org-check het bestaan niet verraadt.
+        await _require_chat_task_visible(tool_name, args, db, person_id)
         if targets:
             org_ctx = await _build_chat_org_context(db, person_id)
             for resource_type, arg in targets:
@@ -1893,6 +1934,11 @@ async def _execute_write_tool(
             task = await repo.update(UUID(args["task_id"]), data)
             if not task:
                 return {"success": False, "summary": "Taak niet gevonden"}
+            # De status van de onderzoeksvraag volgt haar taken, zoals bij
+            # PUT /api/tasks/{id}.
+            from bouwmeester.repositories.issue import IssueRepository
+
+            await IssueRepository(db).sync_status(task.issue_id)
             await db.commit()
             return {
                 "success": True,

@@ -53,6 +53,27 @@ def apply_casus_filter(stmt, init_ctx: InitiatiefContext | None):
     )
 
 
+def casus_filter_sql_clause(init_ctx: InitiatiefContext | None) -> tuple[str, dict]:
+    """Dezelfde regel als :func:`apply_casus_filter`, voor ruwe SQL op ``task``.
+
+    Voor queries die niet in de ORM passen, zoals de UNION ALL van het
+    zoeken. Geeft een ``" AND ..."``-fragment en de parameters die erbij
+    horen; leeg als er niets te filteren is.
+    """
+    if init_ctx is None or init_ctx.is_admin:
+        return "", {}
+    if not init_ctx.is_authenticated:
+        return " AND casus_id IS NULL", {}
+    clause = (
+        " AND (casus_id IS NULL OR casus_id IN ("
+        "SELECT id FROM casus WHERE initiatief_id IS NULL"
+        " OR initiatief_id = ANY(:visible_initiatief_ids)))"
+    )
+    return clause, {
+        "visible_initiatief_ids": [str(i) for i in init_ctx.visible_initiatief_ids]
+    }
+
+
 class TaskRepository(BaseRepository[Task]):
     model = Task
 
