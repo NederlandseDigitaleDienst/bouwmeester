@@ -34,7 +34,6 @@ from bouwmeester.models.lead_node import LeadNode
 from bouwmeester.repositories.github_link import GitHubLinkRepository
 from bouwmeester.repositories.lead import LeadRepository, StageNotInColumnsError
 from bouwmeester.repositories.lead_activity import LeadActivityRepository
-from bouwmeester.schema.casus import CASUSTEAM_ROLLEN
 from bouwmeester.schema.github_link import (
     GitHubLinkCreate,
     GitHubLinkResponse,
@@ -745,11 +744,13 @@ async def add_contact(
     _check_lead_access(lead, init_ctx)
     from bouwmeester.models.resource_permission import ResourcePermission
 
-    # Trekker en teamlid horen op de casus, niet op de lead.
-    if data.rol in CASUSTEAM_ROLLEN:
+    # De trekker hoort bij de casus, niet op de lead. Teamlid mag wel: wie
+    # aan de lead werkt, kan later in het casusteam, als lid van het
+    # initiatief (zie casussen.py).
+    if data.rol == "trekker":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Een casusteam hoort bij de casus; start eerst de casus.",
+            detail="De trekker hoort bij de casus; start eerst de casus.",
         )
     await _require_lead_open(db, lead)
 

@@ -286,12 +286,46 @@ async def test_lead_editable_again_after_casus_deleted(client, lead_gewonnen):
     assert resp.json()["casus_id"] is None
 
 
-async def test_casusteam_rol_on_lead_is_rejected(client, lead_gewonnen, sample_person):
+async def test_trekker_op_de_lead_niet_teamlid_wel(
+    client, lead_gewonnen, sample_person
+):
+    """De trekker hoort bij de casus; een teamlid mag al op de lead staan."""
     resp = await client.post(
         f"/api/leads/{lead_gewonnen.id}/contacts",
         json={"person_id": str(sample_person.id), "rol": "trekker"},
     )
     assert resp.status_code == 400
+    resp = await client.post(
+        f"/api/leads/{lead_gewonnen.id}/contacts",
+        json={"person_id": str(sample_person.id), "rol": "teamlid"},
+    )
+    assert resp.status_code == 201, resp.text
+
+
+async def test_lead_contact_in_casusteam_alleen_als_lid(
+    client, db_session, initiatief, lead_gewonnen, sample_person
+):
+    """Een contact van de lead kan later in het casusteam, als het lid is
+    van het initiatief; dan ook als trekker."""
+    resp = await client.post(
+        f"/api/leads/{lead_gewonnen.id}/contacts",
+        json={"person_id": str(sample_person.id), "rol": "teamlid"},
+    )
+    assert resp.status_code == 201, resp.text
+    casus_id = (await _start(client, lead_gewonnen)).json()["id"]
+
+    team = f"/api/casussen/{casus_id}/team"
+    resp = await client.post(
+        team, json={"person_id": str(sample_person.id), "rol": "teamlid"}
+    )
+    assert resp.status_code == 400
+    assert "geen lid" in resp.json()["detail"]
+
+    await _lid(db_session, initiatief.id, sample_person.id)
+    resp = await client.post(
+        team, json={"person_id": str(sample_person.id), "rol": "trekker"}
+    )
+    assert resp.status_code == 201, resp.text
 
 
 # ---------------------------------------------------------------------------

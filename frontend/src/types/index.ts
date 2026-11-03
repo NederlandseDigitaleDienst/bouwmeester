@@ -769,6 +769,9 @@ export const LEAD_CONTACT_ROL_LABELS: Record<string, string> = {
   contactpersoon: 'Externe contactpersoon',
   opdrachtgever: 'Opdrachtgever',
   betrokken: 'Betrokken',
+  // Wie aan de lead werkt. Kan later in het casusteam, als lid van het
+  // initiatief. Trekker is er niet: die hoort bij de casus.
+  teamlid: 'Teamlid',
 };
 
 /** Rollen die iemand lid van het casusteam maken; de rest zijn externe contacten. */
