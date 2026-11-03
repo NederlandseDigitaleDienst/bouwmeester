@@ -17,6 +17,7 @@ import { useCasusSoorten } from '@/hooks/useCasusSoorten';
 import { NlddButton } from '@/components/nldd/NlddButton';
 import { EisenLijst } from './EisenLijst';
 import { StartvragenEditor } from './StartvragenEditor';
+import { OverleggenEditor } from './OverleggenEditor';
 
 /**
  * The "Instellingen" tab: things set once. Name, description and color are
@@ -80,6 +81,18 @@ export function InitiatiefInstellingen({ initiatief }: { initiatief: InitiatiefD
                 samenvatting={`${initiatief.casus_fases?.length ?? 0} fases${initiatief.casus_fases_is_voorstel === false ? '' : ' · voorstel'}`}
               >
                 <CasusFunnelEditor initiatief={initiatief} />
+              </InstellingenBlok>
+              {/* De vaste overleggen, voor het ritme op de tab RegelRitme. */}
+              <InstellingenBlok
+                icon="calendar"
+                titel="Ritme"
+                samenvatting={
+                  initiatief.overleggen?.length
+                    ? `${initiatief.overleggen.length} ${initiatief.overleggen.length === 1 ? 'overleg' : 'overleggen'}`
+                    : 'nog geen overleggen'
+                }
+              >
+                <OverleggenEditor initiatief={initiatief} />
               </InstellingenBlok>
               <InstellingenBlok
                 icon="tag"

@@ -1926,6 +1926,21 @@ export interface CasusFaseDef {
   door_als?: string | null;
 }
 
+/**
+ * Eén vast overleg van het team, voor het ritme op de tab RegelRitme
+ * (backend schema/overleggen.py). Tekst om te lezen, geen agenda.
+ */
+export interface Overleg {
+  id: string;
+  naam: string;
+  /** Vrije tekst, zoals "om de week, di 9.00 tot 11.00". */
+  wanneer?: string | null;
+  wie?: string | null;
+  waarvoor?: string | null;
+  /** Uit als het overleg besloten is maar het moment nog niet vastligt. */
+  vastgesteld: boolean;
+}
+
 /** De lead-kolom van waaruit een casus mag starten (dummy-regel, zie backend). */
 export const CASUS_START_STAGE = 'in_the_pocket';
 
@@ -2195,6 +2210,8 @@ export interface Initiatief {
   startvragen?: Startvraag[];
   /** De casusfunnel die geldt: de eigen fases, anders het voorstel. */
   casus_fases?: CasusFaseDef[];
+  /** Het ritme: de vaste overleggen van het team; leeg = nog niets vastgelegd. */
+  overleggen?: Overleg[];
   created_by_id: string | null;
   created_at: string;
   updated_at: string | null;
@@ -2235,6 +2252,8 @@ export interface InitiatiefSettingsUpdate {
   casus_fases?: CasusFaseDef[];
   /** De startvragen; een lege lijst zet de standaardlijst terug. */
   startvragen?: Startvraag[];
+  /** De vaste overleggen; een lege lijst haalt ze weg. */
+  overleggen?: Overleg[];
 }
 
 export interface InitiatiefUpdatePost {

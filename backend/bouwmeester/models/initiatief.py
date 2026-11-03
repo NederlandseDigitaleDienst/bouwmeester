@@ -62,6 +62,9 @@ class Initiatief(Base):
     # De casusfunnel: fases met naam, kleur, omschrijving en "door als"
     # (schema/casus_fases.py). Leeg = het voorstel.
     casus_fases: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    # Het ritme: de vaste overleggen van het team (schema/overleggen.py).
+    # Leeg = nog niets vastgelegd.
+    overleggen: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
     created_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("person.id", ondelete="SET NULL"),

@@ -13,6 +13,11 @@ from bouwmeester.schema.casus_fases import (
     controleer_fases,
     geldende_casus_fases,
 )
+from bouwmeester.schema.overleggen import (
+    Overleg,
+    controleer_overleggen,
+    geldende_overleggen,
+)
 from bouwmeester.schema.startvragen import (
     Startvraag,
     controleer_lijst,
@@ -109,6 +114,14 @@ class InitiatiefSettingsUpdate(BaseModel):
     startvragen: list[Startvraag] | None = None
     # De casusfunnel; een lege lijst zet het voorstel terug.
     casus_fases: list[CasusFaseDef] | None = None
+    # Het ritme: de vaste overleggen. Een lege lijst (of null) haalt ze weg.
+    overleggen: list[Overleg] | None = None
+
+    @field_validator("overleggen")
+    @classmethod
+    def _check_overleggen(cls, overleggen: list[Overleg] | None) -> list[Overleg]:
+        # null betekent hier hetzelfde als leeg: de kolom kent geen null.
+        return controleer_overleggen(overleggen or [])
 
     @field_validator("casus_fases")
     @classmethod
@@ -230,6 +243,8 @@ class InitiatiefResponse(BaseModel):
     startvragen: list[Startvraag] = Field(default_factory=list)
     # De casusfunnel die geldt: de eigen fases, anders het voorstel.
     casus_fases: list[CasusFaseDef] = Field(default_factory=list)
+    # Het ritme: de vaste overleggen van het team.
+    overleggen: list[Overleg] = Field(default_factory=list)
     created_by_id: UUID | None = None
     created_at: datetime
     updated_at: datetime | None = None
@@ -245,6 +260,11 @@ class InitiatiefResponse(BaseModel):
     @classmethod
     def _geldende_casus_fases(cls, opgeslagen: list | None) -> list[CasusFaseDef]:
         return geldende_casus_fases(opgeslagen)
+
+    @field_validator("overleggen", mode="before")
+    @classmethod
+    def _geldende_overleggen(cls, opgeslagen: list | None) -> list[Overleg]:
+        return geldende_overleggen(opgeslagen)
 
 
 class InitiatiefListItemResponse(InitiatiefResponse):
