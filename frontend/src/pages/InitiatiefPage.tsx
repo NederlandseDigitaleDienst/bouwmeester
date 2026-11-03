@@ -19,7 +19,8 @@ import type { InitiatiefDetail } from '@/types';
 
 const TAB_LABELS: Record<InitiatiefTab, string> = {
   leads: 'Leads',
-  casussen: 'Casussen',
+  // Het casusbord heet de RegelReis; de route blijft /casussen.
+  casussen: 'RegelReis',
   backlog: 'Backlog',
   updates: 'Updates',
   mensen: 'Mensen',

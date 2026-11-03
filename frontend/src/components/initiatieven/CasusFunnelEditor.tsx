@@ -43,7 +43,7 @@ const gelijk = (a: CasusFaseDef[], b: CasusFaseDef[]) => {
 /**
  * De casusfunnel bewerken: de fases waar een casus doorheen gaat, met per
  * fase een naam, kleur, omschrijving en wanneer een casus door mag ("door
- * als"; bij de laatste fase "klaar als"). Het funnelbord op de tab Casussen
+ * als"; bij de laatste fase "klaar als"). Het funnelbord op de RegelReis
  * neemt de fases over, en de casusgegevens tonen de omschrijving.
  *
  * Opslaan in één keer; zolang je niets eigens opslaat geldt het voorstel. Een
@@ -106,7 +106,7 @@ export function CasusFunnelEditor({ initiatief }: { initiatief: InitiatiefDetail
   return (
     <nldd-container gap="16">
       <nldd-text size="sm" color="secondary">
-        De fases waar een casus doorheen gaat. Het funnelbord op de tab Casussen volgt deze lijst; bij een casus
+        De fases waar een casus doorheen gaat. Het bord op de RegelReis volgt deze lijst; bij een casus
         staat wat er in zijn fase gebeurt en wanneer hij door mag.
         {isVoorstel ? ' Dit is het voorstel; pas het aan en sla op om er een eigen funnel van te maken.' : ''}
       </nldd-text>
