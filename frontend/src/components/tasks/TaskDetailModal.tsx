@@ -450,7 +450,7 @@ export function TaskDetailModal({ taskId, open, onClose, placement = 'center' }:
                   variant="neutral-transparent"
                   size="sm"
                   startIcon="trash"
-                  onClick={() => vraagBevestiging({ id: task.id, title: task.title })}
+                  onClick={() => vraagBevestiging({ id: task.id, title: task.title, subtaken: task.subtasks?.length ?? 0 })}
                   text="Verwijderen"
                 />
               }
