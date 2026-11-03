@@ -37,7 +37,6 @@ from bouwmeester.schema.casus import (
 from bouwmeester.schema.casus_fases import eerste_fase, geldende_casus_fases
 from bouwmeester.schema.casus_soort import momentopname_eisen
 from bouwmeester.schema.startvragen import (
-    CASUSTYPE_VRAAG,
     controleer_antwoorden,
     geldende_startvragen,
 )
@@ -121,15 +120,25 @@ async def start_casus(
 ) -> CasusDetailResponse:
     """Start een casus vanuit een lead die de trechter uit is.
 
-    Voorwaarden: de lead is zichtbaar, staat in de startkolom (dummy-regel,
-    zie schema/casus.py), heeft nog geen casus, en de startvragen van het
-    initiatief zijn beantwoord (schema/startvragen.py; 422 anders). Trekker
-    en teamleden moeten het initiatief kunnen zien.
+    Voorwaarden: de lead is zichtbaar, hoort bij een initiatief met
+    casussen aan, staat in de startkolom (dummy-regel, zie schema/casus.py),
+    heeft nog geen casus, en de startvragen van het initiatief zijn
+    beantwoord (schema/startvragen.py; 422 anders). Trekker en teamleden
+    moeten het initiatief kunnen zien.
     """
     lead = await db.get(Lead, data.lead_id)
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_initiatief_visible(lead.initiatief_id, init_ctx)
+    # Een casus hoort bij een initiatief dat ermee werkt. Een lead zonder
+    # initiatief heeft geen schakelaar en dus geen casus: zo'n casus zou
+    # voor iedere ingelogde gebruiker zichtbaar zijn.
+    init = await db.get(Initiatief, lead.initiatief_id) if lead.initiatief_id else None
+    if init is None or not init.casussen_enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="Casussen staan niet aan voor het initiatief van deze lead",
+        )
     repo = CasusRepository(db)
     if await repo.get_by_lead(lead.id) is not None:
         raise HTTPException(
@@ -150,11 +159,7 @@ async def start_casus(
     # komen zo in de momentopname.
     gekozen = []
     if data.soort_ids:
-        eigen = (
-            await soort_repo.list_for_initiatief(lead.initiatief_id)
-            if lead.initiatief_id
-            else []
-        )
+        eigen = await soort_repo.list_for_initiatief(lead.initiatief_id)
         if any(sid not in {s.id for s in eigen} for sid in data.soort_ids):
             raise HTTPException(
                 status_code=400,
@@ -162,9 +167,7 @@ async def start_casus(
             )
         gekozen = [s for s in eigen if s.id in set(data.soort_ids)]
 
-    init = await db.get(Initiatief, lead.initiatief_id) if lead.initiatief_id else None
-    # Zonder initiatief geen instellingen: dan alleen de vaste vraag.
-    vragen = geldende_startvragen(init.startvragen) if init else [CASUSTYPE_VRAAG]
+    vragen = geldende_startvragen(init.startvragen)
     sv = data.startvoorwaarden
     try:
         antwoorden = controleer_antwoorden(vragen, sv.antwoorden, sv.casustype)
@@ -185,7 +188,7 @@ async def start_casus(
         startvoorwaarden=startvoorwaarden,
         started_by_id=current_user.id if current_user else None,
         # Een nieuwe casus begint in de eerste fase van de funnel.
-        fase=eerste_fase(init.casus_fases if init else None),
+        fase=eerste_fase(init.casus_fases),
     )
     seen: set[UUID] = set()
     for pid, rol in [

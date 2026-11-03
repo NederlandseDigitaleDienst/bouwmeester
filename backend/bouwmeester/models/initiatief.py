@@ -38,6 +38,12 @@ class Initiatief(Base):
     public_page_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
+    # Casussen aan: de tabs Casussen en Backlog, en een casus starten vanuit
+    # een lead. Standaard uit, zodat initiatieven die er niet mee werken
+    # niets merken. Uitzetten verbergt alleen; bestaande casussen blijven.
+    casussen_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     score_strategisch_label: Mapped[str | None] = mapped_column(nullable=True)
     score_politiek_label: Mapped[str | None] = mapped_column(nullable=True)
     score_positie_label: Mapped[str | None] = mapped_column(nullable=True)

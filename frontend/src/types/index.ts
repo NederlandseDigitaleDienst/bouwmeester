@@ -2116,6 +2116,8 @@ export interface Initiatief {
   kleur: string | null;
   funnel_enabled: boolean;
   public_page_enabled: boolean;
+  /** Tabs Casussen (en Backlog) en casus starten; standaard uit. */
+  casussen_enabled: boolean;
   score_strategisch_label: string | null;
   score_politiek_label: string | null;
   score_positie_label: string | null;
@@ -2155,6 +2157,7 @@ export interface InitiatiefSettingsUpdate {
   slug?: string | null;
   funnel_enabled?: boolean;
   public_page_enabled?: boolean;
+  casussen_enabled?: boolean;
   score_strategisch_label?: string | null;
   score_politiek_label?: string | null;
   score_positie_label?: string | null;

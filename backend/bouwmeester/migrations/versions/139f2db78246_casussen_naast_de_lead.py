@@ -13,7 +13,8 @@ Alleen toevoegingen; bestaande tabellen en gegevens blijven ongemoeid:
 - casus_soort en casus_casus_soort: soorten casus per initiatief, als tags,
   met een uitleg, hoe ver we zo'n casus brengen en eisen bij start en eind.
 - initiatief: drie lijsten (acceptatiecriteria, startvragen, casus_fases),
-  standaard leeg; leeg betekent de standaard uit de code.
+  standaard leeg; leeg betekent de standaard uit de code. En de schakelaar
+  casussen_enabled, standaard uit: bestaande initiatieven zien niets nieuws.
 """
 
 from collections.abc import Sequence
@@ -140,11 +141,18 @@ def upgrade() -> None:
             "initiatief",
             sa.Column(kolom, sa.JSON(), server_default="[]", nullable=False),
         )
+    op.add_column(
+        "initiatief",
+        sa.Column(
+            "casussen_enabled", sa.Boolean(), server_default="false", nullable=False
+        ),
+    )
 
 
 def downgrade() -> None:
     # Verwijdert bewust de casussen, hun soorten en de inrichting per
     # initiatief: die bestonden voor deze migratie niet.
+    op.drop_column("initiatief", "casussen_enabled")
     for kolom in ("casus_fases", "startvragen", "acceptatiecriteria"):
         op.drop_column("initiatief", kolom)
     op.drop_table("casus_casus_soort")

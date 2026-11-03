@@ -55,23 +55,34 @@ export function InitiatiefInstellingen({ initiatief }: { initiatief: InitiatiefD
           >
             <FeatureSettings initiatief={initiatief} />
           </InstellingenBlok>
-          <InstellingenBlok icon="check-mark-circle" titel="Casus starten" samenvatting={criteriaSamenvatting}>
-            <CasusStartenSettings initiatief={initiatief} />
-          </InstellingenBlok>
           <InstellingenBlok
-            icon="columns-3"
-            titel="Casusfunnel"
-            samenvatting={`${initiatief.casus_fases?.length ?? 0} fases${initiatief.casus_fases_is_voorstel === false ? '' : ' · voorstel'}`}
+            icon="sparkles"
+            titel="Casussen"
+            samenvatting={initiatief.casussen_enabled ? 'aan' : 'uit'}
           >
-            <CasusFunnelEditor initiatief={initiatief} />
+            <CasussenSchakelaar initiatief={initiatief} />
           </InstellingenBlok>
-          <InstellingenBlok
-            icon="tag"
-            titel="Casussoorten"
-            samenvatting={aantalSoorten ? `${aantalSoorten} ${aantalSoorten === 1 ? 'soort' : 'soorten'}` : 'nog geen soorten'}
-          >
-            <CasusSoortenBeheer initiatiefId={initiatief.id} />
-          </InstellingenBlok>
+          {initiatief.casussen_enabled && (
+            <>
+              <InstellingenBlok icon="check-mark-circle" titel="Casus starten" samenvatting={criteriaSamenvatting}>
+                <CasusStartenSettings initiatief={initiatief} />
+              </InstellingenBlok>
+              <InstellingenBlok
+                icon="columns-3"
+                titel="Casusfunnel"
+                samenvatting={`${initiatief.casus_fases?.length ?? 0} fases${initiatief.casus_fases_is_voorstel === false ? '' : ' · voorstel'}`}
+              >
+                <CasusFunnelEditor initiatief={initiatief} />
+              </InstellingenBlok>
+              <InstellingenBlok
+                icon="tag"
+                titel="Casussoorten"
+                samenvatting={aantalSoorten ? `${aantalSoorten} ${aantalSoorten === 1 ? 'soort' : 'soorten'}` : 'nog geen soorten'}
+              >
+                <CasusSoortenBeheer initiatiefId={initiatief.id} />
+              </InstellingenBlok>
+            </>
+          )}
           <InstellingenBlok icon="columns-3" titel="Funnel-kolommen">
             <ColumnsManager initiatiefId={initiatief.id} />
           </InstellingenBlok>
@@ -204,6 +215,29 @@ function CasusStartenSettings({ initiatief }: { initiatief: InitiatiefDetail }) 
         </nldd-container>
       </nldd-container>
     </nldd-container>
+  );
+}
+
+/**
+ * De schakelaar voor casussen. Aan: de tab Casussen en "Casus starten" op een
+ * lead in de startkolom. Uit verbergt alleen; bestaande casussen blijven.
+ */
+function CasussenSchakelaar({ initiatief }: { initiatief: InitiatiefDetail }) {
+  const settingsMutation = useUpdateInitiatiefSettings();
+  return (
+    <ToggleRow
+      icon="sparkles"
+      label="Werken met casussen"
+      description="Een lead in de startkolom wordt een casus, met onderzoeksvragen en taken. Uitzetten verbergt de casussen; ze blijven bewaard."
+      enabled={initiatief.casussen_enabled}
+      onToggle={() =>
+        settingsMutation.mutate({
+          id: initiatief.id,
+          data: { casussen_enabled: !initiatief.casussen_enabled },
+        })
+      }
+      loading={settingsMutation.isPending}
+    />
   );
 }
 

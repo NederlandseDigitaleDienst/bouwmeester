@@ -53,7 +53,12 @@ EIGEN = [
 
 @pytest.fixture
 async def initiatief(db_session):
-    init = Initiatief(id=uuid.uuid4(), naam="Startvragen", slug="rr-startvragen")
+    init = Initiatief(
+        id=uuid.uuid4(),
+        naam="Startvragen",
+        slug="rr-startvragen",
+        casussen_enabled=True,
+    )
     db_session.add(init)
     await db_session.flush()
     return init
@@ -304,13 +309,12 @@ async def test_ongeldige_antwoorden_zijn_422(
     assert resp.status_code == 422, resp.text
 
 
-async def test_zonder_initiatief_alleen_de_vaste_vraag(client, db_session):
-    """Zonder initiatief zijn er geen instellingen: alleen intern of satelliet."""
+async def test_zonder_initiatief_geen_casus(client, db_session):
+    """Een lead zonder initiatief heeft geen schakelaar, dus ook geen casus:
+    zo'n casus zou voor iedere ingelogde gebruiker zichtbaar zijn."""
     lead = Lead(id=uuid.uuid4(), title="Los", stage="in_the_pocket")
     db_session.add(lead)
     await db_session.flush()
-    resp = await _start(client, lead, {"antwoorden": []})
-    assert resp.status_code == 422
     resp = await _start(client, lead, {"casustype": "satelliet"})
-    assert resp.status_code == 201, resp.text
-    assert resp.json()["startvoorwaarden"]["antwoorden"] == []
+    assert resp.status_code == 400
+    assert "Casussen staan niet aan" in resp.json()["detail"]

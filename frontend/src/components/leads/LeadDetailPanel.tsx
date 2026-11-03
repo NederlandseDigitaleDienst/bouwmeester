@@ -167,7 +167,10 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
   // Na "Casus starten" is de lead geschiedenis: lezen mag, wijzigen niet.
   // De backend weigert mutaties met een 409; hier verdwijnen de knoppen.
   const casusGestart = !!lead?.casus_id;
-  const kanCasusStarten = !!lead && !casusGestart && lead.stage === CASUS_START_STAGE;
+  // Alleen bij een initiatief dat met casussen werkt (de schakelaar in de
+  // instellingen); de backend weigert het anders ook.
+  const casussenAan = !!initiatieven?.find((i) => i.id === lead?.initiatief_id)?.casussen_enabled;
+  const kanCasusStarten = !!lead && !casusGestart && casussenAan && lead.stage === CASUS_START_STAGE;
   const gaNaarCasus = () => {
     if (!lead?.casus_id) return;
     onClose();
