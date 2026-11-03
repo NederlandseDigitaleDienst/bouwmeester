@@ -42,6 +42,7 @@ class TaskAttachmentResponse(BaseModel):
     bestandsnaam: str
     content_type: str | None = None
     bestandsgrootte: int | None = None
+    uploaded_by_id: UUID | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
