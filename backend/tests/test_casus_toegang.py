@@ -951,3 +951,94 @@ async def test_chat_volgt_de_rol_op_de_casus(client, db_session, kijker, taak):
         person_id=kijker.id,
     )
     assert result["success"] is True, result
+
+
+# ---------------------------------------------------------------------------
+# Verhuizen tussen casussen
+# ---------------------------------------------------------------------------
+
+
+async def _casus_in(client, db_session, initiatief_id, titel):
+    lead = Lead(
+        id=uuid.uuid4(),
+        title=titel,
+        stage="in_the_pocket",
+        initiatief_id=initiatief_id,
+    )
+    db_session.add(lead)
+    await db_session.flush()
+    resp = await client.post(
+        "/api/casussen", json={"lead_id": str(lead.id), "startvoorwaarden": START}
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()["id"]
+
+
+async def test_taak_onder_een_vraag_verhuist_niet_zonder_die_vraag(
+    client, db_session, initiatief, casus, lid
+):
+    """Alleen casus_id wijzigen terwijl de taak onder een vraag hangt: 400.
+    Anders blijft ze in de backlog van de oude casus staan."""
+    vraag = await client.post(
+        f"/api/casussen/{casus['id']}/issues", json={"title": "Vraag in A"}
+    )
+    assert vraag.status_code == 201, vraag.text
+    t = await client.post(
+        "/api/tasks", json={"title": "Onder de vraag", "issue_id": vraag.json()["id"]}
+    )
+    assert t.status_code == 201, t.text
+    tid = t.json()["id"]
+    andere = await _casus_in(client, db_session, initiatief.id, "Casus B")
+
+    resp = await client.put(f"/api/tasks/{tid}", json={"casus_id": andere})
+    assert resp.status_code == 400, resp.text
+    na = (await client.get(f"/api/tasks/{tid}")).json()
+    assert (na["casus_id"], na["issue_id"]) == (casus["id"], vraag.json()["id"])
+
+    # Met de vraag erbij losgemaakt mag het wel.
+    resp = await client.put(
+        f"/api/tasks/{tid}", json={"casus_id": andere, "issue_id": None}
+    )
+    assert resp.status_code == 200, resp.text
+    assert (resp.json()["casus_id"], resp.json()["issue_id"]) == (andere, None)
+
+
+async def test_taak_verhuist_niet_naar_een_ander_initiatief(client, db_session, casus):
+    """Ook niet voor wie op beide initiatieven mag schrijven (hier de
+    dev-gebruiker, eigenaar van alles). Zonder uitvoerder, zodat niet de
+    lidmaatschapsregel de verhuizing tegenhoudt."""
+    taak = (
+        await client.post(
+            "/api/tasks", json={"title": "Zonder uitvoerder", "casus_id": casus["id"]}
+        )
+    ).json()
+    ander = Initiatief(
+        id=uuid.uuid4(), naam="Ander", slug="ander-init", casussen_enabled=True
+    )
+    db_session.add(ander)
+    await db_session.flush()
+    await LeadColumnRepository(db_session).seed_defaults(ander.id)
+    elders = await _casus_in(client, db_session, ander.id, "Casus elders")
+
+    resp = await client.put(f"/api/tasks/{taak['id']}", json={"casus_id": elders})
+    assert resp.status_code == 400, resp.text
+    resp = await client.get(f"/api/tasks/{taak['id']}")
+    assert resp.json()["casus_id"] == casus["id"]
+
+
+async def test_werktypen_van_casustaken_alleen_voor_leden(
+    client, db_session, buitenstaander, lid, casus
+):
+    resp = await client.post(
+        "/api/tasks",
+        json={
+            "title": "Met werktype",
+            "casus_id": casus["id"],
+            "work_type": "Geheimwerktype",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    async with client_as(db_session, lid) as c:
+        assert "Geheimwerktype" in (await c.get("/api/tasks/work-types")).json()
+    async with client_as(db_session, buitenstaander) as c:
+        assert "Geheimwerktype" not in (await c.get("/api/tasks/work-types")).json()

@@ -417,10 +417,14 @@ async def get_work_types(
     db: AsyncSession = Depends(get_db),
     _perm=Depends(require_permission("task:read")),
     org_ctx: OrgContext = Depends(get_org_context),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> list[str]:
-    """Return distinct work_type values for autocomplete."""
+    """Return distinct work_type values for autocomplete.
+
+    Zonder werktypen van casustaken buiten je initiatieven.
+    """
     repo = TaskRepository(db)
-    return await repo.get_distinct_work_types(org_ctx=org_ctx)
+    return await repo.get_distinct_work_types(org_ctx=org_ctx, init_ctx=init_ctx)
 
 
 @router.get("/eenheid-overview", response_model=EenheidOverviewResponse)
@@ -556,6 +560,33 @@ async def update_task(
             detail="Een taak verhuist niet uit een casus; verwijder haar, of "
             "maak een nieuwe taak aan de node",
         )
+    if (
+        oude_casus is not None
+        and casus is not None
+        and casus.initiatief_id != oude_casus.initiatief_id
+    ):
+        # Zoals bij een onderzoeksvraag: wie de taak ziet, hoort bij het
+        # initiatief, en dat verandert niet onderweg.
+        raise HTTPException(
+            status_code=400,
+            detail="Een taak verhuist niet naar een casus van een ander initiatief",
+        )
+    if (
+        casus is not None
+        and old_task.issue_id is not None
+        and "issue_id" not in data.model_fields_set
+    ):
+        # Alleen casus_id in de wijziging: de vraag waar de taak onder hangt,
+        # moet bij die casus horen. Anders staat de taak in de backlog van de
+        # oude casus, en telt ze mee voor een vraag die ze niet meer ziet.
+        oud_issue = await db.get(Issue, old_task.issue_id)
+        if oud_issue is not None and oud_issue.casus_id != casus.id:
+            raise HTTPException(
+                status_code=400,
+                detail="Deze taak hangt onder een onderzoeksvraag van een andere "
+                "casus; kies een vraag van de nieuwe casus, of haal haar eerst "
+                "onder de vraag vandaan",
+            )
     if casus is not None and (oude_casus is None or casus.id != oude_casus.id):
         # Een casus in: daar hoort een rol bij.
         await require_can_change_casus(db, perm_ctx, current_user, casus)
