@@ -10,6 +10,7 @@ import { InitiatiefUpdates } from '@/components/initiatieven/InitiatiefUpdates';
 import { InitiatiefMensen } from '@/components/initiatieven/InitiatiefMensen';
 import { InitiatiefSignalen } from '@/components/initiatieven/InitiatiefSignalen';
 import { InitiatiefInstellingen } from '@/components/initiatieven/InitiatiefInstellingen';
+import { InitiatiefRegelRitme } from '@/components/initiatieven/InitiatiefRegelRitme';
 import {
   initiatiefPath,
   isInitiatiefTab,
@@ -25,6 +26,7 @@ const TAB_LABELS: Record<InitiatiefTab, string> = {
   updates: 'Updates',
   mensen: 'Mensen',
   signalen: 'Signalen',
+  regelritme: 'RegelRitme',
   instellingen: 'Instellingen',
 };
 
@@ -33,7 +35,9 @@ const TAB_LABELS: Record<InitiatiefTab, string> = {
  * daily, updates weekly, people and signals now and then, settings once.
  * A viewer changes nothing, so has no settings tab. Casussen and Backlog only
  * when the initiatief works with casussen (a switch in the settings, off by
- * default).
+ * default). RegelRitme explains how the team works with casussen, so it comes
+ * with the same switch and sits with the reference tabs, just before the
+ * settings.
  */
 function visibleTabs(initiatief: InitiatiefDetail): InitiatiefTab[] {
   const canEdit =
@@ -41,6 +45,7 @@ function visibleTabs(initiatief: InitiatiefDetail): InitiatiefTab[] {
   const tabs: InitiatiefTab[] = ['leads'];
   if (initiatief.casussen_enabled) tabs.push('casussen', 'backlog');
   tabs.push('updates', 'mensen', 'signalen');
+  if (initiatief.casussen_enabled) tabs.push('regelritme');
   if (canEdit) tabs.push('instellingen');
   return tabs;
 }
@@ -94,6 +99,7 @@ export function InitiatiefPage() {
         {activeTab === 'updates' && <TabBody><InitiatiefUpdates initiatief={initiatief} /></TabBody>}
         {activeTab === 'mensen' && <TabBody><InitiatiefMensen initiatief={initiatief} /></TabBody>}
         {activeTab === 'signalen' && <TabBody><InitiatiefSignalen initiatief={initiatief} /></TabBody>}
+        {activeTab === 'regelritme' && <TabBody><InitiatiefRegelRitme initiatief={initiatief} /></TabBody>}
         {activeTab === 'instellingen' && <TabBody><InitiatiefInstellingen initiatief={initiatief} /></TabBody>}
       </div>
     </nldd-container>
