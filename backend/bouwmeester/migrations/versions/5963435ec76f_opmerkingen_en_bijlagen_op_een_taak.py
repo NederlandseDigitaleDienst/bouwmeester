@@ -7,7 +7,8 @@ Create Date: 2026-10-30
 Twee nieuwe tabellen voor het taakdetail: opmerkingen (task_comment) en
 bijlagen (task_attachment). Alleen toevoegingen; bestaande tabellen en
 gegevens blijven ongemoeid. Beide gaan met hun taak mee (CASCADE); een
-opmerking blijft staan als de auteur verdwijnt (SET NULL).
+opmerking blijft staan als de auteur verdwijnt (SET NULL), een bijlage als
+wie hem plaatste verdwijnt (uploaded_by_id, SET NULL).
 """
 
 from collections.abc import Sequence
@@ -58,23 +59,34 @@ def upgrade() -> None:
         sa.Column("content_type", sa.String(), nullable=True),
         sa.Column("bestandsgrootte", sa.Integer(), nullable=True),
         sa.Column("pad", sa.String(), nullable=False),
+        sa.Column("uploaded_by_id", sa.UUID(), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
             server_default=sa.text("now()"),
             nullable=False,
         ),
+        sa.ForeignKeyConstraint(["uploaded_by_id"], ["person.id"], ondelete="SET NULL"),
         sa.ForeignKeyConstraint(["task_id"], ["task.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
         op.f("ix_task_attachment_task_id"), "task_attachment", ["task_id"], unique=False
     )
+    op.create_index(
+        op.f("ix_task_attachment_uploaded_by_id"),
+        "task_attachment",
+        ["uploaded_by_id"],
+        unique=False,
+    )
 
 
 def downgrade() -> None:
     # Verwijdert bewust de opmerkingen en bijlagen (de bestanden op schijf
     # niet): die bestonden voor deze migratie niet.
+    op.drop_index(
+        op.f("ix_task_attachment_uploaded_by_id"), table_name="task_attachment"
+    )
     op.drop_index(op.f("ix_task_attachment_task_id"), table_name="task_attachment")
     op.drop_table("task_attachment")
     op.drop_index(op.f("ix_task_comment_author_id"), table_name="task_comment")

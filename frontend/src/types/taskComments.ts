@@ -23,5 +23,7 @@ export interface TaskAttachment {
   bestandsnaam: string;
   content_type: string | null;
   bestandsgrootte: number | null;
+  /** Wie de bijlage plaatste; die (of een beheerder) mag hem verwijderen. */
+  uploaded_by_id: string | null;
   created_at: string;
 }

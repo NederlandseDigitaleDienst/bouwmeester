@@ -4,6 +4,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { NlddButton } from '@/components/nldd/NlddButton';
 import { NlddIconButton } from '@/components/nldd/NlddIconButton';
 import { getTaskAttachmentDownloadUrl } from '@/api/tasks';
+import { useAuth } from '@/contexts/AuthContext';
 import { useDeleteTaskAttachment, useTaskAttachments, useUploadTaskAttachment } from '@/hooks/useTasks';
 import type { TaskAttachment } from '@/types';
 
@@ -14,9 +15,12 @@ import type { TaskAttachment } from '@/types';
  * van de taak), zodat de onderkant één regel met acties is.
  *
  * Per bestand: downloaden en verwijderen, verwijderen met een bevestiging.
+ * Verwijderen kan wie het bestand plaatste of een beheerder (de backend
+ * bewaakt dat ook), net als bij opmerkingen.
  */
 export function TaskAttachmentsSection({ taskId, acties }: { taskId: string; acties?: ReactNode }) {
   const { data: attachments = [] } = useTaskAttachments(taskId);
+  const { person } = useAuth();
   const upload = useUploadTaskAttachment();
   const remove = useDeleteTaskAttachment();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,29 +51,34 @@ export function TaskAttachmentsSection({ taskId, acties }: { taskId: string; act
       <nldd-container gap="8">
         {attachments.length > 0 && (
           <nldd-list appearance="simple" dividers="never" accessible-label="Bestanden bij deze taak">
-            {attachments.map((att) => (
-              <nldd-list-item key={att.id}>
-                <nldd-container layout="row" gap="8" vertical-alignment="center" width="full" padding="4">
-                  <nldd-icon icon="paperclip" size="16" aria-hidden="true" />
-                  <nldd-text size="sm" className="truncate row-fill">{att.bestandsnaam}</nldd-text>
-                  <nldd-text size="xs" color="secondary">{Math.round((att.bestandsgrootte ?? 0) / 1024)} KB</nldd-text>
-                  <NlddIconButton
-                    icon="download"
-                    accessibleLabel={`${att.bestandsnaam} downloaden`}
-                    variant="neutral-transparent"
-                    size="sm"
-                    onClick={() => window.open(getTaskAttachmentDownloadUrl(taskId, att.id), '_blank')}
-                  />
-                  <NlddIconButton
-                    icon="trash"
-                    accessibleLabel={`${att.bestandsnaam} verwijderen`}
-                    variant="neutral-transparent"
-                    size="sm"
-                    onClick={() => setWeg(att)}
-                  />
-                </nldd-container>
-              </nldd-list-item>
-            ))}
+            {attachments.map((att) => {
+              const magWeg = !person || person.is_admin || (att.uploaded_by_id !== null && att.uploaded_by_id === person.id);
+              return (
+                <nldd-list-item key={att.id}>
+                  <nldd-container layout="row" gap="8" vertical-alignment="center" width="full" padding="4">
+                    <nldd-icon icon="paperclip" size="16" aria-hidden="true" />
+                    <nldd-text size="sm" className="truncate row-fill">{att.bestandsnaam}</nldd-text>
+                    <nldd-text size="xs" color="secondary">{Math.round((att.bestandsgrootte ?? 0) / 1024)} KB</nldd-text>
+                    <NlddIconButton
+                      icon="download"
+                      accessibleLabel={`${att.bestandsnaam} downloaden`}
+                      variant="neutral-transparent"
+                      size="sm"
+                      onClick={() => window.open(getTaskAttachmentDownloadUrl(taskId, att.id), '_blank')}
+                    />
+                    {magWeg && (
+                      <NlddIconButton
+                        icon="trash"
+                        accessibleLabel={`${att.bestandsnaam} verwijderen`}
+                        variant="neutral-transparent"
+                        size="sm"
+                        onClick={() => setWeg(att)}
+                      />
+                    )}
+                  </nldd-container>
+                </nldd-list-item>
+              );
+            })}
           </nldd-list>
         )}
         <nldd-container layout="row" gap="8" vertical-alignment="center">
