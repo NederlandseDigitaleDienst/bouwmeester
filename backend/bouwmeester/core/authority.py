@@ -753,7 +753,9 @@ async def _casus_niveau(
     from bouwmeester.schema.initiatief import EENHEID_ROL_RANK
 
     niveau = (
-        await initiatief_niveau(db, casus.initiatief_id, person, perm_ctx)
+        await initiatief_niveau(
+            db, casus.initiatief_id, person, perm_ctx, alleen_op_initiatief=True
+        )
         if casus.initiatief_id is not None
         else None
     )
@@ -786,7 +788,9 @@ async def require_can_start_casus(
     from bouwmeester.core.initiatief_context import initiatief_niveau
     from bouwmeester.schema.initiatief import EENHEID_ROL_RANK
 
-    niveau = await initiatief_niveau(db, initiatief_id, person, perm_ctx)
+    niveau = await initiatief_niveau(
+        db, initiatief_id, person, perm_ctx, alleen_op_initiatief=True
+    )
     if EENHEID_ROL_RANK.get(niveau or "", 0) < EENHEID_ROL_RANK["contributor"]:
         raise _forbidden(
             "Een casus starten kan een bijdrager of eigenaar van het initiatief"
@@ -831,14 +835,35 @@ async def require_can_manage_casus_team(
     person: Person | None,
     casus,
     *,
+    rol: str | None = None,
     target_person_id: UUID | None = None,
     verwijderen: bool = False,
 ) -> None:
-    """Het casusteam beheren: wie de casus mag wijzigen.
+    """Het casusteam beheren.
 
-    Jezelf uit het team halen mag altijd, zoals bij andere rollen. Wie in
-    het team mag, bewaakt de route: alleen leden van het initiatief.
+    Jezelf uit het team halen mag altijd, zoals bij andere rollen. Een
+    teamlid toevoegen of weghalen kan wie de casus mag wijzigen (bijdrager,
+    eigenaar of trekker). De trekker aanwijzen of weghalen kan alleen een
+    bijdrager of eigenaar van het initiatief: trekker geeft wijzigrechten,
+    en die deelt een trekker die zelf alleen kijker is niet uit. Een
+    bijdrager mag zichzelf trekker maken, die wint er niets mee; een kijker
+    nooit. Wie in het team mag, bewaakt de route: alleen leden van het
+    initiatief.
     """
+    from bouwmeester.schema.initiatief import EENHEID_ROL_RANK
+
     if verwijderen and person is not None and target_person_id == person.id:
         return
-    await require_can_change_casus(db, perm_ctx, person, casus)
+    rang, trekker = await _casus_niveau(db, perm_ctx, person, casus)
+    if rol == "trekker":
+        if rang < EENHEID_ROL_RANK["contributor"]:
+            raise _forbidden(
+                "De trekker aanwijzen of weghalen kan een bijdrager of eigenaar "
+                "van het initiatief"
+            )
+        return
+    if rang < EENHEID_ROL_RANK["contributor"] and not trekker:
+        raise _forbidden(
+            "Het team wijzigen kan een bijdrager of eigenaar van het initiatief, "
+            "of de trekker"
+        )

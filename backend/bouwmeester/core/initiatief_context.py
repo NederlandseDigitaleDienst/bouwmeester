@@ -189,6 +189,8 @@ async def initiatief_niveau(
     initiatief_id: UUID,
     person: Person | None,
     perm_ctx: PermissionContext | None = None,
+    *,
+    alleen_op_initiatief: bool = False,
 ) -> str | None:
     """Het hoogste niveau van een persoon op een initiatief, of None.
 
@@ -197,6 +199,11 @@ async def initiatief_niveau(
     contributor), een directe rol en een rol via een eenheid. Zonder persoon
     (dev-modus, geen OIDC) eigenaar. Eén regel voor de initiatiefroutes en
     voor wat iemand met een casus mag.
+
+    Met ``alleen_op_initiatief`` tellen alleen systeemrollen mee, niet een
+    rol in een willekeurige eenheid: een kijker die elders editor of
+    unit_manager is, blijft dan kijker. Voor casussen, de vertrouwelijkste
+    gegevens, is dat de regel.
     """
     from bouwmeester.core.permissions import build_permission_context
     from bouwmeester.repositories.initiatief import InitiatiefRepository
@@ -210,9 +217,14 @@ async def initiatief_niveau(
         return "eigenaar"
 
     levels: list[str] = []
-    if perm_ctx.has_permission("initiatief:delete"):
+    heeft = (
+        perm_ctx.has_system_permission
+        if alleen_op_initiatief
+        else perm_ctx.has_permission
+    )
+    if heeft("initiatief:delete"):
         levels.append("eigenaar")
-    elif perm_ctx.has_permission("initiatief:update"):
+    elif heeft("initiatief:update"):
         levels.append("contributor")
 
     repo = InitiatiefRepository(db)

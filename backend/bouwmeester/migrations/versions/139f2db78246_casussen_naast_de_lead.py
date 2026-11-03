@@ -6,7 +6,8 @@ Create Date: 2026-10-30
 
 Alleen toevoegingen; bestaande tabellen en gegevens blijven ongemoeid:
 
-- casus: wat begint als een lead de trechter uit is. Eén casus per lead
+- casus: wat begint als een lead de trechter uit is, altijd bij een
+  initiatief (NOT NULL: alleen leden zien hem). Eén casus per lead
   (uniek, RESTRICT: een lead met een casus is niet te verwijderen). Een
   casus ontstaat alleen door hem bewust te starten; deze migratie maakt
   er geen aan.
@@ -36,7 +37,7 @@ def upgrade() -> None:
             "id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False
         ),
         sa.Column("lead_id", sa.UUID(), nullable=False),
-        sa.Column("initiatief_id", sa.UUID(), nullable=True),
+        sa.Column("initiatief_id", sa.UUID(), nullable=False),
         sa.Column("title", sa.String(), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("organization", sa.String(), nullable=True),
@@ -157,4 +158,6 @@ def downgrade() -> None:
         op.drop_column("initiatief", kolom)
     op.drop_table("casus_casus_soort")
     op.drop_table("casus_soort")
+    # De casusteams (resource_permission zonder FK) gaan mee met de casussen.
+    op.execute("DELETE FROM resource_permission WHERE resource_type = 'casus'")
     op.drop_table("casus")

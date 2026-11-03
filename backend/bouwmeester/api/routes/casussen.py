@@ -9,6 +9,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import delete as sa_delete
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bouwmeester.api.deps import require_found
@@ -403,8 +404,22 @@ async def add_teamlid(
     perm_ctx: PermissionContext = Depends(get_permission_context),
 ) -> CasusTeamResponse:
     casus = await _get_casus(db, casus_id, init_ctx)
-    await require_can_manage_casus_team(db, perm_ctx, current_user, casus)
+    await require_can_manage_casus_team(db, perm_ctx, current_user, casus, rol=data.rol)
     await _require_team_candidate(db, casus, data.person_id)
+    # Geen tweede rij voor dezelfde persoon en rol (een dubbelklik); de
+    # unieke index helpt hier niet, want organisatie_eenheid_id is leeg.
+    bestaat = await db.scalar(
+        select(ResourcePermission.id).where(
+            ResourcePermission.resource_type == "casus",
+            ResourcePermission.resource_id == casus_id,
+            ResourcePermission.person_id == data.person_id,
+            ResourcePermission.rol == data.rol,
+        )
+    )
+    if bestaat is not None:
+        raise HTTPException(
+            status_code=409, detail="Deze persoon heeft die rol al op de casus"
+        )
     rp = ResourcePermission(
         person_id=data.person_id,
         resource_type="casus",
@@ -446,6 +461,7 @@ async def remove_teamlid(
         perm_ctx,
         current_user,
         casus,
+        rol=rp.rol,
         target_person_id=rp.person_id,
         verwijderen=True,
     )
