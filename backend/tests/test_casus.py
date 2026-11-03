@@ -731,3 +731,106 @@ async def test_chat_wijzigt_geen_lead_met_casus(
         assert "alleen-lezen" in result["summary"], (tool, result)
     resp = await client.get(f"/api/leads/{lead_id}")
     assert resp.json()["title"] == "Zorgtoeslag"
+
+
+# ---------------------------------------------------------------------------
+# Ronde 3 van de review: oude lezers en de alleen-lezen-regel op elke route
+# ---------------------------------------------------------------------------
+
+
+async def test_lead_met_casus_geen_updates_en_geen_kanaal(client, lead_gewonnen):
+    """Ook de updates van een lead en een Mattermost-kanaal vallen onder
+    alleen-lezen: de lead is geschiedenis, het werk gaat verder op de casus."""
+    lid = lead_gewonnen.id
+    resp = await client.post(f"/api/leads/{lid}/updates", json={"titel": "Voor"})
+    assert resp.status_code == 201, resp.text
+    post_id = resp.json()["id"]
+    assert (await _start(client, lead_gewonnen)).status_code == 201
+
+    assert (await client.get(f"/api/leads/{lid}/updates")).status_code == 200
+    resp = await client.post(f"/api/leads/{lid}/updates", json={"titel": "Na"})
+    assert resp.status_code == 409, resp.text
+    for methode, pad in [
+        ("put", f"/api/leads/{lid}/updates/{post_id}"),
+        ("post", f"/api/leads/{lid}/updates/{post_id}/publish"),
+        ("post", f"/api/leads/{lid}/updates/{post_id}/unpublish"),
+        ("delete", f"/api/leads/{lid}/updates/{post_id}"),
+    ]:
+        kwargs = {"json": {"titel": "Anders"}} if methode == "put" else {}
+        resp = await getattr(client, methode)(pad, **kwargs)
+        assert resp.status_code == 409, (pad, resp.text)
+    resp = await client.post(
+        f"/api/leads/{lid}/mattermost-channels",
+        json={
+            "channel_id": uuid.uuid4().hex[:26],
+            "channel_name": "lead-kanaal",
+            "channel_display_name": "Lead kanaal",
+        },
+    )
+    assert resp.status_code == 409, resp.text
+
+
+async def test_casusrol_in_personenlijst_alleen_voor_wie_het_initiatief_ziet(
+    client, db_session, initiatief, lead_gewonnen
+):
+    """GET /resource-permissions/by-person laat casusrollen weg voor wie het
+    initiatief niet ziet; een lid ziet ze met de titel van de casus."""
+    from tests.factories import client_as, grant_role, make_org, make_person, place
+
+    elders = await make_org(db_session, "Eenheid elders")
+    trekker = await _met_rol(db_session, initiatief, "Trekker", "contributor")
+    # Twee kijkers op dezelfde eenheid (people:read); alleen het lid ziet
+    # ook het initiatief.
+    lid = await _met_rol(db_session, initiatief, "Lid", "viewer")
+    buitenstaander = await make_person(db_session, "Buitenstaander")
+    for p in (lid, buitenstaander):
+        await place(db_session, p, elders)
+        await grant_role(db_session, p, "viewer", elders)
+    assert (
+        await _start(client, lead_gewonnen, trekker_id=str(trekker.id))
+    ).status_code == 201
+
+    pad = f"/api/resource-permissions/by-person/{trekker.id}"
+    async with client_as(db_session, buitenstaander) as c:
+        resp = await c.get(pad)
+        assert resp.status_code == 200, resp.text
+        assert [r for r in resp.json() if r["resource_type"] == "casus"] == []
+        # De rol op het initiatief zelf blijft gewoon zichtbaar.
+        assert any(r["resource_type"] == "initiatief" for r in resp.json())
+    async with client_as(db_session, lid) as c:
+        resp = await c.get(pad)
+        assert resp.status_code == 200, resp.text
+        casusrijen = [r for r in resp.json() if r["resource_type"] == "casus"]
+        assert [(r["rol"], r["resource_name"]) for r in casusrijen] == [
+            ("trekker", "Zorgtoeslag")
+        ]
+
+
+async def test_chat_leest_het_log_alleen_met_audit_read(
+    client, db_session, initiatief, lead_gewonnen
+):
+    """Het activiteitenlog noemt casustitels; de chattool vraagt daarom
+    hetzelfde recht als /api/activity/feed."""
+    import json
+
+    from bouwmeester.services.chat_service import _execute_read_tool
+    from tests.factories import grant_role, make_person
+
+    assert (await _start(client, lead_gewonnen)).status_code == 201
+    lid = await _met_rol(db_session, initiatief, "Lid", "contributor")
+    beheerder = await make_person(db_session, "Beheerder")
+    await grant_role(db_session, beheerder, "platform_admin")
+
+    uit = json.loads(
+        await _execute_read_tool(
+            "get_recent_activity", {}, db_session, person_id=lid.id
+        )
+    )
+    assert "error" in uit and "activities" not in uit
+    assert "Zorgtoeslag" not in json.dumps(uit)
+    uit = json.loads(
+        await _execute_read_tool(
+            "get_recent_activity", {}, db_session, person_id=beheerder.id
+        )
+    )
+    assert any(a["event_type"] == "casus.started" for a in uit["activities"])

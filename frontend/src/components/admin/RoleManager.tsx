@@ -326,6 +326,7 @@ const RESOURCE_TYPE_LABELS: Record<string, string> = {
   corpus_node: 'Beleidsobject',
   initiatief: 'Initiatief',
   lead: 'Lead',
+  casus: 'Casus',
   team: 'Team',
   opdracht: 'Opdracht',
 };

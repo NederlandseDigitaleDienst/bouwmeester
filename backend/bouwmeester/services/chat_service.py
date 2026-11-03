@@ -1390,6 +1390,14 @@ async def _execute_read_tool(
         elif tool_name == "get_recent_activity":
             from bouwmeester.repositories.activity import ActivityRepository
 
+            # Zelfde recht als /api/activity/feed: het log noemt titels van
+            # alles, ook van casussen en hun onderzoeksvragen.
+            access = await _chat_access(db, person_id)
+            if not access.perm_ctx.has_permission("audit:read"):
+                return _safe_dumps(
+                    {"error": "Je hebt geen rechten om de activiteit te bekijken."}
+                )
+
             repo = ActivityRepository(db)
             limit = min(int(args.get("limit", 10)), 20)
             activities = await repo.get_recent(limit=limit)
