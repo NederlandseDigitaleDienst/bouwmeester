@@ -40,11 +40,12 @@ export function DodModal({ issue, mode, onClose }: Props) {
     setChecked(new Set(issue?.dod_checked ?? []));
   }, [issue?.id, issue?.dod_checked]);
 
-  const toggle = (item: string) =>
+  const zet = (item: string, aan: boolean) =>
     setChecked((prev) => {
+      if (prev.has(item) === aan) return prev;
       const next = new Set(prev);
-      if (next.has(item)) next.delete(item);
-      else next.add(item);
+      if (aan) next.add(item);
+      else next.delete(item);
       return next;
     });
 
@@ -105,7 +106,7 @@ export function DodModal({ issue, mode, onClose }: Props) {
                 label={item}
                 checked={checked.has(item)}
                 disabled={mode === 'bekijken'}
-                onToggle={() => toggle(item)}
+                onChange={(aan) => zet(item, aan)}
               />
             ))}
           </nldd-container>
@@ -125,15 +126,18 @@ function DodCheck({
   label,
   checked,
   disabled,
-  onToggle,
+  onChange,
 }: {
   label: string;
   checked: boolean;
   disabled: boolean;
-  onToggle: () => void;
+  onChange: (aan: boolean) => void;
 }) {
   const ref = useRef<HTMLElement>(null);
-  useNlddEvent(ref, 'change', onToggle);
+  // nldd-checkbox-field meldt één klik twee keer, met dezelfde stand. Omkeren
+  // per melding zette het vinkje meteen weer terug; de stand uit de melding
+  // overnemen maakt de tweede melding onschadelijk.
+  useNlddEvent(ref, 'change', (e) => onChange(Boolean((e as CustomEvent<{ checked?: boolean }>).detail?.checked)));
   return (
     <nldd-checkbox-field
       ref={ref}
