@@ -64,7 +64,7 @@ function InitiatiefCard({ initiatief }: { initiatief: InitiatiefListItem }) {
       <nldd-container gap="8" padding="16">
         <nldd-container layout="row" width="full" gap="8" vertical-alignment="center">
           <nldd-icon
-            name="circle-filled"
+            icon="circle-filled"
             size="16"
             color={initiatiefIconColor(initiatief.kleur)}
             aria-hidden="true"
@@ -109,7 +109,7 @@ export function InitiatievenPage() {
 
   return (
     <nldd-container gap="24">
-      <nldd-toolbar label="Initiatiefacties">
+      <nldd-toolbar accessible-label="Initiatiefacties">
         <nldd-toolbar-item slot="start" priority={1} min-width="160px">
           <nldd-text size="sm" color="secondary">
             {isLoading ? '' : plural(initiatieven.length, 'initiatief', 'initiatieven')}
@@ -132,7 +132,7 @@ export function InitiatievenPage() {
           </nldd-text>
         </nldd-container>
       ) : (
-        <nldd-collection layout="grid" item-width="296px" gap="12">
+        <nldd-collection layout="grid" item-min-width="296px" gap="12">
           {initiatieven.map((initiatief) => (
             <InitiatiefCard key={initiatief.id} initiatief={initiatief} />
           ))}

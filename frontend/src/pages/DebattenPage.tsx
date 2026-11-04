@@ -251,7 +251,7 @@ function GevolgdSection({ search }: { search: string }) {
     <nldd-container gap="8">
       <nldd-title size={6}><h2>Eerder gevolgd</h2></nldd-title>
       {debatten.length > 0 ? (
-        <nldd-list variant="box-tinted" dividers="always" accessible-label="Debatten die eerder gevolgd zijn">
+        <nldd-list appearance="box-tinted" dividers="always" accessible-label="Debatten die eerder gevolgd zijn">
           {debatten.map((debat) => (
             <GevolgdRow key={debat.sessie_id} debat={debat} />
           ))}
@@ -403,7 +403,7 @@ export function DebattenPage() {
 
   return (
     <nldd-container gap="24">
-      <nldd-toolbar label="Debatten filteren">
+      <nldd-toolbar accessible-label="Debatten filteren">
         <nldd-toolbar-item slot="start" priority={1} min-width="60%">
           {/* Bottom-aligned, each field in a fixed-width container: the team
               field carries a label above it and the search field does not, so
@@ -448,7 +448,7 @@ export function DebattenPage() {
       {nu.length > 0 && (
         <nldd-container gap="8">
           <nldd-title size={6}><h2>Nu bezig</h2></nldd-title>
-          <nldd-list variant="box-tinted" dividers="always" accessible-label="Debatten die nu bezig zijn">
+          <nldd-list appearance="box-tinted" dividers="always" accessible-label="Debatten die nu bezig zijn">
             {nu.map(renderRow)}
           </nldd-list>
         </nldd-container>
@@ -467,7 +467,7 @@ export function DebattenPage() {
         dagen.map((dag) => (
           <nldd-container key={dag.key} gap="8">
             <nldd-title size={6}><h2>{dag.label}</h2></nldd-title>
-            <nldd-list variant="box-tinted" dividers="always" accessible-label={`Debatten op ${dag.label}`}>
+            <nldd-list appearance="box-tinted" dividers="always" accessible-label={`Debatten op ${dag.label}`}>
               {dag.debatten.map(renderRow)}
             </nldd-list>
           </nldd-container>

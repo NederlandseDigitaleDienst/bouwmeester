@@ -142,7 +142,7 @@ export function Sidebar({ mobile }: SidebarProps) {
         {index > 0 && <nldd-divider />}
         <nldd-list
           type="navigation"
-          variant="simple"
+          appearance="simple"
           dividers="never"
           accessible-label={NAV_GROUP_LABELS[group[0].group]}
         >
@@ -244,7 +244,7 @@ export function Sidebar({ mobile }: SidebarProps) {
       <div className="shrink-0" style={{ paddingLeft: expanded ? '20px' : '22px', paddingRight: expanded ? '20px' : '22px', paddingBottom: '8px' }}>
         <nldd-list
           type="navigation"
-          variant="simple"
+          appearance="simple"
           dividers="never"
           accessible-label="Beheer en instellingen"
         >

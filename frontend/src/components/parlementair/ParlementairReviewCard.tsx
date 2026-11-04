@@ -571,7 +571,7 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
 
             {/* Suggested edges list */}
             {sortedSuggestedEdges.length > 0 && (
-              <nldd-list type="list" variant="box-tinted" dividers="always">
+              <nldd-list type="list" appearance="box-tinted" dividers="always">
                 {sortedSuggestedEdges.map((edge) => (
                   <nldd-list-item key={edge.id} style={edge.status === 'rejected' ? { opacity: 0.5 } : undefined}>
                     <nldd-container layout="row" width="full" gap="8" horizontal-alignment="right" vertical-alignment="top">
@@ -657,7 +657,7 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
 
             {/* Manually added edges */}
             {manualEdges.length > 0 && (
-              <nldd-list type="list" variant="box-tinted" dividers="always">
+              <nldd-list type="list" appearance="box-tinted" dividers="always">
                 {manualEdges.map((edge) => {
                   const isOutgoing = edge.from_node_id === corpusNodeId;
                   const otherNode = isOutgoing ? edge.to_node : edge.from_node;
@@ -708,7 +708,7 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
 
             {/* Add new edge form */}
             {showAddEdge && corpusNodeId && (
-              <nldd-list variant="box-tinted">
+              <nldd-list appearance="box-tinted">
                 <nldd-list-item>
                   <nldd-container gap="8" width="full" padding="4">
                     <nldd-container layout="row" gap="6" vertical-alignment="center">
@@ -767,7 +767,7 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
             <nldd-container gap="8" max-width="672px">
               <nldd-text size="xs" weight="medium">Vervolgacties</nldd-text>
               {followUpTasks.length > 0 && (
-                <nldd-list variant="box-tinted">
+                <nldd-list appearance="box-tinted">
                   {followUpTasks.map((task, index) => (
                     <nldd-list-item key={index}>
                       <nldd-container layout="row" width="full" gap="8" horizontal-alignment="right" vertical-alignment="top" padding="4">

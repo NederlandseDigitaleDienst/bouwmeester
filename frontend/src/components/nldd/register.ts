@@ -17,7 +17,7 @@
  */
 
 // Layout
-import '@nldd/design-system/app-view';
+import '@nldd/design-system/shell';
 import '@nldd/design-system/box';
 import '@nldd/design-system/card';
 import '@nldd/design-system/collection';
@@ -111,5 +111,5 @@ import '@nldd/design-system/list-item-segment';
 import '@nldd/design-system/spacer-cell';
 import '@nldd/design-system/table';
 import '@nldd/design-system/text-cell';
-import '@nldd/design-system/timeline-track-cell';
+import '@nldd/design-system/step-cell';
 import '@nldd/design-system/title-cell';

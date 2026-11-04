@@ -119,7 +119,7 @@ export function AccessDeniedPage({ email }: AccessDeniedPageProps) {
   );
 
   return (
-    <nldd-app-view background="tinted">
+    <nldd-shell background="tinted">
       {/* One alignment for the whole card. The section was set to `left` while
           the container inside it was `center`, so the logo and the title were
           centred and everything below them was not. */}
@@ -216,7 +216,7 @@ export function AccessDeniedPage({ email }: AccessDeniedPageProps) {
           />
         </nldd-container>
       </nldd-simple-section>
-    </nldd-app-view>
+    </nldd-shell>
   );
 }
 

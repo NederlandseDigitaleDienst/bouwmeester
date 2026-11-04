@@ -457,7 +457,7 @@ export function OpdrachtDetailModal({ opdrachtId, open, onClose }: OpdrachtDetai
             >
               <nldd-container gap="12">
                 {members.length > 0 && (
-                  <nldd-list variant="box-tinted" dividers="always">
+                  <nldd-list appearance="box-tinted" dividers="always">
                     {members.map((member) => (
                       <nldd-list-item key={member.person_id}>
                         {/* `full`: a fit-content cell measures its content, and a
@@ -520,7 +520,7 @@ export function OpdrachtDetailModal({ opdrachtId, open, onClose }: OpdrachtDetai
             >
               <nldd-container gap="12">
                 {eenheden.length > 0 && (
-                  <nldd-list variant="box-tinted" dividers="always">
+                  <nldd-list appearance="box-tinted" dividers="always">
                     {eenheden.map((eenheid) => (
                       <nldd-list-item key={eenheid.eenheid_id}>
                         {/* `full`: a fit-content cell measures its content, and a
@@ -595,10 +595,10 @@ export function OpdrachtDetailModal({ opdrachtId, open, onClose }: OpdrachtDetai
                   id: task.id,
                   label: task.title,
                   icon: task.status === TaskStatus.DONE
-                    ? <nldd-icon name="check-mark-circle" size="16" color="success" aria-hidden="true" />
+                    ? <nldd-icon icon="check-mark-circle" size="16" color="success" aria-hidden="true" />
                     : task.status === TaskStatus.IN_PROGRESS
-                      ? <nldd-icon name="clock" size="16" color="accent" aria-hidden="true" />
-                      : <nldd-icon name="circle" size="16" color="" aria-hidden="true" />,
+                      ? <nldd-icon icon="clock" size="16" color="accent" aria-hidden="true" />
+                      : <nldd-icon icon="circle" size="16" color="" aria-hidden="true" />,
                   secondaryText: task.assignee?.naam,
                   onClick: () => openTaskDetail(task.id, opdracht.titel),
                 }))}

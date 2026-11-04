@@ -3,19 +3,14 @@ import { act, render } from '@testing-library/react';
 import { Select } from './Select';
 
 /**
- * Tegen de échte `nldd-dropdown`, want de bug zit in die component en een
- * stub zou hem wegpoetsen.
+ * Tegen de échte `nldd-dropdown`, want het gedrag zit in die component en een
+ * stub zou het wegpoetsen.
  *
- * Het zichtbare label is een `<span>` in de shadow-DOM, met de echte
- * `<select>` er op `opacity: 0` overheen. Die span wordt gevuld door
- * `_syncDisplayValue()`, en dat draait alleen bij `slotchange` en bij een
- * `change` van de gebruiker. Een waarde die programmatisch wordt gezet
- * raakt geen van beide, dus het label bleef staan op de optie van het
- * mounten: een opgeslagen drempel van 20 las als "Alles tonen".
- *
- * De mount-case is in jsdom niet te vangen (daar landt `slotchange` ná de
- * waarde die React zet, en dan klopt het label vanzelf). De post-mount case
- * wél, en dat is het geval uit productie.
+ * Tot design system 0.8.92 tekende de dropdown zijn label zelf, in een span
+ * die een programmatisch gezette waarde niet volgde. Sinds 0.13 toont hij de
+ * echte `<select>`, dus wat je leest is de geselecteerde optie zelf. Deze
+ * tests houden vast dat een waarde van buitenaf daar landt, en dat alleen een
+ * keuze van de gebruiker `onChange` aanroept.
  */
 beforeAll(async () => {
   await import('@nldd/design-system/dropdown');
@@ -28,8 +23,7 @@ const DREMPELS = [
 ];
 
 const label = (container: HTMLElement) =>
-  (container.querySelector('nldd-dropdown') as unknown as { _displayValue?: string })
-    ?._displayValue ?? '';
+  container.querySelector('select')?.selectedOptions[0]?.textContent ?? '';
 
 describe('Select', () => {
   it('werkt het zichtbare label bij als de waarde van buitenaf verandert', async () => {
@@ -45,10 +39,9 @@ describe('Select', () => {
     expect(label(container)).toBe('Normaal');
   });
 
-  it('schrijft niets weg bij het bijwerken van het label', async () => {
-    // De dropdown stuurt op een `change` zijn eigen CustomEvent, die bij ons
-    // als gebruikersactie binnenkomt. Zonder de vlag zou het rechtzetten van
-    // het label een waarde wegschrijven die niemand heeft gekozen.
+  it('schrijft niets weg bij een waarde van buitenaf', async () => {
+    // Een waarde die de app zelf zet is geen keuze van de gebruiker, dus
+    // `onChange` blijft stil en er wordt niets weggeschreven.
     const onChange = vi.fn();
     const { rerender } = render(
       <Select value="0" onChange={onChange} options={DREMPELS} aria-label="Drempel" />,

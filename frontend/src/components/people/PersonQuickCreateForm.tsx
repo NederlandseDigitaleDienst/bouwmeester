@@ -178,7 +178,7 @@ export function PersonQuickCreateForm({
                 text="Er bestaan al personen met een vergelijkbare naam"
                 supporting-text="Kies een bestaande persoon, of maak toch een nieuwe aan."
               />
-              <nldd-list variant="box-tinted" accessible-label="Vergelijkbare personen">
+              <nldd-list appearance="box-tinted" accessible-label="Vergelijkbare personen">
                 {duplicates.map((d) => (
                   <DuplicateRow key={d.id} hit={d} onSelect={handleSelectExisting} />
                 ))}

@@ -54,7 +54,7 @@ export function GlobalDropOverlay({ visible }: GlobalDropOverlayProps) {
           horizontal-alignment="center"
           vertical-alignment="center"
         >
-          <nldd-icon name="upload" size="32" color="accent" aria-hidden="true" />
+          <nldd-icon icon="upload" size="32" color="accent" aria-hidden="true" />
           <nldd-text weight="bold">{message}</nldd-text>
         </nldd-container>
       </nldd-card>

@@ -34,7 +34,7 @@ export function ChatActionCard({ action }: ChatActionCardProps) {
       {...(canNavigate ? { button: true, 'accessible-label': `${action.description} — bekijken` } : {})}
     >
       <nldd-container layout="row" gap="8" padding="12" vertical-alignment="top">
-        <nldd-icon name="check-mark" size="16" color="success" aria-hidden="true" />
+        <nldd-icon icon="check-mark" size="16" color="success" aria-hidden="true" />
         <nldd-text-cell
           size="sm"
           color="success"
@@ -45,7 +45,7 @@ export function ChatActionCard({ action }: ChatActionCardProps) {
             : {})}
         />
         {canNavigate && (
-          <nldd-icon name="external-link" size="16" color="success" aria-hidden="true" />
+          <nldd-icon icon="external-link" size="16" color="success" aria-hidden="true" />
         )}
       </nldd-container>
     </nldd-card>

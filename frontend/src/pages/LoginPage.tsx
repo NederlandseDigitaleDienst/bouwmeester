@@ -43,7 +43,7 @@ export function LoginPage() {
     (authError ? 'Er ging iets mis bij het inloggen. Probeer het opnieuw of neem contact op met een beheerder.' : null);
 
   return (
-    <nldd-app-view background="tinted">
+    <nldd-shell background="tinted">
       <nldd-simple-section width="400px" horizontal-alignment="left" vertical-alignment="center">
         <nldd-container gap="24" horizontal-alignment="center">
           <nldd-container gap="12" horizontal-alignment="center">
@@ -72,11 +72,11 @@ export function LoginPage() {
           <nldd-button
             ref={loginRef}
             text="Inloggen met SSO Rijk"
-            variant={canPasskeyLogin ? 'secondary' : 'primary'}
+            appearance={canPasskeyLogin ? 'secondary' : 'primary'}
             width="full"
           />
         </nldd-container>
       </nldd-simple-section>
-    </nldd-app-view>
+    </nldd-shell>
   );
 }

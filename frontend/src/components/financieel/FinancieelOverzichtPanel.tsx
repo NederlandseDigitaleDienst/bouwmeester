@@ -36,7 +36,7 @@ export function FinancieelOverzichtPanel({ nodeId, nodeType }: FinancieelOverzic
   return (
     <nldd-container gap="16">
       {/* Summary */}
-      <nldd-collection layout="grid" item-width="160px" gap="12">
+      <nldd-collection layout="grid" item-min-width="160px" gap="12">
         <nldd-card background="tinted">
           <nldd-container padding="12" gap="2">
             <nldd-text size="xs" color="secondary">Totaal budget</nldd-text>
@@ -112,7 +112,7 @@ export function FinancieelOverzichtPanel({ nodeId, nodeType }: FinancieelOverzic
           )}
         </nldd-container>
         {opdrachten.length > 0 ? (
-          <nldd-list variant="box-tinted" dividers="always">
+          <nldd-list appearance="box-tinted" dividers="always">
             {opdrachten.map((o) => (
               <NlddListItemButton key={o.id} onClick={() => openOpdrachtDetail(o.id)}>
                 <nldd-title-cell

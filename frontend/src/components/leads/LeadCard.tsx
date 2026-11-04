@@ -64,7 +64,7 @@ export function LeadCard({ lead, onClick }: LeadCardProps) {
               )}
               {contacts.length > 0 && (
                 <div className="hug hug-gap-2 hug-truncate" title={contacts.join(', ')}>
-                  <nldd-icon name="users" size="16" aria-hidden="true" />
+                  <nldd-icon icon="users" size="16" aria-hidden="true" />
                   <nldd-text size="xs" color="secondary">
                     {contacts[0]}
                     {contacts.length > 1 && ` +${contacts.length - 1}`}
@@ -76,7 +76,7 @@ export function LeadCard({ lead, onClick }: LeadCardProps) {
 
           {lead.next_action_date && (
             <div className="hug hug-gap-2">
-              <nldd-icon name="calendar" size="16" aria-hidden="true" />
+              <nldd-icon icon="calendar" size="16" aria-hidden="true" />
               <nldd-text size="xs" color={overdue ? 'critical' : 'secondary'} weight={overdue ? 'medium' : 'regular'}>
                 {formatDateShort(lead.next_action_date)}
               </nldd-text>
@@ -85,7 +85,7 @@ export function LeadCard({ lead, onClick }: LeadCardProps) {
 
           {lead.attachment_count > 0 && (
             <div className="hug hug-gap-2">
-              <nldd-icon name="paperclip" size="16" aria-hidden="true" />
+              <nldd-icon icon="paperclip" size="16" aria-hidden="true" />
               <nldd-text size="xs" color="secondary">{lead.attachment_count}</nldd-text>
             </div>
           )}

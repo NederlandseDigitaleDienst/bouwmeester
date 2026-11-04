@@ -305,7 +305,7 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
       {concepts.length > 0 && (
         <nldd-container gap="4" padding-bottom="12">
           <nldd-text size="xs" color="secondary">Concepten</nldd-text>
-          <nldd-list variant="box-tinted" dividers="always" accessible-label="Conceptupdates">
+          <nldd-list appearance="box-tinted" dividers="always" accessible-label="Conceptupdates">
             {concepts.map((post) => (
               <UpdateRow
                 key={post.id}
@@ -328,7 +328,7 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
       {published.length > 0 && (
         <nldd-container gap="4">
           <nldd-text size="xs" color="secondary">Gepubliceerd</nldd-text>
-          <nldd-list variant="box-tinted" dividers="always" accessible-label="Gepubliceerde updates">
+          <nldd-list appearance="box-tinted" dividers="always" accessible-label="Gepubliceerde updates">
             {published.map((post) => (
               <UpdateRow
                 key={post.id}

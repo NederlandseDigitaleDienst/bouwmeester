@@ -408,7 +408,7 @@
  * share of the grid once it stops. `is-drag-over` is the highlight while a
  * card hovers over it, on accent tokens rather than a fixed blue. */
 .task-board-column {
-  border: var(--semantics-surfaces-border-width) solid var(--semantics-surfaces-base-border-color);
+  border: var(--semantics-surfaces-highlight-border-width) solid var(--semantics-surfaces-base-highlight-border-color);
   border-radius: var(--primitives-corner-radius-xl);
   background-color: var(--semantics-surfaces-tinted-background-color);
   width: 85vw;
@@ -584,9 +584,8 @@
 .graph-canvas-frame {
   background-color: var(--semantics-surfaces-base-background-color);
   border-radius: var(--primitives-corner-radius-xl);
-  border: var(--semantics-surfaces-border-width) solid var(--semantics-surfaces-base-border-color);
+  border: var(--semantics-surfaces-highlight-border-width) solid var(--semantics-surfaces-base-highlight-border-color);
   /* Same token nldd-card itself uses for its shadow. */
-  box-shadow: var(--components-card-box-shadow);
   overflow: hidden;
 }
 

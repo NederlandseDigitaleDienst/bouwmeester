@@ -29,7 +29,7 @@ export function AiActionButton({
     <nldd-button
       ref={ref}
       type="button"
-      variant={compact ? 'neutral-transparent' : 'secondary'}
+      appearance={compact ? 'neutral-transparent' : 'secondary'}
       size="xs"
       text={label}
       start-icon={loading ? undefined : 'sparkles'}

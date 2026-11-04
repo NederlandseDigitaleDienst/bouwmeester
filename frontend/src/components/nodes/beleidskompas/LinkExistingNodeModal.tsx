@@ -90,7 +90,7 @@ export function LinkExistingNodeModal({ open, onClose, dossierId, nodeType, excl
           // No nldd-container attribute caps height with a scrollbar, so this
           // is an inline style.
           <div style={{ maxHeight: '18rem', overflowY: 'auto' }}>
-            <nldd-list variant="box-tinted" dividers="always">
+            <nldd-list appearance="box-tinted" dividers="always">
               {filteredNodes.map((node) => (
                 <NlddListItemButton key={node.id} disabled={isLinking} onClick={() => handleLink(node.id)}>
                   <nldd-text-cell width="fit-content">

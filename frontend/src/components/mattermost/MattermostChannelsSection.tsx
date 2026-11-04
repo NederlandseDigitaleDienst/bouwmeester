@@ -94,7 +94,7 @@ export function MattermostChannelsSection({ scope }: Props) {
         />
       )}
       {query.data && query.data.length > 0 && (
-        <nldd-list type="list" variant="box-tinted" accessible-label="Gekoppelde kanalen">
+        <nldd-list type="list" appearance="box-tinted" accessible-label="Gekoppelde kanalen">
           {query.data.map((link) => (
             <ChannelRow
               key={link.id}
@@ -300,7 +300,7 @@ function ChannelPickerModal({
         {search.data && search.data.length > 0 && (
           <nldd-list
             type="list"
-            variant="box-tinted"
+            appearance="box-tinted"
             height="288px"
             accessible-label="Gevonden kanalen"
           >

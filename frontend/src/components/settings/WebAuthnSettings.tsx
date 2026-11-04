@@ -104,7 +104,7 @@ export function WebAuthnSettings() {
           ) : (
             <>
               {credentials && credentials.length > 0 && (
-                <nldd-list variant="box-tinted" dividers="always" accessible-label="Passkeys">
+                <nldd-list appearance="box-tinted" dividers="always" accessible-label="Passkeys">
                   {credentials.map((cred) => (
                     <nldd-list-item key={cred.id}>
                       <nldd-icon-cell icon="key" size="20" />

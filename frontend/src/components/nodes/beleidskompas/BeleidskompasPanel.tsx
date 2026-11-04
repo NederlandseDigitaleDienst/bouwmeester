@@ -209,7 +209,7 @@ function BeleidskompasStepRow({ status, dossierId, onCreateNew, onLinkExisting }
       <nldd-container gap="8" width="full">
         <nldd-container layout="row" vertical-alignment="top" gap="12">
           <StepNumberBadge number={status.step.number} complete={false} />
-          <nldd-icon name="exclamation-triangle" size="20" color="warning" aria-hidden="true" />
+          <nldd-icon icon="exclamation-triangle" size="20" color="warning" aria-hidden="true" />
           <nldd-container gap="0" width="full">
             <nldd-container layout="row" vertical-alignment="center" gap="6">
               <nldd-text size="sm" weight="medium">{status.step.question}</nldd-text>
@@ -284,7 +284,7 @@ export function BeleidskompasPanel({ nodeId, stakeholderCount, onNavigateToStake
         <nldd-container gap="16">
           {/* Header */}
           <nldd-container layout="row" gap="8" vertical-alignment="center">
-            <nldd-icon name="signpost" size="20" color="accent" aria-hidden="true" />
+            <nldd-icon icon="signpost" size="20" color="accent" aria-hidden="true" />
             <nldd-title size={6}><h3>Beleidskompas</h3></nldd-title>
             <nldd-link href={KCBR_MAIN_URL} target="_blank" accessible-label="Bekijk Beleidskompas op KCBR" start-icon="external-link" />
             <nldd-spacer size="flexible" />
@@ -317,7 +317,7 @@ export function BeleidskompasPanel({ nodeId, stakeholderCount, onNavigateToStake
           )}
 
           {/* Steps */}
-          <nldd-list variant="box-tinted" dividers="always">
+          <nldd-list appearance="box-tinted" dividers="always">
             {steps.map((stepStatus) => (
               <BeleidskompasStepRow
                 key={stepStatus.step.id}

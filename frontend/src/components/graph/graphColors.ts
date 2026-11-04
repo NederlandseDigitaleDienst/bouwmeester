@@ -25,9 +25,8 @@ export const GRID_COLOR = 'var(--semantics-dividers-color)';
  * shadow, with a divider-colored border. Pass as their `style`.
  */
 export const FLOATING_PANEL_STYLE: CSSProperties = {
-  borderRadius: 'var(--components-card-corner-radius)',
+  borderRadius: 'var(--semantics-surfaces-corner-radius)',
   border: '1px solid var(--semantics-dividers-color)',
-  boxShadow: 'var(--components-card-box-shadow)',
 };
 
 /** The minimap's dim over what is out of view. SVG attribute: resolve before use. */

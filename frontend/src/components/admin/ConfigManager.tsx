@@ -16,13 +16,13 @@ const GROUP_DEFS: { prefix: string[]; label: string; description: string; icon: 
     prefix: ['ANTHROPIC_', 'LLM_', 'VLAM_'],
     label: 'LLM-instellingen',
     description: 'API-sleutels en modelconfiguratie voor Claude en VLAM.',
-    icon: <nldd-icon name="sparkles" size="20" color="accent" box />,
+    icon: <nldd-icon icon="sparkles" size="20" color="accent" box />,
   },
   {
     prefix: ['MATTERMOST_'],
     label: 'Mattermost',
     description: 'Configuratie voor de Mattermost-integratie (notificaties, slash-commando\u2019s).',
-    icon: <nldd-icon name="message-rectangle-text" size="20" color="accent" box />,
+    icon: <nldd-icon icon="message-rectangle-text" size="20" color="accent" box />,
   },
 ];
 

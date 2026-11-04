@@ -155,7 +155,7 @@ export function LeadGitHubLinks({ leadId, links }: Props) {
       )}
 
       {links.length > 0 ? (
-        <nldd-list variant="simple" dividers="never" accessible-label="GitHub-werk">
+        <nldd-list appearance="simple" dividers="never" accessible-label="GitHub-werk">
           {links.map((link) => (
             <GitHubLinkRow
               key={link.id}

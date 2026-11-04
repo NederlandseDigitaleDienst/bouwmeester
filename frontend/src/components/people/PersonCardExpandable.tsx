@@ -262,7 +262,7 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
                         onClick={(e: React.MouseEvent) => e.stopPropagation()}
                       />
                     </nldd-text>
-                    {em.is_default && <nldd-icon name="star" size="16" color="warning" />}
+                    {em.is_default && <nldd-icon icon="star" size="16" color="warning" />}
                   </nldd-container>
                 ))}
               </nldd-container>
@@ -287,7 +287,7 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
                     <nldd-text size="xs" color="secondary">
                       {PHONE_LABELS[ph.label] || ph.label}
                     </nldd-text>
-                    {ph.is_default && <nldd-icon name="star" size="16" color="warning" />}
+                    {ph.is_default && <nldd-icon icon="star" size="16" color="warning" />}
                   </nldd-container>
                 ))}
               </nldd-container>
@@ -310,7 +310,7 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
                   </div>
                 </nldd-container>
                 {summary.open_tasks.length > 0 && (
-                  <nldd-list variant="simple" dividers="never" accessible-label="Open taken">
+                  <nldd-list appearance="simple" dividers="never" accessible-label="Open taken">
                     {summary.open_tasks.map((task) => (
                       <nldd-list-item
                         key={task.id}
@@ -347,7 +347,7 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
 
               {/* Stakeholder nodes section */}
               {summary.stakeholder_nodes.length > 0 && (
-                <nldd-list variant="simple" dividers="never" accessible-label="Betrokken dossiers">
+                <nldd-list appearance="simple" dividers="never" accessible-label="Betrokken dossiers">
                   {summary.stakeholder_nodes.map((node) => (
                     <nldd-list-item
                       key={node.node_id}
@@ -552,7 +552,7 @@ function NlddIconButtonInline({
     <nldd-icon-button
       ref={ref}
       icon={icon}
-      variant="neutral-transparent"
+      appearance="neutral-transparent"
       size="xs"
       accessible-label={accessibleLabel}
     />
@@ -573,5 +573,5 @@ function NlddTextButtonInline({
 }) {
   const ref = useRef<HTMLElement>(null);
   useNlddEvent(ref, 'click', (e) => onClick(e as unknown as React.MouseEvent));
-  return <nldd-button ref={ref} text={text} variant={variant} size="xs" />;
+  return <nldd-button ref={ref} text={text} appearance={variant} size="xs" />;
 }

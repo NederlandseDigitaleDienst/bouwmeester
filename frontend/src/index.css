@@ -20,15 +20,15 @@
 }
 
 /* The design system's reset gives `html` and `body` a height of 100% when an
- * nldd-app-view is on the page, because it assumes the app-view is a child of
+ * nldd-shell is on the page, because it assumes the shell is a child of
  * body. React mounts into #root in between, and that div gets no height of its
- * own, so the app-view had nothing to fill and the whole application rendered at
+ * own, so the shell had nothing to fill and the whole application rendered at
  * zero height: present in the DOM, invisible on screen.
  *
- * Only applied when an app-view is actually inside #root, so the pages that
+ * Only applied when a shell is actually inside #root, so the pages that
  * render outside the shell (login, access denied, the public page) keep their
  * own document flow. */
-#root:has(nldd-app-view) {
+#root:has(nldd-shell) {
   height: 100%;
 }
 
@@ -75,24 +75,24 @@ h6:not(nldd-rich-text h6) {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--semantics-surfaces-base-border-color);
+  background-color: var(--semantics-surfaces-base-highlight-border-color);
 }
 
 /* Smooth transitions, only outside the app shell (login, access denied, the
- * public page). Inside nldd-app-view, `transition: all` fights the components'
+ * public page). Inside nldd-shell, `transition: all` fights the components'
  * own animations, notably the slotted <select> inside nldd-dropdown. */
-button:not(nldd-app-view *),
-a:not(nldd-app-view *),
-input:not(nldd-app-view *),
-select:not(nldd-app-view *),
-textarea:not(nldd-app-view *) {
+button:not(nldd-shell *),
+a:not(nldd-shell *),
+input:not(nldd-shell *),
+select:not(nldd-shell *),
+textarea:not(nldd-shell *) {
   transition: all 0.15s ease-in-out;
 }
 
 /* Focus styles for the pages outside the app shell. NLDD components draw their
  * own focus ring inside their shadow root; without this exclusion both render
  * at once. */
-*:focus-visible:not(:is([class*="nldd-"], nldd-app-view, nldd-app-view *)) {
+*:focus-visible:not(:is([class*="nldd-"], nldd-shell, nldd-shell *)) {
   outline: 2px solid var(--primitives-color-accent-500);
   outline-offset: 2px;
   border-radius: 4px;

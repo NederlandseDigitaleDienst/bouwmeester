@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@kenjiuno/msgreader": "^1.28.0",
-    "@nldd/design-system": "^0.8.92",
+    "@nldd/design-system": "^0.13.2",
     "@simplewebauthn/browser": "^13.2.2",
     "@tanstack/react-query": "^5.90.21",
     "@types/dagre": "^0.7.54",

@@ -109,7 +109,7 @@ function BaseButton({
   return (
     <nldd-button
       ref={ref}
-      variant={variant}
+      appearance={variant}
       size={size}
       type={type}
       className={className}

@@ -333,7 +333,7 @@ export function OpdrachtenPage() {
   return (
     <nldd-container gap="24">
       {/* Summary cards */}
-      <nldd-collection layout="grid" item-width="160px" gap="12">
+      <nldd-collection layout="grid" item-min-width="160px" gap="12">
         <nldd-card>
           <nldd-container padding="16" gap="4">
             <nldd-text size="sm" color="secondary">Aantal opdrachten</nldd-text>
@@ -361,7 +361,7 @@ export function OpdrachtenPage() {
       </nldd-collection>
 
       {/* Page header */}
-      <nldd-toolbar label="Opdrachtacties">
+      <nldd-toolbar accessible-label="Opdrachtacties">
         <nldd-toolbar-item slot="start" priority={1} min-width="224px">
           {/* A fixed width: a fit-content container measures its children and
               they measure it back. */}

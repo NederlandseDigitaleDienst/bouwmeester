@@ -256,7 +256,7 @@ export function TaskDetailModal({ taskId, open, onClose }: TaskDetailModalProps)
                   value: task.assignee ? (
                     <nldd-container layout="row" gap="6" vertical-alignment="center">
                       {task.assignee.is_agent ? (
-                        <nldd-icon name="sparkles" size="20" color="paars" aria-hidden="true" />
+                        <nldd-icon icon="sparkles" size="20" color="paars" aria-hidden="true" />
                       ) : (
                         <Icon name="person" size="md" />
                       )}
@@ -344,7 +344,7 @@ export function TaskDetailModal({ taskId, open, onClose }: TaskDetailModalProps)
               }
             >
               {subtasks.length > 0 ? (
-                <nldd-list variant="simple" accessible-label="Subtaken">
+                <nldd-list appearance="simple" accessible-label="Subtaken">
                   {subtasks.map((sub, idx) => (
                     <SubtaskRow
                       key={sub.id}

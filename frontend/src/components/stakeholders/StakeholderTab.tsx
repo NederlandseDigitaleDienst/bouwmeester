@@ -121,7 +121,7 @@ export function StakeholderTab({
           Nog geen stakeholders geregistreerd.
         </nldd-text>
       ) : (
-        <nldd-list type="form" variant="box-tinted" accessible-label="Stakeholders">
+        <nldd-list type="form" appearance="box-tinted" accessible-label="Stakeholders">
           {assessments.map((a) => (
             <nldd-list-item key={a.id}>
               {/* A row this complex (name, delete action, three selects, a

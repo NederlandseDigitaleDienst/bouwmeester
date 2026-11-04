@@ -661,7 +661,7 @@ export function RoleManager() {
     <nldd-container gap="16">
       {/* Description */}
       <nldd-container layout="row" gap="8">
-        <nldd-icon name="shield" size="16" color="accent" />
+        <nldd-icon icon="shield" size="16" color="accent" />
         <nldd-text size="sm" color="secondary">
           Beheer roltoewijzingen per persoon. Klik op een persoon om rollen te bekijken, toe te
           wijzen of in te trekken.

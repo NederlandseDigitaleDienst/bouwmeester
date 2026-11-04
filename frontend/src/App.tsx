@@ -55,7 +55,7 @@ const queryClient = new QueryClient({
 /**
  * A state that owns the whole viewport: the auth check running, or failing.
  *
- * These render OUTSIDE nldd-app-view, before the shell exists, so they cannot
+ * These render OUTSIDE nldd-shell, before the shell exists, so they cannot
  * use nldd-page and have to center themselves. The height and the centering are
  * layout with nothing to inherit from; the surface colour still comes from a
  * token.

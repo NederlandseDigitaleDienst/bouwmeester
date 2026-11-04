@@ -258,8 +258,7 @@ function CommunityGraphNodeComponent({ data }: NodeProps<CommunityGraphNodeData>
       onClick={data.onClick}
       style={{
         background: 'var(--semantics-surfaces-base-background-color)',
-        borderRadius: 'var(--components-card-corner-radius)',
-        boxShadow: 'var(--components-card-box-shadow)',
+        borderRadius: 'var(--semantics-surfaces-corner-radius)',
         // The node color at a third: a var() takes no hex alpha suffix, so mix instead.
         border: `1px solid color-mix(in oklch, ${borderColor} 33%, transparent)`,
         minWidth: '160px',
@@ -314,7 +313,7 @@ function NodeKindLabel({
 }) {
   return (
     <nldd-container layout="row" gap="4" vertical-alignment="center">
-      <nldd-icon name={icon} size="16" custom-color={color} aria-hidden="true" />
+      <nldd-icon icon={icon} size="16" custom-color={color} aria-hidden="true" />
       <nldd-text
         size="xs"
         weight="medium"
@@ -454,7 +453,7 @@ function NodeTypeToggles({
         >
           <nldd-icon
             slot="icon"
-            name={toggle.icon}
+            icon={toggle.icon}
             {...(toggle.color ? { 'custom-color': toggle.color } : {})}
           />
         </nldd-toggle-button>

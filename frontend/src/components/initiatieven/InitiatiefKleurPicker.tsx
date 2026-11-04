@@ -49,7 +49,7 @@ function KleurOption({
       {/* The swatch is a filled circle in the color, which is what the option
           is about; the toggle button draws the chosen/unchosen state around it,
           so the choice does not rest on color alone. */}
-      <nldd-icon slot="icon" name="circle-filled" color={initiatiefIconColor(kleur)} />
+      <nldd-icon slot="icon" icon="circle-filled" color={initiatiefIconColor(kleur)} />
     </nldd-toggle-button>
   );
 }

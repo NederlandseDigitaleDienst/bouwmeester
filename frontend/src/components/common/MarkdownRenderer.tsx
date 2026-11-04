@@ -42,10 +42,10 @@ function MermaidBlock({ chart }: { chart: string }) {
     return <nldd-banner variant="critical" text="Diagram kon niet worden getekend" supporting-text={error} />;
   }
 
-  // `data-width="wide"` puts the diagram in the media zone, the same one
+  // `data-rich-text-width="wide"` puts the diagram in the media zone, the same one
   // rich-text gives images and tables, so a wide diagram gets the extra room
   // instead of being squeezed into the reading column.
-  return <div ref={ref} data-width="wide" dangerouslySetInnerHTML={{ __html: svg }} />;
+  return <div ref={ref} data-rich-text-width="wide" dangerouslySetInnerHTML={{ __html: svg }} />;
 }
 
 /** Parse bm:// links and return { type, id } or null for regular links. */

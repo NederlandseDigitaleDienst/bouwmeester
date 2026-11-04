@@ -80,7 +80,7 @@ export function SignaalcontextSection({ initiatiefId }: { initiatiefId: string }
           </nldd-container>
           {!open && (
             <nldd-button
-              variant="secondary"
+              appearance="secondary"
               size="sm"
               text={origineel ? 'Aanpassen' : 'Toevoegen'}
               start-icon="edit"
@@ -120,7 +120,7 @@ export function SignaalcontextSection({ initiatiefId }: { initiatiefId: string }
             />
             <nldd-container layout="row" gap="8" vertical-alignment="center">
               <nldd-button
-                variant="secondary"
+                appearance="secondary"
                 size="sm"
                 text="Opslaan"
                 loading={orUndef(bezig)}
@@ -128,7 +128,7 @@ export function SignaalcontextSection({ initiatiefId }: { initiatiefId: string }
                 onClick={opslaan}
               />
               <nldd-button
-                variant="neutral-transparent"
+                appearance="neutral-transparent"
                 size="sm"
                 text="Annuleren"
                 onClick={() => {

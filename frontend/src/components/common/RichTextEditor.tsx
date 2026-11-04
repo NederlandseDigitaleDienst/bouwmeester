@@ -185,7 +185,7 @@ export function RichTextEditor({
   return (
     <nldd-text-editor
       ref={ref}
-      variant={bare ? 'simple' : 'input-field'}
+      appearance={bare ? 'simple' : 'input-field'}
       rows={rows}
       resize="auto"
       {...(placeholder ? { placeholder } : {})}

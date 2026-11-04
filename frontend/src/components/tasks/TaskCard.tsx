@@ -159,7 +159,7 @@ export function TaskCard({ task, onEdit, compact = false }: TaskCardProps) {
             {task.assignee && (
               <div className="hug">
                 {task.assignee.is_agent ? (
-                  <nldd-icon name="sparkles" size="16" color="paars" aria-hidden="true" />
+                  <nldd-icon icon="sparkles" size="16" color="paars" aria-hidden="true" />
                 ) : (
                   <Icon name="person" size="xs" />
                 )}

@@ -163,7 +163,7 @@ export function InitiatiefUpdates({ initiatief }: { initiatief: InitiatiefDetail
       {concepts.length > 0 && (
         <nldd-container gap="4">
           <nldd-text size="xs" color="secondary">Concepten</nldd-text>
-          <nldd-list type="list" variant="box-tinted">
+          <nldd-list type="list" appearance="box-tinted">
             {concepts.map((post) => (
               <PostRow
                 key={post.id}
@@ -182,7 +182,7 @@ export function InitiatiefUpdates({ initiatief }: { initiatief: InitiatiefDetail
       {published.length > 0 ? (
         <nldd-container gap="4">
           <nldd-text size="xs" color="secondary">Gepubliceerd</nldd-text>
-          <nldd-list type="list" variant="box-tinted">
+          <nldd-list type="list" appearance="box-tinted">
             {published.map((post) => (
               <PostRow
                 key={post.id}

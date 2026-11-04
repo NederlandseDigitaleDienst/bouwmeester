@@ -80,7 +80,7 @@ export function InitiatiefPage() {
           <InitiatiefBreadcrumbs naam={initiatief.naam} />
           <nldd-container layout="row" gap="8" vertical-alignment="center">
             <nldd-icon
-              name="circle-filled"
+              icon="circle-filled"
               size="16"
               color={initiatiefIconColor(initiatief.kleur)}
               aria-hidden="true"

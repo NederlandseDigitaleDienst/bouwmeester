@@ -135,7 +135,7 @@ export function TaskView({ tasks, defaultNodeId }: TaskViewProps) {
           "push this to the right" is a slot rather than a spacer, and it moves
           items into an overflow menu when the row runs out of room. Same
           structure as CorpusPage. */}
-      <nldd-toolbar label="Taakacties">
+      <nldd-toolbar accessible-label="Taakacties">
         <nldd-toolbar-item slot="start" priority={1} min-width="60%">
           {/* Filters share the toolbar row with the actions, and wrap only
               when the room runs out. `min-width` makes the item fluid; a

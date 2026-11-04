@@ -1,7 +1,6 @@
 import {
   forwardRef,
   useCallback,
-  useEffect,
   useImperativeHandle,
   useRef,
   type ChangeEvent,
@@ -78,58 +77,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     useImperativeHandle(ref, () => selectRef.current as HTMLSelectElement, []);
     useNlddValue(selectRef, typeof value === 'string' ? value : undefined);
 
-    // Het zichtbare label bijwerken na een waarde die niet van de gebruiker
-    // komt. De dropdown doet dat zelf niet: wat je leest is een `<span>` in
-    // zijn shadow-DOM, en de echte `<select>` ligt daar op `opacity: 0`
-    // overheen. Die span wordt alleen gevuld bij `slotchange` en bij een
-    // `change` van de gebruiker, dus een programmatisch gezette waarde
-    // raakt hem niet. Het veld bleef daardoor de optie tonen die bij het
-    // mounten geselecteerd was, en dat is de eerste uit de lijst: een
-    // opgeslagen filterdrempel van 20 las als "Alles tonen", terwijl er wél
-    // op 20 werd gefilterd.
-    //
-    // Te reproduceren zonder React: zet `select.value` op een andere optie
-    // en het label blijft staan. Gemeld bij het design system (0.8.92); een
-    // MutationObserver op de geslotte select zou het daar dekken.
-    //
-    // Hier een `change` nabootsen is het smalst, want dat is precies het
-    // signaal dat de component verwacht. De vlag houdt onze eigen relay
-    // stil: de dropdown stuurt op zo'n change zijn eigen CustomEvent, en
-    // zonder die vlag zou `onChange` een waarde wegschrijven die de
-    // gebruiker niet heeft gekozen.
-    //
-    // Het event is niet stil voor de buitenwereld: alleen onze eigen relay
-    // slaat het over. Een listener op de select of een `onChange` op een
-    // omliggend `<form>` ziet het wel. Geen enkele aanroeper doet dat nu,
-    // maar wie er een toevoegt moet erop rekenen.
-    //
-    // De volgorde is hier het hele correctheidsargument: `useNlddValue`
-    // hierboven schrijft de waarde, en pas daarna mag dit effect hem
-    // melden. React draait effecten in declaratievolgorde, dus dat klopt
-    // zolang die aanroep bóven deze blijft staan. Draai ze om en de guard
-    // hieronder keert stil terug zonder dat er iets faalt.
-    const eigenSchrijfactie = useRef(false);
-    useEffect(() => {
-      const select = selectRef.current;
-      if (!select || typeof value !== 'string') return;
-      // Alleen melden wat de browser ook werkelijk heeft aangenomen. Bij een
-      // waarde die niet in de lijst voorkomt houdt de select zijn eigen
-      // stand, en dan zou dit event een ander label opleveren dan er
-      // geselecteerd is.
-      if (select.value !== value) return;
-      eigenSchrijfactie.current = true;
-      try {
-        select.dispatchEvent(new Event('change', { bubbles: true }));
-      } finally {
-        eigenSchrijfactie.current = false;
-      }
-    }, [value]);
-
     // Hand the caller something shaped like the change event it expects, so
     // the existing `e.target.value` call sites keep working untouched.
     const relay = useCallback(
       (event: Event) => {
-        if (!onChange || eigenSchrijfactie.current) return;
+        if (!onChange) return;
         const next = eventValue(event);
         const target = { value: next, name: name ?? '' } as EventTarget & HTMLSelectElement;
         onChange({

@@ -71,7 +71,7 @@ function Members({ initiatief, isEigenaar }: { initiatief: InitiatiefDetail; isE
       <SectionHeading icon="users" text={`Leden (${initiatief.members.length})`} />
 
       {initiatief.members.length > 0 && (
-        <nldd-list type="list" variant="box-tinted">
+        <nldd-list type="list" appearance="box-tinted">
           {initiatief.members.map((member) => (
             <nldd-list-item key={member.person_id}>
               <nldd-container layout="row" width="full" gap="8" horizontal-alignment="right" vertical-alignment="center">
@@ -173,7 +173,7 @@ function Eenheden({ initiatief, isEigenaar }: { initiatief: InitiatiefDetail; is
       </nldd-text>
 
       {initiatief.eenheden.length > 0 && (
-        <nldd-list type="list" variant="box-tinted">
+        <nldd-list type="list" appearance="box-tinted">
           {initiatief.eenheden.map((eenheid) => (
             <nldd-list-item key={eenheid.eenheid_id}>
               <nldd-container layout="row" width="full" gap="8" vertical-alignment="center">

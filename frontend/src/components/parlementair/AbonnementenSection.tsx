@@ -223,7 +223,7 @@ export function AbonnementenSection({ initiatiefId }: { initiatiefId: string }) 
           </nldd-container>
           {abonnementen.length > 0 && (
             <nldd-button
-              variant="neutral-transparent"
+              appearance="neutral-transparent"
               size="sm"
               text="Suggesties"
               start-icon="ai"
@@ -238,7 +238,7 @@ export function AbonnementenSection({ initiatiefId }: { initiatiefId: string }) 
         <nldd-container layout="row" gap="8" vertical-alignment="bottom">
           <TermField value={nieuweTerm} onChange={setNieuweTerm} onSubmit={toevoegen} />
           <nldd-button
-            variant="secondary"
+            appearance="secondary"
             size="sm"
             text="Volgen"
             start-icon="add"
@@ -388,7 +388,7 @@ function SuggestieLijst({
         />
         <div className="hug hug-stack">
           <nldd-button
-            variant="neutral-transparent"
+            appearance="neutral-transparent"
             size="xs"
             text="Sluiten"
             onClick={onSluiten}
@@ -421,7 +421,7 @@ function SuggestieLijst({
               min-width (zie de nldd-markup-hook). De knop bepaalt zijn
               eigen breedte en de ouder duwt hem naar rechts. */}
           <nldd-button
-            variant="neutral-transparent"
+            appearance="neutral-transparent"
             size="xs"
             text="Sluiten"
             onClick={onSluiten}
@@ -460,7 +460,7 @@ function SuggestieLijst({
               </nldd-text>
             </nldd-container>
             <nldd-button
-              variant="secondary"
+              appearance="secondary"
               size="xs"
               text="Volgen"
               accessible-label={`Volg ${s.term}`}
@@ -560,7 +560,7 @@ function AbonnementRow({
       <nldd-cell>
         <nldd-container layout="row" gap="4" horizontal-alignment="right">
           <nldd-button
-            variant="neutral-transparent"
+            appearance="neutral-transparent"
             size="xs"
             text={abonnement.actief ? 'Pauzeer' : 'Hervat'}
             disabled={orUndef(bezig)}
@@ -572,7 +572,7 @@ function AbonnementRow({
             onClick={onToggle}
           />
           <nldd-button
-            variant="critical-transparent"
+            appearance="critical-transparent"
             size="xs"
             start-icon="delete"
             disabled={orUndef(bezig)}

@@ -282,7 +282,7 @@ export function SearchResultsList({ query, data, isLoading, isFetched, onResultC
   if (query.length < 2 && !isFetched) {
     return (
       <nldd-container gap="12" horizontal-alignment="center" padding="48">
-        <nldd-icon name="magnifier" size="40" color="secondary-content" aria-hidden="true" />
+        <nldd-icon icon="magnifier" size="40" color="secondary-content" aria-hidden="true" />
         <nldd-text size="sm" color="secondary" horizontal-alignment="center">
           Voer minimaal 2 tekens in om te zoeken.
         </nldd-text>

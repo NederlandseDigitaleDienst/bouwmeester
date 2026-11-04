@@ -251,7 +251,7 @@ export function OrganisatiePage() {
   return (
     <nldd-container gap="24">
       {/* Page header */}
-      <nldd-toolbar label="Organisatieacties">
+      <nldd-toolbar accessible-label="Organisatieacties">
         <nldd-toolbar-item slot="start" priority={1}>
           <nldd-text size="sm" color="secondary">
             Beheer de organisatiestructuur: Ministerie, DG, Directie, Afdeling, Team.
