@@ -2,8 +2,12 @@ import { createContext, useContext, useState, useCallback, useEffect } from 'rea
 import { useLocation } from 'react-router-dom';
 import { nextModalSeq } from '@/utils/modalSeq';
 
+/** Waar het taakdetail opent: midden, of als paneel links of rechts. */
+export type TaskDetailPlacement = 'center' | 'left' | 'right';
+
 interface TaskDetailContextValue {
-  openTaskDetail: (taskId: string, parentLabel?: string) => void;
+  openTaskDetail: (taskId: string, parentLabel?: string, placement?: TaskDetailPlacement) => void;
+  taskDetailPlacement: TaskDetailPlacement;
   taskDetailId: string | null;
   taskParentLabel: string | null;
   closeTaskDetail: () => void;
@@ -19,6 +23,7 @@ const TaskDetailContext = createContext<TaskDetailContextValue | null>(null);
 const NOOP_TASK_DETAIL: TaskDetailContextValue = {
   openTaskDetail: () => {},
   taskDetailId: null,
+  taskDetailPlacement: 'center',
   taskParentLabel: null,
   closeTaskDetail: () => {},
   taskOpenSeq: 0,
@@ -31,12 +36,14 @@ export function useTaskDetail() {
 export function TaskDetailProvider({ children }: { children: React.ReactNode }) {
   const [taskId, setTaskId] = useState<string | null>(null);
   const [parentLabel, setParentLabel] = useState<string | null>(null);
+  const [placement, setPlacement] = useState<TaskDetailPlacement>('center');
   const [openSeq, setOpenSeq] = useState(0);
   const location = useLocation();
 
-  const openTaskDetail = useCallback((id: string, label?: string) => {
+  const openTaskDetail = useCallback((id: string, label?: string, where?: TaskDetailPlacement) => {
     setTaskId(id);
     setParentLabel(label ?? null);
+    setPlacement(where ?? 'center');
     setOpenSeq(nextModalSeq());
   }, []);
 
@@ -52,7 +59,7 @@ export function TaskDetailProvider({ children }: { children: React.ReactNode }) 
   }, [location.pathname]);
 
   return (
-    <TaskDetailContext.Provider value={{ openTaskDetail, taskDetailId: taskId, taskParentLabel: parentLabel, closeTaskDetail, taskOpenSeq: openSeq }}>
+    <TaskDetailContext.Provider value={{ openTaskDetail, taskDetailId: taskId, taskDetailPlacement: placement, taskParentLabel: parentLabel, closeTaskDetail, taskOpenSeq: openSeq }}>
       {children}
     </TaskDetailContext.Provider>
   );

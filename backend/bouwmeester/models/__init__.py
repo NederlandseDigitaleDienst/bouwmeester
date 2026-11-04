@@ -93,6 +93,8 @@ from bouwmeester.models.stakeholder_assessment import (
 from bouwmeester.models.suggested_lead import SuggestedLead  # noqa: F401
 from bouwmeester.models.tag import LeadTag, NodeTag, Tag  # noqa: F401
 from bouwmeester.models.task import Task  # noqa: F401
+from bouwmeester.models.task_attachment import TaskAttachment  # noqa: F401
+from bouwmeester.models.task_comment import TaskComment  # noqa: F401
 from bouwmeester.models.tooi_sync_log import TooiSyncLog  # noqa: F401
 from bouwmeester.models.webauthn_credential import WebAuthnCredential  # noqa: F401
 from bouwmeester.models.whitelist_email import WhitelistEmail  # noqa: F401

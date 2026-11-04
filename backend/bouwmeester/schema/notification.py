@@ -33,6 +33,7 @@ class NotificationType(enum.StrEnum):
     lead_stage_changed = "lead_stage_changed"
     lead_contact_added = "lead_contact_added"
     lead_activity_added = "lead_activity_added"
+    task_comment_added = "task_comment_added"
     sync_alert = "sync_alert"
 
 

@@ -31,10 +31,14 @@ export const queryKeys = {
     lists: () => ['tasks', 'list'] as const,
     list: (filters?: TaskFilters) => ['tasks', 'list', filters] as const,
     detail: (id: string | null) => ['tasks', 'detail', id] as const,
+    /** Alle taakdetails: na verwijderen weet je de hoofdtaak niet. */
+    details: () => ['tasks', 'detail'] as const,
     eenheidOverview: (orgId: string | null) => ['tasks', 'list', 'eenheid-overview', orgId] as const,
     byPerson: (personId: string | null) => ['tasks', 'list', 'by-person', personId] as const,
     byOpdracht: (opdrachtId: string | null) => ['tasks', 'list', 'by-opdracht', opdrachtId] as const,
     workTypes: () => ['tasks', 'work-types'] as const,
+    comments: (taskId: string | null) => ['tasks', 'detail', taskId, 'comments'] as const,
+    attachments: (taskId: string | null) => ['tasks', 'detail', taskId, 'attachments'] as const,
   },
 
   // --- People ---

@@ -1,9 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getTasks, getTask, createTask, updateTask, deleteTask, getEenheidOverview, getTasksByPerson, reorderSubtasks, getWorkTypes, getTasksByOpdracht } from '@/api/tasks';
+import {
+  getTasks,
+  getTask,
+  createTask,
+  updateTask,
+  deleteTask,
+  getEenheidOverview,
+  getTasksByPerson,
+  reorderSubtasks,
+  getWorkTypes,
+  getTasksByOpdracht,
+  getTaskComments,
+  createTaskComment,
+  deleteTaskComment,
+  getTaskAttachments,
+  uploadTaskAttachment,
+  deleteTaskAttachment,
+} from '@/api/tasks';
 import { useMutationWithError } from '@/hooks/useMutationWithError';
 import { queryKeys } from '@/hooks/queryKeys';
 import { useToast } from '@/contexts/ToastContext';
 import type { Task, TaskCreate, TaskUpdate, TaskFilters } from '@/types';
+import type { TaskCommentCreate } from '@/types/taskComments';
 
 export function useTasks(filters?: TaskFilters) {
   return useQuery({
@@ -21,18 +39,31 @@ export function useTask(id: string | null) {
 }
 
 export function useCreateTask() {
+  const queryClient = useQueryClient();
   return useMutationWithError({
     mutationFn: (data: TaskCreate) => createTask(data),
     errorMessage: 'Fout bij aanmaken taak',
     invalidateKeys: [queryKeys.tasks.lists(), queryKeys.tasks.workTypes()],
+    // Een nieuwe subtaak staat in het detail van haar hoofdtaak.
+    onSuccess: (_task, data) => {
+      if (data.parent_id) void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.detail(data.parent_id) });
+    },
   });
 }
 
 export function useUpdateTask() {
+  const queryClient = useQueryClient();
   return useMutationWithError({
     mutationFn: ({ id, data }: { id: string; data: TaskUpdate }) => updateTask(id, data),
     errorMessage: 'Fout bij bijwerken taak',
     invalidateKeys: [queryKeys.tasks.lists(), queryKeys.tasks.workTypes()],
+    // De taak zelf ook. Zonder dit houdt het taakdetail de oude versie vast en
+    // springt een keuzelijst daar na een wijziging terug naar de oude waarde.
+    onSuccess: (task, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.detail(id) });
+      // Een afgevinkte subtaak staat ook in het detail van haar hoofdtaak.
+      if (task?.parent_id) void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.detail(task.parent_id) });
+    },
   });
 }
 
@@ -40,7 +71,8 @@ export function useDeleteTask() {
   return useMutationWithError({
     mutationFn: (id: string) => deleteTask(id),
     errorMessage: 'Fout bij verwijderen taak',
-    invalidateKeys: [queryKeys.tasks.lists()],
+    // Ook de details: een verwijderde subtaak staat in die van haar hoofdtaak.
+    invalidateKeys: [queryKeys.tasks.lists(), queryKeys.tasks.details()],
   });
 }
 
@@ -118,5 +150,56 @@ export function useReorderSubtasks() {
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks.detail(variables.taskId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
     },
+  });
+}
+
+// --- Opmerkingen en bijlagen (het taakdetail) ---
+
+export function useTaskComments(taskId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.tasks.comments(taskId),
+    queryFn: () => getTaskComments(taskId!),
+    enabled: !!taskId,
+  });
+}
+
+export function useAddTaskComment() {
+  return useMutationWithError({
+    mutationFn: ({ taskId, data }: { taskId: string; data: TaskCommentCreate }) => createTaskComment(taskId, data),
+    errorMessage: 'Fout bij plaatsen opmerking',
+    invalidateKeys: [queryKeys.tasks.all],
+  });
+}
+
+export function useDeleteTaskComment() {
+  return useMutationWithError({
+    mutationFn: ({ taskId, commentId }: { taskId: string; commentId: string }) => deleteTaskComment(taskId, commentId),
+    errorMessage: 'Fout bij verwijderen opmerking',
+    invalidateKeys: [queryKeys.tasks.all],
+  });
+}
+
+export function useTaskAttachments(taskId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.tasks.attachments(taskId),
+    queryFn: () => getTaskAttachments(taskId!),
+    enabled: !!taskId,
+  });
+}
+
+export function useUploadTaskAttachment() {
+  return useMutationWithError({
+    mutationFn: ({ taskId, file }: { taskId: string; file: File }) => uploadTaskAttachment(taskId, file),
+    errorMessage: 'Fout bij uploaden bijlage',
+    invalidateKeys: [queryKeys.tasks.all],
+  });
+}
+
+export function useDeleteTaskAttachment() {
+  return useMutationWithError({
+    mutationFn: ({ taskId, attachmentId }: { taskId: string; attachmentId: string }) =>
+      deleteTaskAttachment(taskId, attachmentId),
+    errorMessage: 'Fout bij verwijderen bijlage',
+    invalidateKeys: [queryKeys.tasks.all],
   });
 }

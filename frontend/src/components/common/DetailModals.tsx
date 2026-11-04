@@ -17,7 +17,7 @@ import { useLeadDetail } from '@/contexts/LeadDetailContext';
  * underneath another.
  */
 export function DetailModals() {
-  const { taskDetailId, closeTaskDetail } = useTaskDetail();
+  const { taskDetailId, taskDetailPlacement, closeTaskDetail } = useTaskDetail();
   const { nodeDetailId, closeNodeDetail } = useNodeDetail();
   const { opdrachtDetailId, closeOpdrachtDetail } = useOpdrachtDetail();
   const { leadDetailId, closeLeadDetail } = useLeadDetail();
@@ -46,6 +46,7 @@ export function DetailModals() {
         taskId={taskDetailId}
         open={!!taskDetailId}
         onClose={closeTaskDetail}
+        placement={taskDetailPlacement}
       />
       <LeadDetailPanel
         leadId={leadDetailId}
