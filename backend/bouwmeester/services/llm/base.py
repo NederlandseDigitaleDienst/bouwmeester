@@ -151,6 +151,29 @@ class DebatToezeggingenResult(BaseModel):
     fout: str | None = None
 
 
+class DebatAgendapunt(BaseModel):
+    """One agendapunt of a procedurevergadering and what the committee
+    decided on it, as the model reads it from the chairman's words."""
+
+    # The number the chairman calls it by ("27"), if said.
+    nummer: str | None = None
+    onderwerp: str
+    besluiten: list[str] = []
+
+
+class DebatBesluitenResult(BaseModel):
+    """What the model made of a procedurevergadering so far.
+
+    `fout` means what it means in `DebatVragenResult`: an empty list
+    without it is "read, nothing decided yet", and that is not "not read".
+    """
+
+    agendapunten: list[DebatAgendapunt] = []
+    # Only when the meeting is over: a few sentences on what matters most.
+    samenvatting: str = ""
+    fout: str | None = None
+
+
 class LegeLLMResponsError(ValueError):
     """Het model gaf niets terug.
 
@@ -668,6 +691,55 @@ class BaseLLMService(ABC):
             )
         return DebatToezeggingenResult(fout=DEBAT_VRAGEN_ONBRUIKBAAR)
 
+    async def vat_procedurevergadering_samen(
+        self,
+        *,
+        onderwerp: str,
+        agenda: list[str],
+        tekst: str,
+        eerder: list[DebatAgendapunt],
+        af: bool,
+    ) -> DebatBesluitenResult:
+        """Put what was said in a procedurevergadering in order: per
+        agendapunt what the committee decided.
+
+        `agenda` are the agendapunten as the TK API lists them, `eerder`
+        what an earlier reading of the same meeting found, `af` whether
+        the meeting is over (then a samenvatting is asked for too).
+
+        Two tries, like the other readings of a debate.
+
+        PUBLIC: a procedurevergadering is public and broadcast.
+        """
+        from bouwmeester.services.llm.prompts import (
+            build_procedurevergadering_prompt,
+        )
+
+        prompt = build_procedurevergadering_prompt(
+            onderwerp=onderwerp,
+            agenda=agenda,
+            tekst=tekst,
+            eerder=[(p.nummer, p.onderwerp, p.besluiten) for p in eerder],
+            af=af,
+        )
+        for poging in (1, 2):
+            try:
+                text = await self._complete(prompt, max_tokens=4096)
+            except Exception:
+                logger.exception("LLM onbereikbaar bij de procedurevergadering")
+                return DebatBesluitenResult(fout=DEBAT_VRAGEN_ONBEREIKBAAR)
+            try:
+                return _lees_besluiten(self, text, af=af)
+            except Exception as exc:
+                logger.warning(
+                    "Onbruikbaar LLM-antwoord bij de procedurevergadering "
+                    "(poging %d, %s: %s)",
+                    poging,
+                    type(exc).__name__,
+                    str(exc)[:200],
+                )
+        return DebatBesluitenResult(fout=DEBAT_VRAGEN_ONBRUIKBAAR)
+
     async def is_mattermost_noise(self, message: str) -> bool:
         """True als het bericht ruis is (ack/emoji/no-content)."""
         from bouwmeester.services.llm.prompts import build_is_noise_prompt
@@ -846,3 +918,50 @@ def _lees_debat_toezeggingen(
             )
         )
     return toezeggingen
+
+
+def _lees_besluiten(
+    service: BaseLLMService, text: str, *, af: bool
+) -> DebatBesluitenResult:
+    """Read the answer to the procedurevergadering prompt.
+
+    Raises when the answer as a whole cannot be read. An agendapunt
+    without a subject is left out without taking the rest along, and so
+    is a decision that is not a line of text.
+    """
+    result = service._parse_json(text)
+    if not isinstance(result, dict) or not isinstance(result.get("agendapunten"), list):
+        raise ValueError("antwoord draagt geen lijst `agendapunten`")
+    punten: list[DebatAgendapunt] = []
+    for item in result["agendapunten"]:
+        if not isinstance(item, dict):
+            continue
+        onderwerp = item.get("onderwerp")
+        if not isinstance(onderwerp, str) or not onderwerp.strip():
+            continue
+        nummer = item.get("nummer")
+        if isinstance(nummer, int) and not isinstance(nummer, bool):
+            nummer = str(nummer)
+        besluiten = item.get("besluiten")
+        punten.append(
+            DebatAgendapunt(
+                nummer=nummer.strip()
+                if isinstance(nummer, str) and nummer.strip()
+                else None,
+                onderwerp=onderwerp.strip(),
+                besluiten=[
+                    b.strip()
+                    for b in (besluiten if isinstance(besluiten, list) else [])
+                    if isinstance(b, str) and b.strip()
+                ],
+            )
+        )
+    samenvatting = result.get("samenvatting")
+    return DebatBesluitenResult(
+        agendapunten=punten,
+        # Asked for only at the end; a model that gives one halfway is
+        # not shown, it would read as final.
+        samenvatting=samenvatting.strip()
+        if af and isinstance(samenvatting, str)
+        else "",
+    )

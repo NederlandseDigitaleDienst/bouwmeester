@@ -328,6 +328,40 @@ def _type_fits(activiteit_soort: str | None, debate_type: str | None) -> bool:
     return a == b or a.startswith(b) or b.startswith(a)
 
 
+PROCEDUREVERGADERING = "procedurevergadering"
+
+
+def is_procedurevergadering(*kinds: str | None) -> bool:
+    """Whether a meeting is a procedurevergadering, by any of what it is
+    called: the `debateType` of Debat Direct, the `Soort` of the TK API,
+    or a subject that starts with the word.
+    """
+    return any(_norm(kind or "").startswith(PROCEDUREVERGADERING) for kind in kinds)
+
+
+# The kinds of meeting Debat Direct shows that are not a debate, as the
+# noun with its article. Measured on the agenda of 4 November 2026.
+_ARTICLE_HET = ("gesprek", "overleg", "verhoor")
+_ARTICLE_DE = ("vergadering", "briefing")
+
+
+def meeting_noun(debate_type: str | None) -> str:
+    """The meeting as a noun: "Het debat", or what it is when not one.
+
+    A procedurevergadering that "is begonnen" as a debate reads wrong to
+    whoever knows the difference, and those are the people in the channel.
+    A kind that is not known stays "het debat", as it always was.
+    """
+    kind = " ".join((debate_type or "").split()).lower()
+    if not kind or "debat" in kind:
+        return "Het debat"
+    if kind.endswith(_ARTICLE_HET):
+        return f"Het {kind}"
+    if kind.endswith(_ARTICLE_DE):
+        return f"De {kind}"
+    return "Het debat"
+
+
 def _stream_url(value: object) -> str | None:
     """Only an https address: it is fetched by the worker."""
     url = _text(value)
