@@ -43,6 +43,10 @@ from bouwmeester.schema.resource_permission import (
     ResourcePermissionUpdate,
 )
 from bouwmeester.services.activity_service import log_activity
+from bouwmeester.services.casus_team_service import (
+    casusrollen_bijwerken,
+    rangen_voor_rij,
+)
 
 router = APIRouter(
     prefix="/resource-permissions",
@@ -296,8 +300,13 @@ async def update_resource_permission(
         raise HTTPException(404, "Toekenning niet gevonden")
     await require_can_change_resource_role(db, perm, rp, new_rol=data.rol)
 
+    # Een initiatiefrij: de casusrollen volgen de rol, net als in de
+    # initiatiefroutes (services.casus_team_service).
+    voor = await rangen_voor_rij(db, rp) if rp.resource_type == "initiatief" else None
     rp.rol = data.rol
     await db.flush()
+    if voor is not None:
+        await casusrollen_bijwerken(db, rp.resource_id, voor, actor_id=perm.person_id)
     await db.refresh(rp)
     return _to_response(rp)
 
@@ -331,5 +340,10 @@ async def delete_resource_permission(
         },
     )
 
+    initiatief_id, voor = rp.resource_id, None
+    if rp.resource_type == "initiatief":
+        voor = await rangen_voor_rij(db, rp)
     await repo.delete(rp_id)
+    if voor is not None:
+        await casusrollen_bijwerken(db, initiatief_id, voor, actor_id=perm.person_id)
     return {"ok": True}

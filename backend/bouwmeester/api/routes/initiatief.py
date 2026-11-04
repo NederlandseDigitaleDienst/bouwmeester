@@ -23,6 +23,7 @@ from bouwmeester.core.permissions import (
     PermissionContext,
     get_permission_context,
 )
+from bouwmeester.models.person import Person
 from bouwmeester.repositories.initiatief import InitiatiefRepository
 from bouwmeester.schema.initiatief import (
     EENHEID_ROL_RANK,
@@ -42,7 +43,7 @@ from bouwmeester.schema.initiatief import (
 )
 from bouwmeester.services.activity_service import log_activity
 from bouwmeester.services.casus_team_service import (
-    casusrollen_na_rolwijziging,
+    casusrollen_bijwerken,
     personen_met_casusrol,
     rangen,
 )
@@ -53,23 +54,9 @@ router = APIRouter(prefix="/initiatieven", tags=["initiatieven"])
 async def _casusrollen_bijwerken(
     db: AsyncSession, current_user, initiatief_id: UUID, rangen_voor: dict
 ) -> None:
-    """Na een rolwijziging: casusrollen die hun grond verloren gaan weg,
-    met een regel in het log per rij (zie services.casus_team_service)."""
-    for casus_id, person_id, rol in await casusrollen_na_rolwijziging(
-        db, initiatief_id, rangen_voor
-    ):
-        await log_activity(
-            db,
-            current_user,
-            None,
-            "casus_team.removed",
-            details={
-                "casus_id": str(casus_id),
-                "person_id": str(person_id),
-                "rol": rol,
-                "reden": "rol op het initiatief gewijzigd of ingetrokken",
-            },
-        )
+    await casusrollen_bijwerken(
+        db, initiatief_id, rangen_voor, current_user=current_user
+    )
 
 
 async def _resolve_access_level(
@@ -402,6 +389,9 @@ async def add_member(
         rol=data.rol,
         target_person_id=data.person_id,
     )
+    # Eerst de persoon: anders meldt de unieke index een onbekende persoon
+    # ook als "al lid".
+    require_found(await db.get(Person, data.person_id), "Persoon")
     try:
         member = await repo.add_member(id, data.person_id, data.rol)
     except IntegrityError:
