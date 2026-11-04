@@ -7,6 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bouwmeester.core.auth import OptionalUser
 from bouwmeester.core.database import get_db
+from bouwmeester.core.initiatief_context import (
+    InitiatiefContext,
+    get_initiatief_context,
+)
 from bouwmeester.core.org_context import OrgContext, get_org_context
 from bouwmeester.core.permissions import PermissionContext, get_permission_context
 from bouwmeester.repositories.search import SearchRepository
@@ -43,6 +47,7 @@ async def search(
     db: AsyncSession = Depends(get_db),
     org_ctx: OrgContext = Depends(get_org_context),
     perm_ctx: PermissionContext = Depends(get_permission_context),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> SearchResponse:
     """Full-text search across nodes, tasks, people, and org units.
 
@@ -69,6 +74,7 @@ async def search(
         result_types=type_values,
         limit=limit,
         org_ctx=org_ctx,
+        init_ctx=init_ctx,
     )
     return SearchResponse(
         results=[SearchResult(**r) for r in results],

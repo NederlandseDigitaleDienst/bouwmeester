@@ -8,21 +8,36 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bouwmeester.api.deps import require_deleted, require_found, validate_list
 from bouwmeester.core.auth import OptionalUser, effective_person_id
+from bouwmeester.core.authority import require_can_change_casus
 from bouwmeester.core.database import get_db
+from bouwmeester.core.initiatief_context import (
+    InitiatiefContext,
+    get_initiatief_context,
+    require_initiatief_member,
+    require_initiatief_visible,
+)
 from bouwmeester.core.org_context import (
     OrgContext,
     check_org_scope,
     check_resource_org_scope,
     get_org_context,
 )
-from bouwmeester.core.permissions import require_permission
+from bouwmeester.core.permissions import (
+    PermissionContext,
+    get_permission_context,
+    require_permission,
+)
 from bouwmeester.core.storage import delete_blob
+from bouwmeester.models.casus import Casus
+from bouwmeester.models.issue import Issue
 from bouwmeester.models.person import Person
 from bouwmeester.models.task import Task
 from bouwmeester.models.task_attachment import TaskAttachment
+from bouwmeester.repositories.issue import IssueRepository
 from bouwmeester.repositories.task import TaskRepository
 from bouwmeester.schema.inbox import InboxResponse
 from bouwmeester.schema.task import (
+    ANKER_FOUT,
     EenheidOverviewResponse,
     ReorderRequest,
     TaskCreate,
@@ -43,6 +58,47 @@ from bouwmeester.services.notification_service import NotificationService
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
+async def _resolve_casus_anchor(
+    db: AsyncSession, data: TaskCreate | TaskUpdate, init_ctx: InitiatiefContext
+) -> Casus | None:
+    """Controleer casus_id en issue_id en vul casus_id aan.
+
+    Een taak hangt onder een issue of los op de casus. Het issue moet van
+    die casus zijn. De
+    casus moet zichtbaar zijn: buiten een zichtbaar initiatief 404, ook via
+    een issue, zodat het bestaan niet lekt. Geeft de casus terug.
+    """
+    if data.issue_id is not None:
+        issue = await db.get(Issue, data.issue_id)
+        if issue is None:
+            raise HTTPException(status_code=404, detail="Onderzoeksvraag niet gevonden")
+        if data.casus_id is not None and data.casus_id != issue.casus_id:
+            raise HTTPException(
+                status_code=400, detail="Onderzoeksvraag hoort niet bij deze casus"
+            )
+        data.casus_id = issue.casus_id
+    if data.casus_id is None:
+        return None
+    casus = await db.get(Casus, data.casus_id)
+    if casus is None:
+        raise HTTPException(status_code=404, detail="Casus niet gevonden")
+    require_initiatief_visible(
+        casus.initiatief_id, init_ctx, detail="Casus niet gevonden"
+    )
+    return casus
+
+
+async def _require_task_visible(
+    db: AsyncSession, task, init_ctx: InitiatiefContext
+) -> None:
+    """Een casustaak is zo zichtbaar als haar casus: anders 404, geen 403."""
+    if task.casus_id is None:
+        return
+    casus = await db.get(Casus, task.casus_id)
+    initiatief_id = casus.initiatief_id if casus else None
+    require_initiatief_visible(initiatief_id, init_ctx, detail="Task not found")
+
+
 async def _onderliggende_ids(db: AsyncSession, task_id: UUID) -> list[UUID]:
     """De ids van alle subtaken onder een taak, ook die van subtaken."""
     ids: list[UUID] = []
@@ -57,6 +113,37 @@ async def _onderliggende_ids(db: AsyncSession, task_id: UUID) -> list[UUID]:
     return ids
 
 
+async def _require_parent_visible(
+    db: AsyncSession, parent_id: UUID, org_ctx: OrgContext, init_ctx: InitiatiefContext
+) -> Task:
+    """De hoofdtaak van een subtaak moet bestaan en zichtbaar zijn.
+
+    Zonder deze controle hing je een subtaak onder elke taak waarvan je het
+    id kent. Zelfde regels als het openen van die taak: 404 buiten een
+    zichtbare casus.
+    """
+    parent = await db.get(Task, parent_id)
+    if parent is None:
+        raise HTTPException(status_code=404, detail="Hoofdtaak niet gevonden")
+    # Eerst de casus (404), dan de org-scope (403): bestaan lekt niet.
+    await _require_task_visible(db, parent, init_ctx)
+    await check_resource_org_scope(db, "task", parent_id, org_ctx)
+    return parent
+
+
+def _geen_subtaak_in_casus(parent: Task, casus_taak: bool) -> None:
+    """Een taak in een casus heeft geen subtaken en hangt onder geen taak.
+
+    In een casus is het werk een onderzoeksvraag met taken eronder; een
+    stap die erbij hoort, is een eigen taak onder die vraag. Subtaken
+    blijven er voor taken aan een node.
+    """
+    if parent.casus_id is not None or casus_taak:
+        raise HTTPException(
+            status_code=400, detail="Een taak in een casus heeft geen subtaken"
+        )
+
+
 async def _bijlage_paden(db: AsyncSession, task_id: UUID) -> list[str]:
     """Paden van de bijlagebestanden van een taak en al haar subtaken."""
     ids = [task_id, *await _onderliggende_ids(db, task_id)]
@@ -66,11 +153,64 @@ async def _bijlage_paden(db: AsyncSession, task_id: UUID) -> list[str]:
     return list(result.scalars().all())
 
 
+# Velden die de uitvoerder van een casustaak zelf mag bijwerken, zonder rol
+# op het initiatief: de voortgang van het eigen werk. Verplaatsen,
+# verwijderen of aan een ander geven vraagt wel een rol.
+EIGEN_WERK_VELDEN = frozenset({"status", "description", "deadline", "priority"})
+
+
+async def _require_task_rights(
+    db: AsyncSession,
+    perm_ctx: PermissionContext,
+    current_user,
+    casus: Casus | None,
+    systeemrecht: str,
+    *,
+    task: Task | None = None,
+    data: TaskUpdate | None = None,
+) -> None:
+    """Wie een taak mag aanmaken, wijzigen of verwijderen.
+
+    Een taak aan een node: het systeemrecht (task:create enzovoort), zoals
+    op main. Een casustaak: de rol op de casus (bijdrager, eigenaar of
+    trekker), niet het systeemrecht. Zo kan een bijdrager zonder task:*
+    zijn werk doen, en een kijker die elders editor is niet. De uitvoerder
+    mag zijn eigen casustaak wel bijwerken (EIGEN_WERK_VELDEN) zonder rol.
+    """
+    if casus is None:
+        if not perm_ctx.has_permission(systeemrecht):
+            raise HTTPException(status_code=403, detail="Onvoldoende rechten")
+        return
+    if (
+        task is not None
+        and data is not None
+        and current_user is not None
+        and task.assignee_id == current_user.id
+        and data.model_fields_set <= EIGEN_WERK_VELDEN
+    ):
+        return
+    await require_can_change_casus(db, perm_ctx, current_user, casus)
+
+
+async def _require_assignee_in_initiatief(
+    db: AsyncSession, casus: Casus | None, assignee_id: UUID | None
+) -> None:
+    """Wie een casustaak doet, moet het initiatief van de casus kunnen zien.
+
+    Anders krijgt iemand een taak op zijn naam die hij niet kan openen. De
+    UI biedt alleen leden aan; dit is de bewaker.
+    """
+    if casus is None or assignee_id is None:
+        return
+    await require_initiatief_member(db, casus.initiatief_id, assignee_id)
+
+
 @router.get("", response_model=list[TaskResponse])
 async def list_tasks(
     current_user: OptionalUser,
     status_filter: TaskStatus | None = Query(None, alias="status"),
     node_id: UUID | None = Query(None),
+    casus_id: UUID | None = Query(None),
     assignee_id: UUID | None = Query(None),
     organisatie_eenheid_id: UUID | None = Query(None),
     opdracht_id: UUID | None = Query(None),
@@ -79,18 +219,38 @@ async def list_tasks(
     limit: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
     org_ctx: OrgContext = Depends(get_org_context),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> list[TaskResponse]:
-    """List tasks with optional filters."""
+    """List tasks with optional filters.
+
+    Taken van een casus zijn zo vertrouwelijk als de casus: buiten een
+    zichtbaar initiatief is het antwoord 404, zoals bij de casus zelf.
+    """
     repo = TaskRepository(db)
     if opdracht_id is not None:
         tasks = await repo.get_by_opdracht(
-            opdracht_id, skip=skip, limit=limit, org_ctx=org_ctx
+            opdracht_id, skip=skip, limit=limit, org_ctx=org_ctx, init_ctx=init_ctx
         )
     elif node_id is not None:
-        tasks = await repo.get_by_node(node_id, skip=skip, limit=limit, org_ctx=org_ctx)
+        tasks = await repo.get_by_node(
+            node_id, skip=skip, limit=limit, org_ctx=org_ctx, init_ctx=init_ctx
+        )
+    elif casus_id is not None:
+        casus = await db.get(Casus, casus_id)
+        if casus is None:
+            return []
+        require_initiatief_visible(
+            casus.initiatief_id, init_ctx, detail="Casus niet gevonden"
+        )
+        tasks = await repo.get_by_casus(
+            casus_id,
+            skip=skip,
+            limit=limit,
+            org_ctx=org_ctx,
+        )
     elif assignee_id is not None:
         tasks = await repo.get_by_assignee(
-            assignee_id, skip=skip, limit=limit, org_ctx=org_ctx
+            assignee_id, skip=skip, limit=limit, org_ctx=org_ctx, init_ctx=init_ctx
         )
     elif organisatie_eenheid_id is not None:
         tasks = await repo.get_by_organisatie_eenheid(
@@ -99,6 +259,7 @@ async def list_tasks(
             skip=skip,
             limit=limit,
             org_ctx=org_ctx,
+            init_ctx=init_ctx,
         )
     else:
         tasks = await repo.get_all(
@@ -106,6 +267,7 @@ async def list_tasks(
             limit=limit,
             status=status_filter,
             org_ctx=org_ctx,
+            init_ctx=init_ctx,
         )
     return validate_list(TaskResponse, tasks)
 
@@ -116,14 +278,34 @@ async def create_task(
     current_user: OptionalUser,
     actor_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _perm=Depends(require_permission("task:create")),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
     org_ctx: OrgContext = Depends(get_org_context),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> TaskResponse:
-    """Create a task linked to a node. Notifies assignee and team manager."""
+    """Create a task linked to a node or a casus. Notifies assignee and manager.
+
+    Op een casus: de casus moet zichtbaar zijn, wie de taak maakt heeft een
+    rol op de casus, en wie de taak doet moet het initiatief kunnen zien.
+    Aan een node: task:create, zoals op main.
+    """
     check_org_scope(data.organisatie_eenheid_id, org_ctx)
+    if data.parent_id is not None:
+        # Een subtaak is een gewone taak met eigen kenmerken, zoals op main:
+        # ze neemt niets over van de hoofdtaak. Alleen buiten een casus.
+        parent = await _require_parent_visible(db, data.parent_id, org_ctx, init_ctx)
+        _geen_subtaak_in_casus(
+            parent, data.casus_id is not None or data.issue_id is not None
+        )
+    casus = await _resolve_casus_anchor(db, data, init_ctx)
+    await _require_task_rights(db, perm_ctx, current_user, casus, "task:create")
+    await _require_assignee_in_initiatief(db, casus, data.assignee_id)
     repo = TaskRepository(db)
     task = await repo.create(data)
+    issue_repo = IssueRepository(db)
+    await issue_repo.sync_status(task.issue_id)
 
+    # Bij een casustaak alleen meldingen voor leden van het initiatief.
+    leden_van = casus.initiatief_id if casus else None
     await sync_and_notify_mentions(
         db,
         "task",
@@ -133,6 +315,7 @@ async def create_task(
         sender_id=data.assignee_id,
         source_task_id=task.id,
         source_node_id=task.node_id,
+        alleen_leden_van=leden_van,
     )
 
     resolved_id, resolved_naam = await resolve_actor(current_user, actor_id, db)
@@ -147,7 +330,10 @@ async def create_task(
     # Notify team manager
     if task.organisatie_eenheid_id:
         await notif_svc.notify_team_manager(
-            task, task.organisatie_eenheid_id, exclude_person_id=task.assignee_id
+            task,
+            task.organisatie_eenheid_id,
+            exclude_person_id=task.assignee_id,
+            alleen_leden_van=leden_van,
         )
 
     assignee_naam = assignee.naam if task.assignee_id and assignee else None
@@ -175,15 +361,17 @@ async def get_my_tasks(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> list[TaskResponse]:
     """Get tasks assigned to the current user (or person_id in dev mode).
 
     No org_ctx filter: a user is always entitled to see tasks assigned to
-    them, even in units they cannot otherwise browse.
+    them, even in units they cannot otherwise browse. Casustaken zijn de
+    uitzondering: die volgen het initiatief van de casus.
     """
     pid = effective_person_id(current_user, person_id)
     repo = TaskRepository(db)
-    tasks = await repo.get_by_assignee(pid, skip=skip, limit=limit)
+    tasks = await repo.get_by_assignee(pid, skip=skip, limit=limit, init_ctx=init_ctx)
     return validate_list(TaskResponse, tasks)
 
 
@@ -192,14 +380,16 @@ async def get_task_inbox(
     current_user: OptionalUser,
     person_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> InboxResponse:
     """Get aggregated inbox data for a person (tasks, notifications, deadlines).
 
     Inbox is always self-scoped (own tasks/notifications), so no org_ctx.
+    Casustaken volgen wel het initiatief van de casus.
     """
     pid = effective_person_id(current_user, person_id)
     service = InboxService(db)
-    return await service.get_inbox(pid)
+    return await service.get_inbox(pid, init_ctx=init_ctx)
 
 
 @router.get("/unassigned", response_model=list[TaskResponse])
@@ -209,12 +399,15 @@ async def get_unassigned_tasks(
     db: AsyncSession = Depends(get_db),
     _perm=Depends(require_permission("task:read")),
     org_ctx: OrgContext = Depends(get_org_context),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> list[TaskResponse]:
     """List tasks that have no assignee, optionally filtered by org unit."""
     if organisatie_eenheid_id is not None:
         check_org_scope(organisatie_eenheid_id, org_ctx)
     repo = TaskRepository(db)
-    tasks = await repo.get_unassigned(organisatie_eenheid_id, org_ctx=org_ctx)
+    tasks = await repo.get_unassigned(
+        organisatie_eenheid_id, org_ctx=org_ctx, init_ctx=init_ctx
+    )
     return validate_list(TaskResponse, tasks)
 
 
@@ -224,10 +417,14 @@ async def get_work_types(
     db: AsyncSession = Depends(get_db),
     _perm=Depends(require_permission("task:read")),
     org_ctx: OrgContext = Depends(get_org_context),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> list[str]:
-    """Return distinct work_type values for autocomplete."""
+    """Return distinct work_type values for autocomplete.
+
+    Zonder werktypen van casustaken buiten je initiatieven.
+    """
     repo = TaskRepository(db)
-    return await repo.get_distinct_work_types(org_ctx=org_ctx)
+    return await repo.get_distinct_work_types(org_ctx=org_ctx, init_ctx=init_ctx)
 
 
 @router.get("/eenheid-overview", response_model=EenheidOverviewResponse)
@@ -237,10 +434,11 @@ async def get_eenheid_overview(
     db: AsyncSession = Depends(get_db),
     _perm=Depends(require_permission("task:read")),
     org_ctx: OrgContext = Depends(get_org_context),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> EenheidOverviewResponse:
     """Overview of tasks for an organisatie-eenheid."""
     check_org_scope(organisatie_eenheid_id, org_ctx)
-    service = EenheidOverviewService(db)
+    service = EenheidOverviewService(db, init_ctx)
     return await service.get_overview(organisatie_eenheid_id)
 
 
@@ -251,11 +449,15 @@ async def get_task(
     db: AsyncSession = Depends(get_db),
     _perm=Depends(require_permission("task:read")),
     org_ctx: OrgContext = Depends(get_org_context),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> TaskResponse:
     """Get a single task by ID, including assignee and node summaries."""
-    await check_resource_org_scope(db, "task", id, org_ctx)
     repo = TaskRepository(db)
     task = require_found(await repo.get(id), "Task")
+    # Eerst de casus: buiten het initiatief 404, ook als de org-check 403
+    # zou geven. Zo verraadt een casustaak haar bestaan niet.
+    await _require_task_visible(db, task, init_ctx)
+    await check_resource_org_scope(db, "task", id, org_ctx)
     return TaskResponse.model_validate(task)
 
 
@@ -266,11 +468,14 @@ async def get_task_subtasks(
     db: AsyncSession = Depends(get_db),
     _perm=Depends(require_permission("task:read")),
     org_ctx: OrgContext = Depends(get_org_context),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> list[TaskResponse]:
     """List subtasks of a parent task."""
-    await check_resource_org_scope(db, "task", id, org_ctx)
     repo = TaskRepository(db)
-    subtasks = await repo.get_subtasks(id, org_ctx=org_ctx)
+    parent = require_found(await repo.get(id), "Task")
+    await _require_task_visible(db, parent, init_ctx)
+    await check_resource_org_scope(db, "task", id, org_ctx)
+    subtasks = await repo.get_subtasks(id, org_ctx=org_ctx, init_ctx=init_ctx)
     return [TaskResponse.model_validate(t) for t in subtasks]
 
 
@@ -282,11 +487,13 @@ async def reorder_subtasks(
     db: AsyncSession = Depends(get_db),
     _perm=Depends(require_permission("task:update")),
     org_ctx: OrgContext = Depends(get_org_context),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> list[TaskResponse]:
     """Reorder subtasks of a parent task."""
-    await check_resource_org_scope(db, "task", id, org_ctx)
     repo = TaskRepository(db)
-    require_found(await repo.get(id), "Task")
+    parent = require_found(await repo.get(id), "Task")
+    await _require_task_visible(db, parent, init_ctx)
+    await check_resource_org_scope(db, "task", id, org_ctx)
     try:
         subtasks = await repo.reorder_subtasks(id, data.task_ids)
     except ValueError as exc:
@@ -301,23 +508,121 @@ async def update_task(
     current_user: OptionalUser,
     actor_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _perm=Depends(require_permission("task:update")),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
     org_ctx: OrgContext = Depends(get_org_context),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> TaskResponse:
-    """Update a task. Notifies on assignee change, completion, or org unit change."""
+    """Update a task. Notifies on assignee change, completion, or org unit change.
+
+    Een casustaak: alleen binnen een zichtbare casus, met een rol op de
+    casus (of als uitvoerder, alleen de eigen voortgang), en wie de taak
+    doet moet lid zijn van het initiatief. Dat geldt ook als de taak naar
+    een andere casus verhuist of als alleen de uitvoerder verandert. Uit
+    een casus verhuist een taak niet: aan een node volgt ze ruimere regels,
+    met haar opmerkingen en bijlagen.
+    """
+    repo = TaskRepository(db)
+    old_task = require_found(await repo.get(id), "Task")
+    await _require_task_visible(db, old_task, init_ctx)
     await check_resource_org_scope(db, "task", id, org_ctx)
+    oude_casus = await db.get(Casus, old_task.casus_id) if old_task.casus_id else None
+    await _require_task_rights(
+        db, perm_ctx, current_user, oude_casus, "task:update", task=old_task, data=data
+    )
     if data.organisatie_eenheid_id is not None:
         check_org_scope(data.organisatie_eenheid_id, org_ctx)
-    repo = TaskRepository(db)
+    # Een taak in een casus heeft geen subtaken en hangt onder geen taak:
+    # niet bij een nieuwe hoofdtaak, en niet als een subtaak of een taak met
+    # subtaken naar een casus gaat.
+    naar_casus = (
+        getattr(data, "casus_id", None) is not None
+        or getattr(data, "issue_id", None) is not None
+    )
+    in_casus_na = old_task.casus_id is not None or naar_casus
+    nieuwe_parent = "parent_id" in data.model_fields_set and data.parent_id
+    if nieuwe_parent:
+        parent = await _require_parent_visible(db, data.parent_id, org_ctx, init_ctx)
+        _geen_subtaak_in_casus(parent, in_casus_na)
+    elif naar_casus and old_task.parent_id is not None:
+        _geen_subtaak_in_casus(old_task, True)
+    if naar_casus and await _onderliggende_ids(db, old_task.id):
+        _geen_subtaak_in_casus(old_task, True)
+    anker_velden = {"issue_id", "casus_id"}
+    if anker_velden & data.model_fields_set:
+        casus = await _resolve_casus_anchor(db, data, init_ctx)
+    elif old_task.casus_id is not None:
+        casus = await db.get(Casus, old_task.casus_id)
+    else:
+        casus = None
+    if oude_casus is not None and casus is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Een taak verhuist niet uit een casus; verwijder haar, of "
+            "maak een nieuwe taak aan de node",
+        )
+    if (
+        oude_casus is not None
+        and casus is not None
+        and casus.initiatief_id != oude_casus.initiatief_id
+    ):
+        # Zoals bij een onderzoeksvraag: wie de taak ziet, hoort bij het
+        # initiatief, en dat verandert niet onderweg.
+        raise HTTPException(
+            status_code=400,
+            detail="Een taak verhuist niet naar een casus van een ander initiatief",
+        )
+    if (
+        casus is not None
+        and old_task.issue_id is not None
+        and "issue_id" not in data.model_fields_set
+    ):
+        # Alleen casus_id in de wijziging: de vraag waar de taak onder hangt,
+        # moet bij die casus horen. Anders staat de taak in de backlog van de
+        # oude casus, en telt ze mee voor een vraag die ze niet meer ziet.
+        oud_issue = await db.get(Issue, old_task.issue_id)
+        if oud_issue is not None and oud_issue.casus_id != casus.id:
+            raise HTTPException(
+                status_code=400,
+                detail="Deze taak hangt onder een onderzoeksvraag van een andere "
+                "casus; kies een vraag van de nieuwe casus, of haal haar eerst "
+                "onder de vraag vandaan",
+            )
+    if casus is not None and (oude_casus is None or casus.id != oude_casus.id):
+        # Een casus in: daar hoort een rol bij.
+        await require_can_change_casus(db, perm_ctx, current_user, casus)
+    # Na de wijziging precies één anker: een node of een casus. Wie een
+    # nodetaak naar een casus verhuist, haalt de node er in dezelfde
+    # wijziging af.
+    node_na = data.node_id if "node_id" in data.model_fields_set else old_task.node_id
+    if node_na is not None and casus is not None:
+        raise HTTPException(status_code=400, detail=ANKER_FOUT)
+    if node_na is None and casus is None:
+        raise HTTPException(
+            status_code=400, detail="Een taak hangt aan een node of aan een casus"
+        )
+    assignee_na = (
+        data.assignee_id
+        if "assignee_id" in data.model_fields_set
+        else old_task.assignee_id
+    )
+    await _require_assignee_in_initiatief(db, casus, assignee_na)
 
     # Capture old state before update
-    old_task = await repo.get(id)
-    old_assignee_id = old_task.assignee_id if old_task else None
-    old_status = old_task.status if old_task else None
-    old_org_unit_id = old_task.organisatie_eenheid_id if old_task else None
+    old_assignee_id = old_task.assignee_id
+    old_status = old_task.status
+    old_org_unit_id = old_task.organisatie_eenheid_id
 
+    issue_repo = IssueRepository(db)
+    old_issue_id = old_task.issue_id
     task = require_found(await repo.update(id, data), "Task")
+    # De status van het issue volgt de taken; bij een verhuizing beide.
+    new_issue_id = task.issue_id
+    await issue_repo.sync_status(new_issue_id)
+    if old_issue_id != new_issue_id:
+        await issue_repo.sync_status(old_issue_id)
 
+    # Bij een casustaak alleen meldingen voor leden van het initiatief.
+    leden_van = casus.initiatief_id if casus else None
     await sync_and_notify_mentions(
         db,
         "task",
@@ -327,6 +632,7 @@ async def update_task(
         sender_id=data.assignee_id,
         source_task_id=task.id,
         source_node_id=task.node_id,
+        alleen_leden_van=leden_van,
     )
 
     resolved_id, resolved_naam = await resolve_actor(current_user, actor_id, db)
@@ -358,7 +664,10 @@ async def update_task(
     new_org_unit_id = task.organisatie_eenheid_id
     if new_org_unit_id and new_org_unit_id != old_org_unit_id:
         await notif_svc.notify_team_manager(
-            task, new_org_unit_id, exclude_person_id=task.assignee_id
+            task,
+            new_org_unit_id,
+            exclude_person_id=task.assignee_id,
+            alleen_leden_van=leden_van,
         )
 
     # Build change details for audit log
@@ -391,19 +700,27 @@ async def delete_task(
     current_user: OptionalUser,
     actor_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _perm=Depends(require_permission("task:delete")),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
     org_ctx: OrgContext = Depends(get_org_context),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> None:
-    """Delete a task permanently."""
-    await check_resource_org_scope(db, "task", id, org_ctx)
+    """Delete a task permanently. Een casustaak: met een rol op de casus;
+    verwijderen haalt ook andermans bijlagen weg."""
     repo = TaskRepository(db)
-    task = await repo.get(id)
-    task_title = task.title if task else None
-    task_node_id = task.node_id if task else None
+    task = require_found(await repo.get(id), "Task")
+    await _require_task_visible(db, task, init_ctx)
+    await check_resource_org_scope(db, "task", id, org_ctx)
+    casus = await db.get(Casus, task.casus_id) if task.casus_id else None
+    await _require_task_rights(db, perm_ctx, current_user, casus, "task:delete")
+    task_title = task.title
+    task_node_id = task.node_id
+    issue_repo = IssueRepository(db)
+    issue_id = task.issue_id
     # Bijlagen gaan in de database mee (CASCADE), hun bestanden niet: die
     # ruimen we hier zelf op, ook die van subtaken.
-    bijlage_paden = await _bijlage_paden(db, id) if task else []
+    bijlage_paden = await _bijlage_paden(db, id)
     require_deleted(await repo.delete(id), "Task")
+    await issue_repo.sync_status(issue_id)
     await log_activity(
         db,
         current_user,

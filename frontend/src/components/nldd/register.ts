@@ -32,6 +32,7 @@ import '@nldd/design-system/sheet';
 import '@nldd/design-system/simple-section';
 import '@nldd/design-system/spacer';
 import '@nldd/design-system/split-view-pane';
+import '@nldd/design-system/task-board';
 import '@nldd/design-system/window';
 
 // Actions

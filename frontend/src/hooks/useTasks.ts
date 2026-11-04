@@ -10,6 +10,7 @@ import {
   reorderSubtasks,
   getWorkTypes,
   getTasksByOpdracht,
+  getTasksByCasus,
   getTaskComments,
   createTaskComment,
   deleteTaskComment,
@@ -43,7 +44,7 @@ export function useCreateTask() {
   return useMutationWithError({
     mutationFn: (data: TaskCreate) => createTask(data),
     errorMessage: 'Fout bij aanmaken taak',
-    invalidateKeys: [queryKeys.tasks.lists(), queryKeys.tasks.workTypes()],
+    invalidateKeys: [queryKeys.tasks.lists(), queryKeys.tasks.workTypes(), queryKeys.issues.all],
     // Een nieuwe subtaak staat in het detail van haar hoofdtaak.
     onSuccess: (_task, data) => {
       if (data.parent_id) void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.detail(data.parent_id) });
@@ -56,7 +57,7 @@ export function useUpdateTask() {
   return useMutationWithError({
     mutationFn: ({ id, data }: { id: string; data: TaskUpdate }) => updateTask(id, data),
     errorMessage: 'Fout bij bijwerken taak',
-    invalidateKeys: [queryKeys.tasks.lists(), queryKeys.tasks.workTypes()],
+    invalidateKeys: [queryKeys.tasks.lists(), queryKeys.tasks.workTypes(), queryKeys.issues.all],
     // De taak zelf ook. Zonder dit houdt het taakdetail de oude versie vast en
     // springt een keuzelijst daar na een wijziging terug naar de oude waarde.
     onSuccess: (task, { id }) => {
@@ -72,7 +73,7 @@ export function useDeleteTask() {
     mutationFn: (id: string) => deleteTask(id),
     errorMessage: 'Fout bij verwijderen taak',
     // Ook de details: een verwijderde subtaak staat in die van haar hoofdtaak.
-    invalidateKeys: [queryKeys.tasks.lists(), queryKeys.tasks.details()],
+    invalidateKeys: [queryKeys.tasks.lists(), queryKeys.tasks.details(), queryKeys.issues.all],
   });
 }
 
@@ -97,6 +98,14 @@ export function useTasksByOpdracht(opdrachtId: string | null) {
     queryKey: queryKeys.tasks.byOpdracht(opdrachtId),
     queryFn: () => getTasksByOpdracht(opdrachtId!),
     enabled: !!opdrachtId,
+  });
+}
+
+export function useTasksByCasus(casusId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.tasks.byCasus(casusId),
+    queryFn: () => getTasksByCasus(casusId!),
+    enabled: !!casusId,
   });
 }
 

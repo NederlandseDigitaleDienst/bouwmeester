@@ -428,9 +428,17 @@ class NotificationService:
         return notification
 
     async def notify_team_manager(
-        self, task: Task, eenheid_id: UUID, exclude_person_id: UUID | None = None
+        self,
+        task: Task,
+        eenheid_id: UUID,
+        exclude_person_id: UUID | None = None,
+        alleen_leden_van: UUID | None = None,
     ) -> Notification | None:
-        """Notify the manager of an org unit about a task assignment."""
+        """Notify the manager of an org unit about a task assignment.
+
+        Met ``alleen_leden_van`` (een initiatief-id, bij een casustaak) alleen
+        als de manager lid is: anders kan die de taak toch niet openen.
+        """
         from bouwmeester.repositories.organisatie_eenheid import (
             OrganisatieEenheidRepository,
         )
@@ -446,6 +454,14 @@ class NotificationService:
         # Don't notify if the manager is the same as the assignee
         if exclude_person_id and manager_id == exclude_person_id:
             return None
+
+        if alleen_leden_van is not None:
+            from bouwmeester.repositories.initiatief import InitiatiefRepository
+
+            if not await InitiatiefRepository(self.session).is_member(
+                alleen_leden_van, manager_id
+            ):
+                return None
 
         data = NotificationCreate(
             person_id=manager_id,

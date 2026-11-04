@@ -8,12 +8,14 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from bouwmeester.core.initiatief_context import InitiatiefContext
 from bouwmeester.models.org_parent import OrganisatieEenheidParent
 from bouwmeester.models.organisatie_eenheid import OrganisatieEenheid
 from bouwmeester.models.person import Person
 from bouwmeester.models.person_organisatie import PersonOrganisatieEenheid
 from bouwmeester.models.task import Task
 from bouwmeester.repositories.org_tree import get_descendant_ids
+from bouwmeester.repositories.task import apply_casus_filter
 from bouwmeester.schema.task import (
     EenheidOverviewResponse,
     EenheidPersonTaskStats,
@@ -28,13 +30,29 @@ def _task_options():
         selectinload(Task.assignee),
         selectinload(Task.organisatie_eenheid),
         selectinload(Task.node),
+        selectinload(Task.casus),
+        selectinload(Task.opdracht),
         selectinload(Task.subtasks).selectinload(Task.assignee),
     ]
 
 
 class EenheidOverviewService:
-    def __init__(self, session: AsyncSession) -> None:
+    """Takenoverzicht van een eenheid.
+
+    Casustaken tellen en staan er alleen in voor wie het initiatief van de
+    casus kan zien (``init_ctx``), zoals in elke takenlijst. Ze hebben
+    meestal geen eenheid en zouden anders bij "zonder eenheid" voor
+    iedereen zichtbaar zijn.
+    """
+
+    def __init__(
+        self, session: AsyncSession, init_ctx: InitiatiefContext | None = None
+    ) -> None:
         self.session = session
+        self.init_ctx = init_ctx
+
+    def _zichtbaar(self, stmt):
+        return apply_casus_filter(stmt, self.init_ctx)
 
     async def get_overview(
         self, organisatie_eenheid_id: UUID
@@ -76,11 +94,11 @@ class EenheidOverviewService:
             & Task.assignee_id.is_(None)
             & Task.status.notin_(["done", "cancelled"])
         )
-        count_stmt = select(func.count()).select_from(Task).where(base)
+        count_stmt = self._zichtbaar(select(func.count()).select_from(Task).where(base))
         result = await self.session.execute(count_stmt)
         count = result.scalar_one()
 
-        tasks_stmt = (
+        tasks_stmt = self._zichtbaar(
             select(Task)
             .where(base)
             .options(*_task_options())
@@ -99,11 +117,11 @@ class EenheidOverviewService:
             & Task.assignee_id.is_(None)
             & Task.status.notin_(["done", "cancelled"])
         )
-        count_stmt = select(func.count()).select_from(Task).where(base)
+        count_stmt = self._zichtbaar(select(func.count()).select_from(Task).where(base))
         result = await self.session.execute(count_stmt)
         count = result.scalar_one()
 
-        tasks_stmt = (
+        tasks_stmt = self._zichtbaar(
             select(Task)
             .where(base)
             .options(*_task_options())
@@ -136,7 +154,7 @@ class EenheidOverviewService:
         person_ids = [p.id for p in people]
 
         # Batch: get all task stats for these people in one query
-        stats_stmt = (
+        stats_stmt = self._zichtbaar(
             select(
                 Task.assignee_id,
                 Task.status,
@@ -213,7 +231,7 @@ class EenheidOverviewService:
             child_id_sets[child.id] = await get_descendant_ids(self.session, child.id)
 
         # Batch: get all task stats for all descendant units in one query
-        stats_stmt = (
+        stats_stmt = self._zichtbaar(
             select(
                 Task.organisatie_eenheid_id,
                 Task.status,

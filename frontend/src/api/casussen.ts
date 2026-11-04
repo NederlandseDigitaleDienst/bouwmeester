@@ -1,5 +1,5 @@
 import { apiGet, apiPost, apiPut, apiDelete } from './client';
-import type { Casus, CasusDetail, CasusStart, CasusTeamlid, CasusUpdate } from '@/types';
+import type { BacklogResponse, Casus, CasusDetail, CasusStart, CasusTeamlid, CasusUpdate } from '@/types';
 
 export async function getCasussen(initiatiefId?: string): Promise<Casus[]> {
   return apiGet<Casus[]>('/api/casussen', initiatiefId ? { initiatief_id: initiatiefId } : undefined);
@@ -33,3 +33,7 @@ export async function removeCasusTeamlid(casusId: string, rpId: string): Promise
   return apiDelete(`/api/casussen/${casusId}/team/${rpId}`);
 }
 
+/** Alle issues van alle casussen van een initiatief, met hun taken, plus de losse taken. */
+export async function getBacklog(initiatiefId: string): Promise<BacklogResponse> {
+  return apiGet<BacklogResponse>('/api/casussen/backlog', { initiatief_id: initiatiefId });
+}

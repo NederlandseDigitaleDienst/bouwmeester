@@ -6,6 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bouwmeester.repositories.initiatief import InitiatiefRepository
 from bouwmeester.services.mention_service import MentionService
 from bouwmeester.services.notification_service import NotificationService
 
@@ -24,6 +25,7 @@ async def sync_and_notify_mentions(
     source_task_id: UUID | None = None,
     source_lead_id: UUID | None = None,
     exclude_person_id: UUID | None = None,
+    alleen_leden_van: UUID | None = None,
     ontvanger_ziet: Callable[[UUID], Awaitable[bool]] | None = None,
 ) -> None:
     """Sync mentions from content and send notifications to mentioned persons.
@@ -41,6 +43,9 @@ async def sync_and_notify_mentions(
         source_node_id: Related node ID for notification linking (optional).
         source_task_id: Related task ID for notification linking (optional).
         exclude_person_id: Person ID to skip notifying (e.g. the direct recipient).
+        alleen_leden_van: Initiatief-id. Alleen wie lid is, krijgt een
+            melding: de titel van een casustaak hoort niet bij mensen die de
+            casus niet kunnen zien. De vermelding zelf wordt wel vastgelegd.
         ontvanger_ziet: Of een genoemde persoon de bron mag zien. Wie dat niet
             mag, krijgt geen melding: die zou de titel lezen van iets waar
             hij geen toegang toe heeft. De vermelding zelf wordt wel
@@ -57,9 +62,14 @@ async def sync_and_notify_mentions(
             )
 
             notif_svc = NotificationService(db)
+            init_repo = InitiatiefRepository(db)
             for m in new_mentions:
                 if m.mention_type == "person":
                     if exclude_person_id and m.target_id == exclude_person_id:
+                        continue
+                    if alleen_leden_van is not None and not await init_repo.is_member(
+                        alleen_leden_van, m.target_id
+                    ):
                         continue
                     if ontvanger_ziet is not None and not await ontvanger_ziet(
                         m.target_id

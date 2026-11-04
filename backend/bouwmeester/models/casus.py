@@ -1,8 +1,8 @@
 """Casus model - het inhoudelijke werk dat start als een lead de trechter uit is.
 
 Een lead is een contact of organisatie met informatie die door de trechter
-loopt. Een casus is wat daarna begint: eigen fases en een eigen team. Eén
-lead levert hooguit één casus
+loopt. Een casus is wat daarna begint: eigen fases, eigen team en
+issues (onderzoeksvragen en ander werk) met taken. Eén lead levert hooguit één casus
 op; de lead blijft daarna als geschiedenis staan, alleen-lezen.
 
 Casussen bevatten de vertrouwelijkste informatie en zijn nooit publiek.
@@ -21,6 +21,7 @@ from bouwmeester.core.database import Base
 if TYPE_CHECKING:
     from bouwmeester.models.casus_soort import CasusSoort
     from bouwmeester.models.initiatief import Initiatief
+    from bouwmeester.models.issue import Issue
     from bouwmeester.models.lead import Lead
     from bouwmeester.models.person import Person
 
@@ -93,3 +94,9 @@ class Casus(Base):
     )
     initiatief: Mapped[Optional["Initiatief"]] = relationship("Initiatief")
     started_by: Mapped[Optional["Person"]] = relationship("Person")
+    issues: Mapped[list["Issue"]] = relationship(
+        "Issue",
+        back_populates="casus",
+        cascade="all, delete-orphan",
+        order_by="Issue.sort_order.asc(), Issue.created_at.asc()",
+    )

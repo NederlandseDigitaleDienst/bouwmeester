@@ -343,6 +343,18 @@ async def delete_initiatief(
         )
     )
 
+    # Bijlagen van casustaken: de rijen gaan via de cascade mee, de
+    # bestanden ruimen we na de commit op.
+    from bouwmeester.core.storage import delete_blob
+    from bouwmeester.repositories.casus import bijlage_paden_van_casussen
+
+    casus_ids = list(
+        (await db.execute(sa_select(Casus.id).where(Casus.initiatief_id == id)))
+        .scalars()
+        .all()
+    )
+    bijlage_paden = await bijlage_paden_van_casussen(db, casus_ids)
+
     require_deleted(await repo.delete(id), "Initiatief")
 
     await log_activity(
@@ -352,6 +364,9 @@ async def delete_initiatief(
         "initiatief.deleted",
         details={"initiatief_id": str(id), "naam": initiatief_naam},
     )
+    await db.commit()
+    for pad in bijlage_paden:
+        await delete_blob(pad)
 
 
 # ---------------------------------------------------------------------------

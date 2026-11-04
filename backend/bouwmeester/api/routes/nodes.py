@@ -12,6 +12,10 @@ from bouwmeester.core.authority import (
     require_can_grant_resource_role,
 )
 from bouwmeester.core.database import get_db
+from bouwmeester.core.initiatief_context import (
+    InitiatiefContext,
+    get_initiatief_context,
+)
 from bouwmeester.core.org_context import (
     OrgContext,
     check_resource_org_scope,
@@ -343,14 +347,21 @@ async def get_node_tasks(
     limit: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
     org_ctx: OrgContext = Depends(get_org_context),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> list[TaskResponse]:
-    """List all tasks linked to a specific node."""
+    """List all tasks linked to a specific node.
+
+    Een taak die ook op een casus staat, alleen voor wie het initiatief
+    van die casus ziet.
+    """
     await check_resource_org_scope(db, "corpus_node", id, org_ctx)
     service = NodeService(db)
     require_found(await service.get(id), "Node")
 
     task_repo = TaskRepository(db)
-    tasks = await task_repo.get_by_node(id, skip=skip, limit=limit, org_ctx=org_ctx)
+    tasks = await task_repo.get_by_node(
+        id, skip=skip, limit=limit, org_ctx=org_ctx, init_ctx=init_ctx
+    )
     return validate_list(TaskResponse, tasks)
 
 
