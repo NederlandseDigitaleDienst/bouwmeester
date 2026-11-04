@@ -44,6 +44,10 @@ export async function getTasksByOpdracht(opdrachtId: string): Promise<Task[]> {
   return apiGet<Task[]>('/api/tasks', { opdracht_id: opdrachtId });
 }
 
+export async function getTasksByCasus(casusId: string): Promise<Task[]> {
+  return apiGet<Task[]>('/api/tasks', { casus_id: casusId });
+}
+
 // --- Opmerkingen en bijlagen (het taakdetail) ---
 
 export async function getTaskComments(taskId: string): Promise<TaskComment[]> {

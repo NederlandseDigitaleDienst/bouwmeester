@@ -29,6 +29,19 @@ START_VANUIT_STAGE = "in_the_pocket"
 CASUSTEAM_ROLLEN: frozenset[str] = frozenset({"trekker", "teamlid"})
 
 
+# Definition of Done: dummy-default zolang een initiatief geen eigen lijst
+# heeft (initiatief.dod_items). Teamstandaard, per initiatief aan te passen
+# via de instellingen. Bij het afronden van een issue loopt het team deze
+# lijst na.
+DEFAULT_DOD: tuple[str, ...] = (
+    "De acceptatiecriteria zijn aantoonbaar gehaald",
+    "Het resultaat is gedemonstreerd aan het team",
+    "Documentatie of verslag is bijgewerkt",
+    "Wat in de repo hoort staat erin en is gereviewd",
+    "Open punten zijn vastgelegd als nieuwe vraag of taak",
+)
+
+
 class CasusAs(enum.StrEnum):
     onderzoeksvragen = "onderzoeksvragen"
     toepassing = "toepassing"
@@ -158,6 +171,8 @@ class CasusResponse(BaseModel):
     started_by_id: UUID | None = None
     trekker_naam: str | None = None
     team_count: int = 0
+    issue_count: int = 0
+    issue_done_count: int = 0
     # De soorten (tags) van de casus, uit die van het initiatief.
     soorten: list[CasusSoortSummary] = Field(default_factory=list)
     created_at: datetime
@@ -169,3 +184,5 @@ class CasusResponse(BaseModel):
 class CasusDetailResponse(CasusResponse):
     lead: CasusLeadSummary | None = None
     team: list[CasusTeamResponse] = Field(default_factory=list)
+    # De DoD die voor deze casus geldt: die van het initiatief, anders de default.
+    dod_items: list[str] = Field(default_factory=list)

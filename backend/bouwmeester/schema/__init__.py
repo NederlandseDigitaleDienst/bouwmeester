@@ -125,6 +125,13 @@ from bouwmeester.schema.initiatief_update import (
     InitiatiefUpdatePostPublicResponse,
     InitiatiefUpdatePostResponse,
 )
+from bouwmeester.schema.issue import (
+    IssueCreate,
+    IssueReorder,
+    IssueResponse,
+    IssueStatus,
+    IssueUpdate,
+)
 from bouwmeester.schema.lead import (
     LeadActivityCreate,
     LeadActivityResponse,
@@ -296,6 +303,7 @@ from bouwmeester.schema.task import (
     EenheidPersonTaskStats,
     EenheidSubeenheidStats,
     TaskBase,
+    TaskCasusSummary,
     TaskCreate,
     TaskOpdrachtSummary,
     TaskOrgEenheidSummary,
@@ -404,6 +412,7 @@ __all__ = [
     "TaskPriority",
     "TaskResponse",
     "TaskStatus",
+    "TaskCasusSummary",
     "TaskSubtaskSummary",
     "TaskUpdate",
     # fcc
@@ -600,6 +609,12 @@ __all__ = [
     "CasusTeamResponse",
     "CasusUpdate",
     "Startvoorwaarden",
+    # issue
+    "IssueCreate",
+    "IssueReorder",
+    "IssueResponse",
+    "IssueStatus",
+    "IssueUpdate",
     # suggested_lead
     "SuggestedLeadResponse",
     # whitelist / admin

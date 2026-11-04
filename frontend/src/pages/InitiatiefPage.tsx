@@ -5,6 +5,7 @@ import { useNlddEvent } from '@/components/nldd/events';
 import { useInitiatief } from '@/hooks/useInitiatieven';
 import { InitiatiefLeads } from '@/components/initiatieven/InitiatiefLeads';
 import { InitiatiefCasussen } from '@/components/casussen/InitiatiefCasussen';
+import { InitiatiefBacklog } from '@/components/casussen/InitiatiefBacklog';
 import { InitiatiefUpdates } from '@/components/initiatieven/InitiatiefUpdates';
 import { InitiatiefMensen } from '@/components/initiatieven/InitiatiefMensen';
 import { InitiatiefSignalen } from '@/components/initiatieven/InitiatiefSignalen';
@@ -19,6 +20,7 @@ import type { InitiatiefDetail } from '@/types';
 const TAB_LABELS: Record<InitiatiefTab, string> = {
   leads: 'Leads',
   casussen: 'Casussen',
+  backlog: 'Backlog',
   updates: 'Updates',
   mensen: 'Mensen',
   signalen: 'Signalen',
@@ -28,14 +30,15 @@ const TAB_LABELS: Record<InitiatiefTab, string> = {
 /**
  * The tabs this person gets. Ordered by how often they are used: the leads
  * daily, updates weekly, people and signals now and then, settings once.
- * A viewer changes nothing, so has no settings tab. Casussen only when the
- * initiatief works with them (a switch in the settings, off by default).
+ * A viewer changes nothing, so has no settings tab. Casussen and Backlog only
+ * when the initiatief works with casussen (a switch in the settings, off by
+ * default).
  */
 function visibleTabs(initiatief: InitiatiefDetail): InitiatiefTab[] {
   const canEdit =
     initiatief.access_level === 'eigenaar' || initiatief.access_level === 'contributor';
   const tabs: InitiatiefTab[] = ['leads'];
-  if (initiatief.casussen_enabled) tabs.push('casussen');
+  if (initiatief.casussen_enabled) tabs.push('casussen', 'backlog');
   tabs.push('updates', 'mensen', 'signalen');
   if (canEdit) tabs.push('instellingen');
   return tabs;
@@ -86,6 +89,7 @@ export function InitiatiefPage() {
       <div key={initiatief.id}>
         {activeTab === 'leads' && <InitiatiefLeads initiatiefId={initiatief.id} />}
         {activeTab === 'casussen' && <InitiatiefCasussen initiatiefId={initiatief.id} />}
+        {activeTab === 'backlog' && <InitiatiefBacklog initiatiefId={initiatief.id} />}
         {activeTab === 'updates' && <TabBody><InitiatiefUpdates initiatief={initiatief} /></TabBody>}
         {activeTab === 'mensen' && <TabBody><InitiatiefMensen initiatief={initiatief} /></TabBody>}
         {activeTab === 'signalen' && <TabBody><InitiatiefSignalen initiatief={initiatief} /></TabBody>}

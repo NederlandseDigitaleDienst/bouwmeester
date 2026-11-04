@@ -5,8 +5,10 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bouwmeester.core.initiatief_context import InitiatiefContext
 from bouwmeester.core.org_context import OrgContext, org_filter_sql_clause
 from bouwmeester.core.query_utils import escape_like
+from bouwmeester.repositories.task import casus_filter_sql_clause
 from bouwmeester.utils.tiptap import tiptap_to_plain
 
 
@@ -20,11 +22,14 @@ class SearchRepository:
         result_types: list[str] | None = None,
         limit: int = 50,
         org_ctx: OrgContext | None = None,
+        init_ctx: InitiatiefContext | None = None,
     ) -> list[dict]:
         """Search across all entity types using stored tsvector + GIN indexes.
 
         Returns unified results from corpus_node, task, person,
         organisatie_eenheid, parlementair_item, and tag tables.
+        Taken van een casus alleen binnen de zichtbare initiatieven
+        (``init_ctx``), zoals in elke takenlijst.
         """
         all_types = {
             "corpus_node",
@@ -82,6 +87,8 @@ class SearchRepository:
                 WHERE {_where(tc)}{_org_sql()}
             """)
 
+        casus_sql, casus_params = casus_filter_sql_clause(init_ctx)
+
         if "task" in active_types:
             tc = entity_title_cols["task"]
             sub_queries.append(f"""
@@ -93,7 +100,7 @@ class SearchRepository:
                     description,
                     {_score(tc)} AS score
                 FROM task
-                WHERE {_where(tc)}{_org_sql()}
+                WHERE {_where(tc)}{_org_sql()}{casus_sql}
             """)
 
         if "person" in active_types:
@@ -181,6 +188,8 @@ class SearchRepository:
             "limit": limit,
             "ilike_pattern": f"%{escape_like(query.strip())}%",
         }
+        if "task" in active_types:
+            params.update(casus_params)
         if (
             org_ctx is not None
             and org_ctx.is_authenticated

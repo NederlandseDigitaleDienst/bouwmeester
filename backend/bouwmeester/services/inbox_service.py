@@ -15,7 +15,7 @@ class InboxService:
         self.task_repo = TaskRepository(session)
         self.activity_repo = ActivityRepository(session)
 
-    async def get_inbox(self, person_id: UUID) -> InboxResponse:
+    async def get_inbox(self, person_id: UUID, *, init_ctx=None) -> InboxResponse:
         """Aggregate inbox items for a person.
 
         Includes:
@@ -26,7 +26,9 @@ class InboxService:
         items: list[InboxItem] = []
 
         # 1. Overdue tasks
-        overdue_tasks = await self.task_repo.get_overdue(assignee_id=person_id)
+        overdue_tasks = await self.task_repo.get_overdue(
+            assignee_id=person_id, init_ctx=init_ctx
+        )
         for task in overdue_tasks:
             items.append(
                 InboxItem(
@@ -43,7 +45,7 @@ class InboxService:
 
         # 2. Recent task assignments (tasks assigned to this person, created recently)
         assigned_tasks = await self.task_repo.get_by_assignee(
-            assignee_id=person_id, limit=20
+            assignee_id=person_id, limit=20, init_ctx=init_ctx
         )
         for task in assigned_tasks:
             if task.status == "open":

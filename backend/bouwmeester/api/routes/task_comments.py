@@ -2,7 +2,8 @@
 
 Eigen router naast tasks.py, zodat het taakdetail (opmerkingen, bijlagen)
 los staat van de taak zelf. Toegang: wie de taak mag zien, mag meepraten en
-bijlagen toevoegen: task:read plus de org-scope, net als de taak zelf.
+bijlagen toevoegen. Een casustaak is zo zichtbaar als haar casus (404
+buiten een zichtbaar initiatief); een node-taak volgt de org-scope.
 Weghalen is anders: een opmerking of bijlage verwijdert alleen wie hem
 plaatste, of een beheerder. Een melding (toegewezene, @-vermelding) gaat
 alleen naar wie de taak mag zien.
@@ -21,6 +22,7 @@ from bouwmeester.core.database import get_db
 from bouwmeester.core.initiatief_context import (
     InitiatiefContext,
     get_initiatief_context,
+    require_initiatief_visible,
 )
 from bouwmeester.core.org_context import (
     OrgContext,
@@ -40,6 +42,7 @@ from bouwmeester.core.storage import (
     store_upload,
     validate_upload,
 )
+from bouwmeester.models.casus import Casus
 from bouwmeester.models.person import Person
 from bouwmeester.models.task import Task
 from bouwmeester.models.task_attachment import TaskAttachment
@@ -66,14 +69,24 @@ MAX_BIJLAGEN_PER_TAAK = 20
 
 
 def _ziet_taak(db: AsyncSession, task: Task):
-    """Of een persoon deze taak mag zien: task:read plus de org-scope.
+    """Of een persoon deze taak mag zien.
 
     Voor meldingen: wie de taak niet mag zien, krijgt geen bericht met haar
     titel. Dezelfde regels als `_get_visible_task`, maar voor een ander dan
-    de aanvrager.
+    de aanvrager: een casustaak voor wie lid is van het initiatief, een
+    node-taak met task:read plus de org-scope.
     """
 
     async def ziet(person_id: UUID) -> bool:
+        if task.casus_id is not None:
+            from bouwmeester.repositories.initiatief import InitiatiefRepository
+
+            casus = await db.get(Casus, task.casus_id)
+            if casus is None or casus.initiatief_id is None:
+                return casus is not None
+            return await InitiatiefRepository(db).is_member(
+                casus.initiatief_id, person_id
+            )
         person = await db.get(Person, person_id)
         if person is None:
             return False
@@ -99,11 +112,21 @@ async def _get_visible_task(
 ) -> Task:
     """De taak, als de aanvrager hem mag zien.
 
-    De gewone regel voor taken: task:read plus de org-scope.
+    Een casustaak volgt de casus: zichtbaar voor wie het initiatief ziet,
+    anders 404 (zoals issues en stories; geen rol vereist). Een node-taak
+    volgt de gewone regel: task:read plus de org-scope.
     """
     task = await db.get(Task, task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="Taak niet gevonden")
+    if task.casus_id is not None:
+        casus = await db.get(Casus, task.casus_id)
+        require_initiatief_visible(
+            casus.initiatief_id if casus else None,
+            init_ctx,
+            detail="Taak niet gevonden",
+        )
+        return task
     if not perm_ctx.has_permission("task:read"):
         raise HTTPException(status_code=403, detail="Onvoldoende rechten")
     await check_resource_org_scope(db, "task", task_id, org_ctx)
@@ -180,6 +203,8 @@ async def add_comment(
                 related_task_id=task.id,
             )
         )
+    # Alleen meldingen voor wie de taak mag zien; op een casustaak de leden
+    # van het initiatief.
     await sync_and_notify_mentions(
         db,
         "task_comment",

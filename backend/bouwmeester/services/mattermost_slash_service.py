@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from bouwmeester.core.config import get_settings
+from bouwmeester.core.initiatief_context import build_initiatief_context
 from bouwmeester.core.query_utils import escape_like
 from bouwmeester.models.corpus_node import CorpusNode
 from bouwmeester.models.initiatief import Initiatief
@@ -18,6 +19,7 @@ from bouwmeester.models.mattermost_channel_link import (
     SCOPE_INITIATIEF,
     SCOPE_LEAD,
 )
+from bouwmeester.models.person import Person
 from bouwmeester.models.task import Task
 from bouwmeester.repositories.mattermost_channel_link import (
     MattermostChannelLinkRepository,
@@ -27,6 +29,7 @@ from bouwmeester.repositories.parlementair_abonnement import (
     ParlementairAbonnementRepository,
 )
 from bouwmeester.repositories.search import SearchRepository
+from bouwmeester.repositories.task import apply_casus_filter
 from bouwmeester.services.mattermost_utils import escape_mattermost_md as _escape_md
 
 logger = logging.getLogger(__name__)
@@ -102,6 +105,11 @@ class MattermostSlashService:
             .options(selectinload(Task.node))
             .order_by(Task.deadline.asc().nulls_last())
         )
+        # Casustaken alleen binnen de zichtbare initiatieven, zoals /tasks/my:
+        # wie uit een initiatief is gehaald, ziet zijn casustaken ook hier niet.
+        person = await self.session.get(Person, person_id)
+        init_ctx = await build_initiatief_context(self.session, person)
+        stmt = apply_casus_filter(stmt, init_ctx)
 
         # Apply deadline filter.
         filter_arg = args.lower() if args else "alles"

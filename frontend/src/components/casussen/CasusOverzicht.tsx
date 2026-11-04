@@ -9,18 +9,24 @@ import { useCasusFases } from '@/hooks/useCasusFases';
 import { leadColumnTagColor } from '@/components/leads/stageColors';
 import { CasusInfo } from './CasusInfo';
 import { CasusSoortTags } from './CasusSoorten';
+import { InitiatiefBacklog } from './InitiatiefBacklog';
 
 interface Props {
   casusId: string;
   initiatiefId: string;
+  /** Waar de filters van het werk komen: in de kop van de tab Casussen. */
+  filterPlek?: HTMLElement | null;
 }
 
 /**
  * Eén casus, inline op de tab Casussen: een kop met fase, trekker en team,
- * en de casusgegevens om uit te klappen. Geen venster: daaruit openen
- * andere vensters, en een venster op een venster werkt niet prettig.
+ * de casusgegevens om uit te klappen, en daaronder het werk in hetzelfde
+ * formaat als de backlog (issues met hun kanban), beperkt tot deze casus.
+ *
+ * Geen venster: taakdetail en issue bewerken openen er zelf een, en een
+ * venster op een venster werkt niet prettig.
  */
-export function CasusOverzicht({ casusId, initiatiefId }: Props) {
+export function CasusOverzicht({ casusId, initiatiefId, filterPlek }: Props) {
   const { data: casus, isLoading, isError } = useCasus(casusId);
   const fases = useCasusFases(initiatiefId);
   const fase = fases.find((f) => f.id === casus?.fase);
@@ -74,6 +80,7 @@ export function CasusOverzicht({ casusId, initiatiefId }: Props) {
           )}
         </nldd-container>
       </div>
+      <InitiatiefBacklog initiatiefId={initiatiefId} vasteCasusId={casus.id} filterPlek={filterPlek} />
     </nldd-container>
   );
 }

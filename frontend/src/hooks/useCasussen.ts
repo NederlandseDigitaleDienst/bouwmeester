@@ -7,6 +7,7 @@ import {
   deleteCasus,
   addCasusTeamlid,
   removeCasusTeamlid,
+  getBacklog,
 } from '@/api/casussen';
 import { useMutationWithError } from '@/hooks/useMutationWithError';
 import { queryKeys } from '@/hooks/queryKeys';
@@ -16,6 +17,15 @@ export function useCasussen(initiatiefId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.casussen.list(initiatiefId),
     queryFn: () => getCasussen(initiatiefId),
+  });
+}
+
+/** De sleutel staat onder tasks.list, zodat elke taakmutatie de backlog ververst. */
+export function useBacklog(initiatiefId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.tasks.backlog(initiatiefId),
+    queryFn: () => getBacklog(initiatiefId!),
+    enabled: !!initiatiefId,
   });
 }
 

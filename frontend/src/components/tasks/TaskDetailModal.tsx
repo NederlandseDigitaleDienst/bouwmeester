@@ -1,20 +1,21 @@
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@/components/nldd/Icon';
 import { Select } from '@/components/common/Select';
 import { TaskCommentsSection } from './TaskCommentsSection';
 import { TaskAttachmentsSection } from './TaskAttachmentsSection';
-import { usePeople } from '@/hooks/usePeople';
+import { useInitiatiefPersonOptions } from '@/hooks/useInitiatiefPersonOptions';
 import { Modal } from '@/components/common/Modal';
 import { ReferencesList } from '@/components/common/ReferencesList';
 import { CreatableSelect } from '@/components/common/CreatableSelect';
 import { Input } from '@/components/common/Input';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { Eigenschap, Eigenschappen, TekstVeld, TitelVeld } from '@/components/common/DetailVelden';
+import { Eigenschap, Eigenschappen, TekstVeld, TitelVeld, Waarde } from '@/components/common/DetailVelden';
 import { useReorderSubtasks, useTask, useUpdateTask, useWorkTypes } from '@/hooks/useTasks';
 import { DetailSection } from '@/components/common/DetailSection';
 import { Badge } from '@/components/common/Badge';
 import { TaskCreateForm } from './TaskCreateForm';
+import { useIssues } from '@/hooks/useIssues';
 import { useTaakVerwijderen } from '@/hooks/useTaakVerwijderen';
 import { useTaskFormOptions } from '@/hooks/useTaskFormOptions';
 import { eventValue, orUndef, useNlddEvent } from '@/components/nldd/events';
@@ -87,7 +88,7 @@ function DeadlineVeld({ datum, teLaat, onOpslaan }: { datum: string; teLaat: boo
   );
 }
 
-/** Node van een taak: kiezen, en openen met het pijltje. */
+/** Node van een taak buiten een casus: kiezen, en openen met het pijltje. */
 function NodeVeld({ task, onOpslaan, onOpen }: { task: Task; onOpslaan: (nodeId: string) => void; onOpen: () => void }) {
   const { nodeOptions } = useTaskFormOptions();
   return (
@@ -186,9 +187,9 @@ function SubtaakRij({
 }
 
 /**
- * De subtaken van een taak, zoals op main: een lijst met
+ * De subtaken van een taak buiten een casus, zoals op main: een lijst met
  * omhoog en omlaag, en Subtaak toevoegen opent het formulier voor een
- * nieuwe taak onder deze.
+ * nieuwe taak onder deze. In een casus zijn er geen subtaken.
  */
 function Subtaken({ task }: { task: Task }) {
   const reorder = useReorderSubtasks();
@@ -257,19 +258,13 @@ function TaakVelden({ task, onClose }: { task: Task; onClose: () => void }) {
   const { openNodeDetail } = useNodeDetail();
   const { openOpdrachtDetail } = useOpdrachtDetail();
   const navigate = useNavigate();
-  // Iedereen die actief is; staat er iemand op de taak die dat niet meer
-  // is, dan blijft die zichtbaar zodat de keuze niet stil verspringt.
-  const { data: mensen } = usePeople();
-  const personOptions = useMemo(() => {
-    const opties = [
-      { value: '', label: 'Niemand' },
-      ...(mensen ?? []).filter((p) => p.is_active && !p.is_agent).map((p) => ({ value: p.id, label: p.naam })),
-    ];
-    if (task.assignee && !opties.some((o) => o.value === task.assignee!.id)) {
-      opties.push({ value: task.assignee.id, label: task.assignee.naam });
-    }
-    return opties;
-  }, [mensen, task.assignee]);
+  // Voor een casustaak alleen leden van het initiatief (de backend weigert
+  // een niet-lid met 400); daarbuiten iedereen.
+  const personOptions = useInitiatiefPersonOptions(task.assignee ?? null, task.casus?.initiatief_id ?? null);
+  // De onderzoeksvraag waar de taak onder hangt: alleen tonen. Een taak naar
+  // een andere vraag verplaatsen kan hier bewust niet.
+  const { data: vragen } = useIssues(task.casus_id ?? null);
+  const vraag = vragen?.find((v) => v.id === task.issue_id);
 
   const teLaat = !!task.due_date && checkOverdue(task.due_date) && task.status !== TaskStatus.DONE;
 
@@ -297,16 +292,36 @@ function TaakVelden({ task, onClose }: { task: Task; onClose: () => void }) {
           <Eigenschap label="Deadline">
             <DeadlineVeld datum={task.due_date?.split('T')[0] ?? ''} teLaat={teLaat} onOpslaan={(due_date) => zet({ due_date })} />
           </Eigenschap>
-          <Eigenschap label="Verantwoordelijke eenheid">
-            <EenheidVeld task={task} onOpslaan={(organisatie_eenheid_id) => zet({ organisatie_eenheid_id })} />
-          </Eigenschap>
-          <Eigenschap label="Werktype">
-            <WerktypeVeld task={task} onOpslaan={(work_type) => zet({ work_type })} />
-          </Eigenschap>
-          {/* De node is te kiezen, ook bij een subtaak. */}
-          <Eigenschap label="Node" breed>
-            <NodeVeld task={task} onOpslaan={(node_id) => zet({ node_id })} onOpen={() => openNodeDetail(task.node_id!, task.title)} />
-          </Eigenschap>
+          {task.casus && (
+            <Eigenschap label="Casus">
+              <Waarde>{task.casus.title}</Waarde>
+            </Eigenschap>
+          )}
+          {task.casus_id && (
+            <Eigenschap label="Onderzoeksvraag" breed>
+              <Waarde leeg={!task.issue_id}>{vraag?.title ?? 'Laden...'}</Waarde>
+            </Eigenschap>
+          )}
+          {/* Bij een casustaak zegt de casus waar het werk hoort; de
+              eenheid alleen als die er toch op staat. */}
+          {(task.organisatie_eenheid_id || !task.casus) && (
+            <Eigenschap label="Verantwoordelijke eenheid">
+              <EenheidVeld task={task} onOpslaan={(organisatie_eenheid_id) => zet({ organisatie_eenheid_id })} />
+            </Eigenschap>
+          )}
+          {/* Een taak buiten een casus hangt aan een node; die is te kiezen,
+              ook bij een subtaak. Het werktype hoort bij het bestaande
+              werk in Bouwmeester, niet bij een casus. */}
+          {!task.casus_id && (
+            <Eigenschap label="Werktype">
+              <WerktypeVeld task={task} onOpslaan={(work_type) => zet({ work_type })} />
+            </Eigenschap>
+          )}
+          {!task.casus_id && (
+            <Eigenschap label="Node" breed>
+              <NodeVeld task={task} onOpslaan={(node_id) => zet({ node_id })} onOpen={() => openNodeDetail(task.node_id!, task.title)} />
+            </Eigenschap>
+          )}
           {task.opdracht && (
             <Eigenschap label="Opdracht">
               <div>
@@ -347,7 +362,9 @@ function TaakVelden({ task, onClose }: { task: Task; onClose: () => void }) {
         onOpslaan={bewaarBeschrijving}
       />
 
-      <Subtaken task={task} />
+      {/* Een taak in een casus heeft geen subtaken; daarbuiten (een taak aan
+          een node) wel, zoals op main. */}
+      {!task.casus_id && <Subtaken task={task} />}
 
       {/* Opmerkingen: het gesprek over de taak. */}
       <TaskCommentsSection taskId={task.id} />

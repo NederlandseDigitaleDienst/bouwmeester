@@ -6,12 +6,14 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bouwmeester.core.initiatief_context import InitiatiefContext
 from bouwmeester.core.org_context import OrgContext, apply_org_filter
 from bouwmeester.core.tiptap_markdown import extract_markdown_mentions
 from bouwmeester.models.corpus_node import CorpusNode
 from bouwmeester.models.mention import Mention
 from bouwmeester.models.task import Task
 from bouwmeester.repositories.mention import MentionRepository
+from bouwmeester.repositories.task import apply_casus_filter
 from bouwmeester.schema.mention import (
     MentionCreate,
     MentionReference,
@@ -116,12 +118,14 @@ class MentionService:
         target_id: UUID,
         *,
         org_ctx: OrgContext | None = None,
+        init_ctx: InitiatiefContext | None = None,
     ) -> list[MentionReference]:
         """Get all places where target_id is mentioned, with source titles.
 
         Only includes public source types (nodes, tasks) — private content
         like DMs and org descriptions should not leak as back-references.
-        Filters node/task sources cross-org via ``org_ctx``.
+        Filters node/task sources cross-org via ``org_ctx``, and tasks of a
+        casus outside the visible initiatieven via ``init_ctx``.
         """
         mentions = await self.repo.get_by_target(
             target_id, allowed_source_types=self._PUBLIC_SOURCE_TYPES
@@ -130,9 +134,11 @@ class MentionService:
             return []
 
         # Filter mentions to only those whose source node/task is visible
-        # to the caller (cross-org leak prevention).
-        if org_ctx is not None and not org_ctx.is_admin:
-            mentions = await self._filter_mentions_by_org(mentions, org_ctx)
+        # to the caller (cross-org and cross-initiatief leak prevention).
+        if (org_ctx is not None and not org_ctx.is_admin) or (
+            init_ctx is not None and not init_ctx.is_admin
+        ):
+            mentions = await self._filter_mentions_by_org(mentions, org_ctx, init_ctx)
             if not mentions:
                 return []
 
@@ -196,9 +202,16 @@ class MentionService:
         return titles
 
     async def _filter_mentions_by_org(
-        self, mentions: list[Mention], org_ctx: OrgContext
+        self,
+        mentions: list[Mention],
+        org_ctx: OrgContext | None,
+        init_ctx: InitiatiefContext | None = None,
     ) -> list[Mention]:
-        """Drop mentions whose source node/task is outside the caller's org-scope."""
+        """Drop mentions whose source node/task is outside the caller's scope.
+
+        Org-scope for nodes and tasks; for a task of a casus also the
+        initiatief of that casus.
+        """
         node_ids = {m.source_id for m in mentions if m.source_type == "node"}
         task_ids = {m.source_id for m in mentions if m.source_type == "task"}
 
@@ -221,6 +234,7 @@ class MentionService:
                 Task.organisatie_eenheid_id,
                 org_ctx,
             )
+            stmt = apply_casus_filter(stmt, init_ctx)
             visible_task_ids = {
                 row[0] for row in (await self.session.execute(stmt)).all()
             }
@@ -239,6 +253,7 @@ class MentionService:
         limit: int = 10,
         *,
         org_ctx: OrgContext | None = None,
+        init_ctx: InitiatiefContext | None = None,
     ) -> list[MentionSearchResult]:
         """Search across nodes, tasks, and tags for # mention suggestions."""
         results: list[MentionSearchResult] = []
@@ -263,6 +278,7 @@ class MentionService:
         if "task" in allowed:
             stmt = select(Task).where(Task.title.ilike(pattern))
             stmt = apply_org_filter(stmt, Task.organisatie_eenheid_id, org_ctx)
+            stmt = apply_casus_filter(stmt, init_ctx)
             stmt = stmt.order_by(Task.title).limit(limit)
             rows = await self.session.execute(stmt)
             for t in rows.scalars().all():

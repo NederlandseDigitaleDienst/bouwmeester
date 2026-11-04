@@ -1138,8 +1138,9 @@ async def _execute_read_tool(
 
             repo = TaskRepository(db)
             org_ctx = await _build_chat_org_context(db, person_id)
+            init_ctx = await _build_chat_initiatief_context(db, person_id)
             tasks = await repo.get_by_node(
-                UUID(args["node_id"]), limit=20, org_ctx=org_ctx
+                UUID(args["node_id"]), limit=20, org_ctx=org_ctx, init_ctx=init_ctx
             )
             items = [_task_to_dict(t) for t in tasks]
             return _safe_dumps({"tasks": items, "count": len(items)})
@@ -1149,8 +1150,9 @@ async def _execute_read_tool(
 
             repo = TaskRepository(db)
             org_ctx = await _build_chat_org_context(db, person_id)
+            init_ctx = await _build_chat_initiatief_context(db, person_id)
             tasks = await repo.get_by_assignee(
-                UUID(args["person_id"]), limit=20, org_ctx=org_ctx
+                UUID(args["person_id"]), limit=20, org_ctx=org_ctx, init_ctx=init_ctx
             )
             items = [_task_to_dict(t) for t in tasks]
             return _safe_dumps({"tasks": items, "count": len(items)})
@@ -1160,8 +1162,11 @@ async def _execute_read_tool(
 
             repo = TaskRepository(db)
             org_ctx = await _build_chat_org_context(db, person_id)
+            init_ctx = await _build_chat_initiatief_context(db, person_id)
             assignee_id = UUID(args["assignee_id"]) if args.get("assignee_id") else None
-            tasks = await repo.get_overdue(assignee_id=assignee_id, org_ctx=org_ctx)
+            tasks = await repo.get_overdue(
+                assignee_id=assignee_id, org_ctx=org_ctx, init_ctx=init_ctx
+            )
             items = [_task_to_dict(t) for t in tasks[:20]]
             return _safe_dumps({"tasks": items, "count": len(items)})
 
@@ -1250,7 +1255,10 @@ async def _execute_read_tool(
                 return _safe_dumps({"error": "Persoon niet gevonden"})
 
             task_repo = TaskRepository(db)
-            tasks = await task_repo.get_by_assignee(person.id, limit=10)
+            init_ctx = await _build_chat_initiatief_context(db, person_id)
+            tasks = await task_repo.get_by_assignee(
+                person.id, limit=10, init_ctx=init_ctx
+            )
             open_tasks = [t for t in tasks if t.status not in ("done", "cancelled")]
 
             # Find current org unit via active placement
@@ -1675,6 +1683,53 @@ _WRITE_TOOL_POLICY: dict[str, tuple[str | None, tuple[tuple[str, str], ...]]] = 
 }
 
 
+async def _require_chat_task_visible(
+    tool_name: str, args: dict, db: AsyncSession, person_id: UUID | None
+) -> None:
+    """De regels van de taakroutes voor ``update_task`` en ``create_task``.
+
+    Een taak bijwerken kan alleen als je haar kunt zien; een subtaak hangt
+    alleen onder een zichtbare taak, en nooit onder een taak in een casus.
+    Gooit dezelfde HTTPException als de route.
+    """
+    from bouwmeester.api.routes.tasks import (
+        _geen_subtaak_in_casus,
+        _require_task_visible,
+    )
+    from bouwmeester.models.task import Task
+
+    if tool_name == "update_task":
+        arg = "task_id"
+    elif tool_name == "create_task" and args.get("parent_task_id"):
+        arg = "parent_task_id"
+    else:
+        return
+    task = await db.get(Task, UUID(args[arg]))
+    if task is None:
+        return  # de org-check hierna geeft 404
+    init_ctx = await _build_chat_initiatief_context(db, person_id)
+    await _require_task_visible(db, task, init_ctx)
+    if arg == "parent_task_id":
+        _geen_subtaak_in_casus(task, casus_taak=False)
+    elif task.casus_id is not None:
+        # Zoals PUT /api/tasks/{id}: een casustaak wijzigen vraagt een rol op
+        # de casus, behalve de eigen voortgang door de uitvoerder.
+        from bouwmeester.api.routes.tasks import EIGEN_WERK_VELDEN
+        from bouwmeester.core.authority import require_can_change_casus
+        from bouwmeester.models.casus import Casus
+
+        access = await _chat_access(db, person_id)
+        velden = set(args) - {"task_id"}
+        eigen = (
+            access.person is not None
+            and task.assignee_id == access.person.id
+            and velden <= EIGEN_WERK_VELDEN
+        )
+        if not eigen:
+            casus = await db.get(Casus, task.casus_id)
+            await require_can_change_casus(db, access.perm_ctx, access.person, casus)
+
+
 async def _lead_open_of_weiger(db: AsyncSession, lead) -> dict | None:
     """Een lead met een casus is alleen-lezen, ook voor de chat; zoals de
     leadroutes (``_require_lead_open``). Geeft de weigering, of None."""
@@ -1713,6 +1768,9 @@ async def _authorize_write_tool(
     if perm is not None and not perm_ctx.has_permission(perm):
         return "Je hebt geen rechten voor deze actie."
     try:
+        # Een casustaak is buiten het initiatief onvindbaar, ook voor de chat:
+        # eerst die controle, zodat de org-check het bestaan niet verraadt.
+        await _require_chat_task_visible(tool_name, args, db, person_id)
         if targets:
             org_ctx = await _build_chat_org_context(db, person_id)
             for resource_type, arg in targets:
@@ -1907,6 +1965,11 @@ async def _execute_write_tool(
             task = await repo.update(UUID(args["task_id"]), data)
             if not task:
                 return {"success": False, "summary": "Taak niet gevonden"}
+            # De status van de onderzoeksvraag volgt haar taken, zoals bij
+            # PUT /api/tasks/{id}.
+            from bouwmeester.repositories.issue import IssueRepository
+
+            await IssueRepository(db).sync_status(task.issue_id)
             await db.commit()
             return {
                 "success": True,

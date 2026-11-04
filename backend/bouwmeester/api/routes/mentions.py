@@ -7,6 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bouwmeester.core.auth import OptionalUser
 from bouwmeester.core.database import get_db
+from bouwmeester.core.initiatief_context import (
+    InitiatiefContext,
+    get_initiatief_context,
+)
 from bouwmeester.core.org_context import OrgContext, get_org_context
 from bouwmeester.schema.mention import MentionReference, MentionSearchResult
 from bouwmeester.services.mention_service import MentionService
@@ -22,6 +26,7 @@ async def search_mentionables(
     limit: int = Query(10, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
     org_ctx: OrgContext = Depends(get_org_context),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> list[MentionSearchResult]:
     """Search nodes, tasks, and tags for # mention suggestions."""
     service = MentionService(db)
@@ -29,7 +34,7 @@ async def search_mentionables(
     if not q.strip():
         return []
     return await service.search_mentionables(
-        q.strip(), type_list, limit, org_ctx=org_ctx
+        q.strip(), type_list, limit, org_ctx=org_ctx, init_ctx=init_ctx
     )
 
 
@@ -39,7 +44,8 @@ async def get_references(
     current_user: OptionalUser,
     db: AsyncSession = Depends(get_db),
     org_ctx: OrgContext = Depends(get_org_context),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> list[MentionReference]:
     """Get all places where target_id is mentioned."""
     service = MentionService(db)
-    return await service.get_references(target_id, org_ctx=org_ctx)
+    return await service.get_references(target_id, org_ctx=org_ctx, init_ctx=init_ctx)

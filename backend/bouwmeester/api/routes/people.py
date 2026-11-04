@@ -17,6 +17,10 @@ from bouwmeester.core.authority import (
     require_can_place,
 )
 from bouwmeester.core.database import get_db
+from bouwmeester.core.initiatief_context import (
+    InitiatiefContext,
+    get_initiatief_context,
+)
 from bouwmeester.core.org_context import OrgContext, apply_org_filter, get_org_context
 from bouwmeester.core.permissions import (
     PermissionContext,
@@ -34,6 +38,7 @@ from bouwmeester.models.person_phone import PersonPhone
 from bouwmeester.models.resource_permission import ResourcePermission
 from bouwmeester.models.task import Task
 from bouwmeester.repositories.person import PersonRepository
+from bouwmeester.repositories.task import apply_casus_filter
 from bouwmeester.schema.person import (
     PHONE_LABELS,
     ApiKeyResponse,
@@ -355,37 +360,39 @@ async def get_person_summary(
     db: AsyncSession = Depends(get_db),
     _perm=Depends(require_permission("people:read")),
     org_ctx: OrgContext = Depends(get_org_context),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> PersonSummaryResponse:
     """Compact summary: task counts, top open tasks, and stakeholder nodes."""
     repo = PersonRepository(db)
     require_found(await repo.get(id), "Person")
 
+    def zichtbaar(stmt):
+        # Org-scope tegen taken uit onzichtbare eenheden, casusfilter tegen
+        # casustaken uit initiatieven die je niet ziet.
+        return apply_casus_filter(
+            apply_org_filter(stmt, Task.organisatie_eenheid_id, org_ctx), init_ctx
+        )
+
     # Task counts (also scoped by org-context to avoid leaking task counts
     # from invisible eenheden)
-    open_count_stmt = apply_org_filter(
+    open_count_stmt = zichtbaar(
         select(func.count())
         .select_from(Task)
         .where(Task.assignee_id == id, Task.status.in_(["open", "in_progress"])),
-        Task.organisatie_eenheid_id,
-        org_ctx,
     )
-    done_count_stmt = apply_org_filter(
+    done_count_stmt = zichtbaar(
         select(func.count())
         .select_from(Task)
         .where(Task.assignee_id == id, Task.status == "done"),
-        Task.organisatie_eenheid_id,
-        org_ctx,
     )
     open_count = (await db.execute(open_count_stmt)).scalar() or 0
     done_count = (await db.execute(done_count_stmt)).scalar() or 0
 
     # Top open tasks (max 5, ordered by priority then deadline)
-    open_tasks_stmt = apply_org_filter(
+    open_tasks_stmt = zichtbaar(
         select(Task).where(
             Task.assignee_id == id, Task.status.in_(["open", "in_progress"])
         ),
-        Task.organisatie_eenheid_id,
-        org_ctx,
     )
     open_tasks_stmt = open_tasks_stmt.order_by(
         # kritiek=0, hoog=1, normaal=2, laag=3

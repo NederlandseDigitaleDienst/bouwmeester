@@ -440,6 +440,76 @@
   cursor: grabbing;
 }
 
+/* # Issue row in the backlog
+ *
+ * Three parts side by side: on the left who leads the issue and how many
+ * tasks are done, in the middle the title across the rest of the width,
+ * since that is what people read, and on the right, flush with the row's
+ * edge, what it is (onderzoeksvraag or not) and its status side by side,
+ * with the casus below. The right part is as wide as its content, so it
+ * lines up with the buttons below it. Below 720px of row width the parts
+ * stack.
+ *
+ * A container query on the row rather than a media query: the backlog sits
+ * in a pane beside the sidebar, so the viewport says little about how wide
+ * the row is. nldd-container has no responsive layout switch, hence a
+ * stylesheet.
+ */
+.issue-kader {
+  container: issue-kader / inline-size;
+}
+.issue-rij {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  gap: var(--primitives-space-12);
+  min-width: 0;
+}
+.issue-rij-meta,
+.issue-rij-stand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--primitives-space-6);
+  min-width: 0;
+}
+.issue-rij-titel {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+@container issue-kader (min-width: 720px) {
+  .issue-rij {
+    flex-direction: row;
+    gap: var(--primitives-space-16);
+  }
+  .issue-rij-meta {
+    flex: 0 0 200px;
+    padding-right: var(--primitives-space-16);
+    border-right: 1px solid var(--primitives-color-neutral-200);
+  }
+  .issue-rij-stand {
+    /* Een vaste breedte, zodat de scheidingslijn na de titel in elke rij op
+       dezelfde plek staat, wat er ook in de kolom staat. De inhoud blijft
+       rechts tegen de rand; een lange casusnaam loopt door op een tweede
+       regel. */
+    flex: 0 0 300px;
+    align-items: flex-end;
+    text-align: right;
+    padding-left: var(--primitives-space-16);
+    border-left: 1px solid var(--primitives-color-neutral-200);
+  }
+}
+/* Het takenbord onder een uitgeklapte onderzoeksvraag vult de breedte van
+ * de tegel. nldd-task-board-column zet op zichzelf een vaste breedte van
+ * 280px; hier delen de kolommen de ruimte, en niet smaller dan 240px, zodat
+ * de drie kolommen ook op een laptop naast elkaar passen. Past dat niet,
+ * dan schuift het bord zelf opzij. */
+.issue-kader nldd-task-board-column {
+  flex: 1 1 0;
+  width: auto;
+  min-width: var(--primitives-area-240);
+}
+
 /* # Relatiematrix (CorpusMatrix)
  *
  * A real `<table role="grid">`, not something an nldd-* component models: it
@@ -694,8 +764,14 @@
 }
 /* Een keuzelijst met een vaste breedte past op een smal scherm niet: dan
  * de volle breedte, niet erbuiten. */
-.casus-kop-keuzes > * {
+.casus-kop-keuzes > *,
+.casus-kop-filters > * {
   max-width: 100%;
+}
+/* De filters van het werk van een casus, in de kop naast de keuzes: als
+ * gewone items van de regel, zonder eigen vak. */
+.casus-kop-filters {
+  display: contents;
 }
 .casus-kop-acties {
   grid-area: acties;

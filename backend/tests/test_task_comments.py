@@ -1,7 +1,7 @@
 """Opmerkingen en bijlagen op een taak (het taakdetail).
 
-Dekt: opmerkingen alleen op een taak die je mag zien (task:read, zoals de
-taak zelf), verwijderen alleen door auteur of beheerder, melding aan de
+Dekt: opmerkingen alleen op een zichtbare taak (404 buiten het initiatief
+van de casus), verwijderen alleen door auteur of beheerder, melding aan de
 toegewezene, en bijlagen uploaden, downloaden en verwijderen. Een bijlage
 verwijdert alleen wie hem plaatste of een beheerder; een taak heeft een
 maximum aan bijlagen. Een opmerking noemt een maximum aan mensen, alleen
@@ -14,18 +14,45 @@ import uuid
 import pytest
 from sqlalchemy import select
 
+from bouwmeester.models.casus import Casus
+from bouwmeester.models.initiatief import Initiatief
+from bouwmeester.models.lead import Lead
 from bouwmeester.models.mention import Mention
 from bouwmeester.models.notification import Notification
+from bouwmeester.models.resource_permission import ResourcePermission
 from bouwmeester.models.task import Task
 from tests.factories import client_as, grant_role, make_org, make_person, place
 
 
 @pytest.fixture
-async def taak(db_session, sample_node, sample_person):
+async def initiatief(db_session):
+    init = Initiatief(
+        id=uuid.uuid4(), naam="Regelrecht test", slug="rr-tc", casussen_enabled=True
+    )
+    db_session.add(init)
+    await db_session.flush()
+    return init
+
+
+@pytest.fixture
+async def taak(db_session, initiatief, sample_person):
+    lead = Lead(
+        id=uuid.uuid4(),
+        title="Casus",
+        stage="in_the_pocket",
+        initiatief_id=initiatief.id,
+    )
+    db_session.add(lead)
+    await db_session.flush()
+    casus = Casus(
+        id=uuid.uuid4(), lead_id=lead.id, title="Casus", initiatief_id=initiatief.id
+    )
+    db_session.add(casus)
+    await db_session.flush()
     task = Task(
         id=uuid.uuid4(),
         title="Taak",
-        node_id=sample_node.id,
+        casus_id=casus.id,
         assignee_id=sample_person.id,
     )
     db_session.add(task)
@@ -61,22 +88,30 @@ async def test_comments_on_unknown_task_is_404(client):
     assert resp.status_code == 404
 
 
-async def test_comments_without_task_read_is_403(db_session, taak):
+async def test_comments_invisible_task_is_404(db_session, taak):
     buitenstaander = await make_person(db_session, "Buitenstaander")
     async with client_as(db_session, buitenstaander) as c:
         resp = await c.get(f"/api/tasks/{taak.id}/comments")
-        assert resp.status_code == 403
+        assert resp.status_code == 404
         resp = await c.post(f"/api/tasks/{taak.id}/comments", json={"content": "x"})
-        assert resp.status_code == 403
+        assert resp.status_code == 404
 
 
-async def test_delete_comment_only_author_or_admin(client, db_session, taak):
+async def test_delete_comment_only_author_or_admin(
+    client, db_session, taak, initiatief
+):
     auteur = await make_person(db_session, "Auteur")
     ander = await make_person(db_session, "Ander")
-    eenheid = await make_org(db_session, "Eenheid opmerkingen")
     for p in (auteur, ander):
-        await place(db_session, p, eenheid)
-        await grant_role(db_session, p, "editor", eenheid)
+        db_session.add(
+            ResourcePermission(
+                person_id=p.id,
+                resource_type="initiatief",
+                resource_id=initiatief.id,
+                rol="contributor",
+            )
+        )
+    await db_session.flush()
     async with client_as(db_session, auteur) as c:
         resp = await c.post(f"/api/tasks/{taak.id}/comments", json={"content": "mijn"})
         assert resp.status_code == 201, resp.text
@@ -111,14 +146,14 @@ async def test_attachment_upload_download_delete(client, taak):
     assert resp.status_code == 404
 
 
-async def test_attachment_without_task_read_is_403(db_session, taak):
+async def test_attachment_invisible_task_is_404(db_session, taak):
     buitenstaander = await make_person(db_session, "Buitenstaander")
     async with client_as(db_session, buitenstaander) as c:
         resp = await c.post(
             f"/api/tasks/{taak.id}/attachments",
             files={"file": ("x.txt", b"x", "text/plain")},
         )
-    assert resp.status_code == 403
+    assert resp.status_code == 404
 
 
 async def test_task_delete_removes_attachment_files(
@@ -131,7 +166,9 @@ async def test_task_delete_removes_attachment_files(
     """
     from bouwmeester.models.task import Task
 
-    sub = Task(title="Subtaak", parent_id=taak.id, node_id=taak.node_id)
+    sub = Task(
+        title="Subtaak", parent_id=taak.id, casus_id=taak.casus_id, node_id=taak.node_id
+    )
     db_session.add(sub)
     await db_session.flush()
     for t in (taak, sub):
@@ -150,6 +187,16 @@ async def test_task_delete_removes_attachment_files(
 # ---------------------------------------------------------------------------
 # Na de review: verwijderen, maxima en meldingen
 # ---------------------------------------------------------------------------
+# Deze regels gelden voor elke taak; hier op een taak aan een node, waar de
+# org-scope telt. Voor casustaken zie test_casus_toegang.py.
+
+
+@pytest.fixture
+async def nodetaak(db_session, sample_node):
+    task = Task(id=uuid.uuid4(), title="Nodetaak", node_id=sample_node.id)
+    db_session.add(task)
+    await db_session.flush()
+    return task
 
 
 async def _met_rol(db_session, naam, rol, eenheid):
@@ -159,55 +206,55 @@ async def _met_rol(db_session, naam, rol, eenheid):
     return p
 
 
-async def _upload(c, taak, naam="notitie.txt"):
+async def _upload(c, nodetaak, naam="notitie.txt"):
     return await c.post(
-        f"/api/tasks/{taak.id}/attachments",
+        f"/api/tasks/{nodetaak.id}/attachments",
         files={"file": (naam, b"inhoud", "text/plain")},
     )
 
 
 async def test_bijlage_verwijdert_alleen_wie_hem_plaatste_of_een_beheerder(
-    client, db_session, taak
+    client, db_session, nodetaak
 ):
     eenheid = await make_org(db_session, "Eenheid bijlagen")
     plaatser = await _met_rol(db_session, "Plaatser", "editor", eenheid)
     kijker = await _met_rol(db_session, "Kijker", "viewer", eenheid)
 
     async with client_as(db_session, plaatser) as c:
-        resp = await _upload(c, taak)
+        resp = await _upload(c, nodetaak)
         assert resp.status_code == 201, resp.text
         att = resp.json()
         assert att["uploaded_by_id"] == str(plaatser.id)
-        tweede = (await _upload(c, taak, "tweede.txt")).json()
+        tweede = (await _upload(c, nodetaak, "tweede.txt")).json()
 
     # Wie alleen mag kijken, ziet de bijlage wel maar haalt hem niet weg.
     async with client_as(db_session, kijker) as c:
-        lijst = await c.get(f"/api/tasks/{taak.id}/attachments")
+        lijst = await c.get(f"/api/tasks/{nodetaak.id}/attachments")
         assert att["id"] in {a["id"] for a in lijst.json()}
-        resp = await c.delete(f"/api/tasks/{taak.id}/attachments/{att['id']}")
+        resp = await c.delete(f"/api/tasks/{nodetaak.id}/attachments/{att['id']}")
         assert resp.status_code == 403
 
     async with client_as(db_session, plaatser) as c:
-        resp = await c.delete(f"/api/tasks/{taak.id}/attachments/{att['id']}")
+        resp = await c.delete(f"/api/tasks/{nodetaak.id}/attachments/{att['id']}")
         assert resp.status_code == 204
     # Een beheerder mag het ook.
-    resp = await client.delete(f"/api/tasks/{taak.id}/attachments/{tweede['id']}")
+    resp = await client.delete(f"/api/tasks/{nodetaak.id}/attachments/{tweede['id']}")
     assert resp.status_code == 204
 
 
-async def test_taak_heeft_een_maximum_aan_bijlagen(client, taak, monkeypatch):
+async def test_taak_heeft_een_maximum_aan_bijlagen(client, nodetaak, monkeypatch):
     from bouwmeester.api.routes import task_comments
 
     monkeypatch.setattr(task_comments, "MAX_BIJLAGEN_PER_TAAK", 2)
     for naam in ("een.txt", "twee.txt"):
-        assert (await _upload(client, taak, naam)).status_code == 201
-    resp = await _upload(client, taak, "drie.txt")
+        assert (await _upload(client, nodetaak, naam)).status_code == 201
+    resp = await _upload(client, nodetaak, "drie.txt")
     assert resp.status_code == 400
     assert "hooguit 2 bijlagen" in resp.json()["detail"]
 
 
 async def test_opmerking_noemt_een_maximum_aan_mensen(
-    client, db_session, taak, monkeypatch
+    client, db_session, nodetaak, monkeypatch
 ):
     from bouwmeester.api.routes import task_comments
 
@@ -217,24 +264,26 @@ async def test_opmerking_noemt_een_maximum_aan_mensen(
     def noem(personen):
         return " ".join(f"[@{p.naam}](user:{p.id})" for p in personen)
 
-    url = f"/api/tasks/{taak.id}/comments"
+    url = f"/api/tasks/{nodetaak.id}/comments"
     resp = await client.post(url, json={"content": noem(mensen)})
     assert resp.status_code == 400
     resp = await client.post(url, json={"content": noem(mensen[:2])})
     assert resp.status_code == 201, resp.text
 
 
-async def test_melding_alleen_voor_wie_de_taak_mag_zien(client, db_session, taak):
+async def test_melding_alleen_voor_wie_de_taak_mag_zien(client, db_session, nodetaak):
     eigen = await make_org(db_session, "Eigen eenheid")
     andere = await make_org(db_session, "Andere eenheid")
-    taak.organisatie_eenheid_id = eigen.id
+    nodetaak.organisatie_eenheid_id = eigen.id
     await db_session.flush()
     collega = await _met_rol(db_session, "Collega", "editor", eigen)
     elders = await _met_rol(db_session, "Elders", "editor", andere)
     zonder_rol = await make_person(db_session, "Zonder rol")
 
     tekst = " ".join(f"[@{p.naam}](user:{p.id})" for p in (collega, elders, zonder_rol))
-    resp = await client.post(f"/api/tasks/{taak.id}/comments", json={"content": tekst})
+    resp = await client.post(
+        f"/api/tasks/{nodetaak.id}/comments", json={"content": tekst}
+    )
     assert resp.status_code == 201, resp.text
 
     async def meldingen(p):
@@ -248,10 +297,10 @@ async def test_melding_alleen_voor_wie_de_taak_mag_zien(client, db_session, taak
     assert await meldingen(zonder_rol) == []
 
 
-async def test_vermeldingen_gaan_mee_weg_met_de_opmerking(client, db_session, taak):
+async def test_vermeldingen_gaan_mee_weg_met_de_opmerking(client, db_session, nodetaak):
     genoemd = await make_person(db_session, "Genoemd")
     resp = await client.post(
-        f"/api/tasks/{taak.id}/comments",
+        f"/api/tasks/{nodetaak.id}/comments",
         json={"content": f"Zie [@Genoemd](user:{genoemd.id})"},
     )
     assert resp.status_code == 201, resp.text
@@ -264,6 +313,6 @@ async def test_vermeldingen_gaan_mee_weg_met_de_opmerking(client, db_session, ta
         return (await db_session.execute(stmt)).scalars().all()
 
     assert len(await vermeldingen()) == 1
-    resp = await client.delete(f"/api/tasks/{taak.id}/comments/{cid}")
+    resp = await client.delete(f"/api/tasks/{nodetaak.id}/comments/{cid}")
     assert resp.status_code == 204
     assert await vermeldingen() == []
