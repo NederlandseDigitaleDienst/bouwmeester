@@ -51,14 +51,6 @@ from bouwmeester.services.casus_team_service import (
 router = APIRouter(prefix="/initiatieven", tags=["initiatieven"])
 
 
-async def _casusrollen_bijwerken(
-    db: AsyncSession, current_user, initiatief_id: UUID, rangen_voor: dict
-) -> None:
-    await casusrollen_bijwerken(
-        db, initiatief_id, rangen_voor, current_user=current_user
-    )
-
-
 async def _resolve_access_level(
     repo: InitiatiefRepository,
     initiatief_id: UUID,
@@ -455,7 +447,7 @@ async def remove_member(
         "initiatief_member.removed",
         details={"initiatief_id": str(id), "person_id": str(person_id)},
     )
-    await _casusrollen_bijwerken(db, current_user, id, voor)
+    await casusrollen_bijwerken(db, id, voor, current_user=current_user)
 
 
 @router.put(
@@ -499,7 +491,7 @@ async def update_member_role(
             "rol": data.rol,
         },
     )
-    await _casusrollen_bijwerken(db, current_user, id, voor)
+    await casusrollen_bijwerken(db, id, voor, current_user=current_user)
 
     return InitiatiefMemberResponse(
         initiatief_id=member.resource_id,
@@ -602,7 +594,7 @@ async def remove_eenheid(
         "initiatief_eenheid.removed",
         details={"initiatief_id": str(id), "eenheid_id": str(eenheid_id)},
     )
-    await _casusrollen_bijwerken(db, current_user, id, voor)
+    await casusrollen_bijwerken(db, id, voor, current_user=current_user)
 
 
 @router.put(
@@ -646,7 +638,7 @@ async def update_eenheid_rol(
             "rol": data.rol,
         },
     )
-    await _casusrollen_bijwerken(db, current_user, id, voor)
+    await casusrollen_bijwerken(db, id, voor, current_user=current_user)
 
     return InitiatiefEenheidResponse(
         initiatief_id=rp.resource_id,

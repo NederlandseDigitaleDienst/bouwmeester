@@ -335,7 +335,10 @@ async def delete_resource_permission(
         details={
             "resource_type": rp.resource_type,
             "resource_id": str(rp.resource_id),
-            "person_id": str(rp.person_id),
+            "person_id": str(rp.person_id) if rp.person_id else None,
+            "eenheid_id": (
+                str(rp.organisatie_eenheid_id) if rp.organisatie_eenheid_id else None
+            ),
             "rol": rp.rol,
         },
     )
