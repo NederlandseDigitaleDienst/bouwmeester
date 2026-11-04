@@ -25,6 +25,15 @@ from bouwmeester.models.role import PersonRole
 
 YESTERDAY = date.today() - timedelta(days=1)
 
+# Antwoorden op de standaard-startvragen (schema/startvragen.py), voor tests
+# die een casus starten.
+START_INTERN = {
+    "casustype": "intern",
+    "antwoorden": [
+        {"vraag_id": "schakels", "waarde": ["Regelbeheer"]},
+    ],
+}
+
 
 async def make_person(db: AsyncSession, naam: str, *, account: bool = True) -> Person:
     """A person with one email; ``account`` gives them a login (oidc_subject)."""

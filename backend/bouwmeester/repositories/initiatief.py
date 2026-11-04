@@ -13,6 +13,7 @@ from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.models.initiatief_update import InitiatiefUpdatePost
 from bouwmeester.models.lead import Lead
 from bouwmeester.models.lead_column import LeadColumn
+from bouwmeester.models.person import Person
 from bouwmeester.models.resource_permission import ResourcePermission
 from bouwmeester.repositories.base import BaseRepository
 from bouwmeester.schema.initiatief import (
@@ -211,6 +212,12 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
     # Member (person-scoped) management via ResourcePermission
     # -----------------------------------------------------------------------
 
+    # Eén rij per persoon en per eenheid, bewaakt door een unieke index
+    # (migratie 139f2db78246). Toevoegen gebeurt in een savepoint, zodat een
+    # geweigerde rij (IntegrityError, in de route een 409) de sessie niet
+    # breekt. Wijzigen en intrekken nemen alle passende rijen mee: zo blijft
+    # er nooit een rij over die stilletjes toegang geeft.
+
     async def add_member(
         self, initiatief_id: UUID, person_id: UUID, rol: str = "contributor"
     ) -> ResourcePermission:
@@ -220,8 +227,9 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
             resource_id=initiatief_id,
             rol=rol,
         )
-        self.session.add(rp)
-        await self.session.flush()
+        async with self.session.begin_nested():
+            self.session.add(rp)
+            await self.session.flush()
         await self.session.refresh(rp, attribute_names=["person"])
         return rp
 
@@ -237,14 +245,14 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
             )
             .options(selectinload(ResourcePermission.person))
         )
-        result = await self.session.execute(stmt)
-        rp = result.scalar_one_or_none()
-        if rp is None:
+        rijen = (await self.session.execute(stmt)).scalars().all()
+        if not rijen:
             return None
-        rp.rol = rol
+        for rp in rijen:
+            rp.rol = rol
         await self.session.flush()
-        await self.session.refresh(rp, attribute_names=["person"])
-        return rp
+        await self.session.refresh(rijen[0], attribute_names=["person"])
+        return rijen[0]
 
     async def remove_member(self, initiatief_id: UUID, person_id: UUID) -> bool:
         stmt = select(ResourcePermission).where(
@@ -252,11 +260,11 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
             ResourcePermission.resource_id == initiatief_id,
             ResourcePermission.person_id == person_id,
         )
-        result = await self.session.execute(stmt)
-        rp = result.scalar_one_or_none()
-        if rp is None:
+        rijen = (await self.session.execute(stmt)).scalars().all()
+        if not rijen:
             return False
-        await self.session.delete(rp)
+        for rp in rijen:
+            await self.session.delete(rp)
         await self.session.flush()
         return True
 
@@ -273,8 +281,9 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
             resource_id=initiatief_id,
             rol=rol,
         )
-        self.session.add(rp)
-        await self.session.flush()
+        async with self.session.begin_nested():
+            self.session.add(rp)
+            await self.session.flush()
         await self.session.refresh(rp, attribute_names=["eenheid"])
         return rp
 
@@ -286,14 +295,14 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
             ResourcePermission.resource_id == initiatief_id,
             ResourcePermission.organisatie_eenheid_id == eenheid_id,
         )
-        result = await self.session.execute(stmt)
-        rp = result.scalar_one_or_none()
-        if rp is None:
+        rijen = (await self.session.execute(stmt)).scalars().all()
+        if not rijen:
             return None
-        rp.rol = rol
+        for rp in rijen:
+            rp.rol = rol
         await self.session.flush()
-        await self.session.refresh(rp, attribute_names=["eenheid"])
-        return rp
+        await self.session.refresh(rijen[0], attribute_names=["eenheid"])
+        return rijen[0]
 
     async def remove_eenheid(self, initiatief_id: UUID, eenheid_id: UUID) -> bool:
         stmt = select(ResourcePermission).where(
@@ -301,11 +310,11 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
             ResourcePermission.resource_id == initiatief_id,
             ResourcePermission.organisatie_eenheid_id == eenheid_id,
         )
-        result = await self.session.execute(stmt)
-        rp = result.scalar_one_or_none()
-        if rp is None:
+        rijen = (await self.session.execute(stmt)).scalars().all()
+        if not rijen:
             return False
-        await self.session.delete(rp)
+        for rp in rijen:
+            await self.session.delete(rp)
         await self.session.flush()
         return True
 
@@ -349,8 +358,10 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
             ResourcePermission.resource_id == initiatief_id,
             ResourcePermission.person_id == person_id,
         )
-        result = await self.session.execute(direct)
-        if result.scalar_one_or_none() is not None:
+        # first(), niet scalar_one_or_none(): iemand kan twee rijen hebben
+        # (twee eenheden aan het initiatief, of twee directe rollen).
+        result = await self.session.execute(direct.limit(1))
+        if result.first() is not None:
             return True
 
         # Via eenheid membership
@@ -380,8 +391,112 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
                 ),
             )
         )
-        result = await self.session.execute(eenheid_stmt)
-        return result.scalar_one_or_none() is not None
+        result = await self.session.execute(eenheid_stmt.limit(1))
+        return result.first() is not None
+
+    async def list_persons_with_access(self, initiatief_id: UUID) -> list[Person]:
+        """Alle actieve personen die dit initiatief kunnen zien.
+
+        Zelfde regel als `is_member` en `build_initiatief_context`: een
+        directe resource_permission, of een actieve plaatsing in een eenheid
+        met een resource_permission op het initiatief. Gesorteerd op naam.
+        """
+        from datetime import date
+
+        from bouwmeester.models.person_organisatie import (
+            PersonOrganisatieEenheid,
+        )
+
+        direct = select(ResourcePermission.person_id).where(
+            ResourcePermission.resource_type == "initiatief",
+            ResourcePermission.resource_id == initiatief_id,
+            ResourcePermission.person_id.isnot(None),
+        )
+        today = date.today()
+        via_eenheid = (
+            select(PersonOrganisatieEenheid.person_id)
+            .join(
+                ResourcePermission,
+                ResourcePermission.organisatie_eenheid_id
+                == PersonOrganisatieEenheid.organisatie_eenheid_id,
+            )
+            .where(
+                ResourcePermission.resource_type == "initiatief",
+                ResourcePermission.resource_id == initiatief_id,
+                PersonOrganisatieEenheid.start_datum <= today,
+                or_(
+                    PersonOrganisatieEenheid.eind_datum.is_(None),
+                    PersonOrganisatieEenheid.eind_datum >= today,
+                ),
+            )
+        )
+        stmt = (
+            select(Person)
+            .where(
+                Person.id.in_(direct.union(via_eenheid)),
+                Person.is_active.is_(True),
+            )
+            .order_by(Person.naam)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def access_sources(
+        self, initiatief_id: UUID
+    ) -> tuple[dict[UUID, str], dict[UUID, list[str]]]:
+        """Waar iemands toegang vandaan komt: directe rol en/of eenheden.
+
+        Geeft (person_id -> directe rol, person_id -> namen van gekoppelde
+        eenheden met een actieve plaatsing). Zelfde regel als
+        `list_persons_with_access`; dit is de uitleg erbij.
+        """
+        from datetime import date
+
+        from bouwmeester.models.organisatie_eenheid import OrganisatieEenheid
+        from bouwmeester.models.person_organisatie import (
+            PersonOrganisatieEenheid,
+        )
+
+        direct_stmt = select(
+            ResourcePermission.person_id, ResourcePermission.rol
+        ).where(
+            ResourcePermission.resource_type == "initiatief",
+            ResourcePermission.resource_id == initiatief_id,
+            ResourcePermission.person_id.isnot(None),
+        )
+        direct = {
+            pid: rol for pid, rol in (await self.session.execute(direct_stmt)).all()
+        }
+
+        today = date.today()
+        via_stmt = (
+            select(PersonOrganisatieEenheid.person_id, OrganisatieEenheid.naam)
+            .join(
+                ResourcePermission,
+                ResourcePermission.organisatie_eenheid_id
+                == PersonOrganisatieEenheid.organisatie_eenheid_id,
+            )
+            .join(
+                OrganisatieEenheid,
+                OrganisatieEenheid.id == ResourcePermission.organisatie_eenheid_id,
+            )
+            .where(
+                ResourcePermission.resource_type == "initiatief",
+                ResourcePermission.resource_id == initiatief_id,
+                PersonOrganisatieEenheid.start_datum <= today,
+                or_(
+                    PersonOrganisatieEenheid.eind_datum.is_(None),
+                    PersonOrganisatieEenheid.eind_datum >= today,
+                ),
+            )
+            .order_by(OrganisatieEenheid.naam)
+        )
+        via: dict[UUID, list[str]] = {}
+        for pid, naam in (await self.session.execute(via_stmt)).all():
+            lijst = via.setdefault(pid, [])
+            if naam not in lijst:
+                lijst.append(naam)
+        return direct, via
 
     async def count_eigenaren(self, initiatief_id: UUID) -> int:
         """Count eigenaren (person-scoped) for an initiatief."""
@@ -401,14 +516,23 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
         return result.scalar_one()
 
     async def get_member_role(self, initiatief_id: UUID, person_id: UUID) -> str | None:
-        """Get the direct (person-scoped) role on an initiatief."""
+        """De hoogste directe (persoonlijke) rol op een initiatief.
+
+        Iemand kan meer dan één directe rij hebben, bijvoorbeeld viewer en
+        eigenaar: de unieke index telt een lege eenheid niet als gelijk. Dan
+        geldt de hoogste, net als bij rollen via een eenheid.
+        """
+        from bouwmeester.schema.initiatief import EENHEID_ROL_RANK
+
         stmt = select(ResourcePermission.rol).where(
             ResourcePermission.resource_type == "initiatief",
             ResourcePermission.resource_id == initiatief_id,
             ResourcePermission.person_id == person_id,
         )
-        result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        roles = (await self.session.execute(stmt)).scalars().all()
+        if not roles:
+            return None
+        return max(roles, key=lambda r: EENHEID_ROL_RANK.get(r, 0))
 
     async def get_eenheid_access_level(
         self, initiatief_id: UUID, person_id: UUID

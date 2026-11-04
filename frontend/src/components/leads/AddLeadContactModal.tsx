@@ -20,22 +20,58 @@ const DEFAULT_CONTACT_ROLLEN: SelectOption[] = Object.entries(
 interface Props {
   leadId: string | null;
   onClose: () => void;
+  /** Rol die voorgeselecteerd staat; default de externe contactpersoon. */
+  defaultRol?: string;
+  /** Rollen om uit te kiezen; default alle lead-contactrollen. */
+  rolLabels?: Record<string, string>;
+  /** Titel van de modal in de keuzestand. */
+  title?: string;
+  /**
+   * Beperk de kiezer tot deze personen (bijvoorbeeld de leden van het
+   * initiatief). Zonder deze prop zijn alle personen kiesbaar.
+   */
+  candidates?: Candidate[];
+  /** Toelichting boven de kiezer, bijvoorbeeld waarom de lijst beperkt is. */
+  hint?: string;
+  /** Sta "nieuwe persoon aanmaken" toe. Voor een casusteam staat dit uit. */
+  allowCreate?: boolean;
+}
+
+export interface Candidate {
+  id: string;
+  naam: string;
+  functie?: string | null;
+  expertise?: string | null;
 }
 
 type Mode = 'select' | 'create';
 
-export function AddLeadContactModal({ leadId, onClose }: Props) {
-  const { data: people = [] } = usePeople();
+export function AddLeadContactModal({
+  leadId,
+  onClose,
+  defaultRol = 'contactpersoon',
+  rolLabels,
+  title = 'Externe contactpersoon toevoegen',
+  candidates,
+  hint,
+  allowCreate = true,
+}: Props) {
+  const { data: allPeople = [] } = usePeople();
+  const people: Candidate[] = candidates ?? allPeople;
   const addContact = useAddLeadContact();
   const createContact = useCreateContactPerson();
 
+  const baseRollen: SelectOption[] = rolLabels
+    ? Object.entries(rolLabels).map(([value, label]) => ({ value, label }))
+    : DEFAULT_CONTACT_ROLLEN;
+
   const [mode, setMode] = useState<Mode>('select');
   const [personId, setPersonId] = useState('');
-  const [rol, setRol] = useState('contactpersoon');
+  const [rol, setRol] = useState(defaultRol);
   const [fields, setFields] = useState<ContactPersonFieldsState>(emptyContactPersonFields);
   const [extraRollen, setExtraRollen] = useState<SelectOption[]>([]);
 
-  const rolOptions: SelectOption[] = [...DEFAULT_CONTACT_ROLLEN, ...extraRollen];
+  const rolOptions: SelectOption[] = [...baseRollen, ...extraRollen];
 
   const handleCreateRol = useCallback(
     async (text: string): Promise<string | null> => {
@@ -47,14 +83,14 @@ export function AddLeadContactModal({ leadId, onClose }: Props) {
       // verminken zonder voordeel.
       setExtraRollen((prev) =>
         prev.some((o) => o.value === value) ||
-        DEFAULT_CONTACT_ROLLEN.some((o) => o.value === value)
+        baseRollen.some((o) => o.value === value)
           ? prev
           : [...prev, { value, label: value }],
       );
       setRol(value);
       return value;
     },
-    [],
+    [baseRollen],
   );
 
   // Reset alle state bij elke lead-wissel én bij sluiten van de modal,
@@ -64,10 +100,10 @@ export function AddLeadContactModal({ leadId, onClose }: Props) {
     if (!leadId) return;
     setMode('select');
     setPersonId('');
-    setRol('contactpersoon');
+    setRol(defaultRol);
     setFields(emptyContactPersonFields());
     setExtraRollen([]);
-  }, [leadId]);
+  }, [leadId, defaultRol]);
 
   const personOptions: SelectOption[] = people.map((p) => {
     const parts = [p.functie, p.expertise].filter((v): v is string => !!v);
@@ -87,11 +123,11 @@ export function AddLeadContactModal({ leadId, onClose }: Props) {
   const resetAndClose = useCallback(() => {
     setMode('select');
     setPersonId('');
-    setRol('contactpersoon');
+    setRol(defaultRol);
     setFields(emptyContactPersonFields());
     setExtraRollen([]);
     onClose();
-  }, [onClose]);
+  }, [onClose, defaultRol]);
 
   const handleSubmitSelect = useCallback(async () => {
     if (!leadId || !personId) return;
@@ -129,9 +165,7 @@ export function AddLeadContactModal({ leadId, onClose }: Props) {
     <Modal
       open={!!leadId}
       onClose={resetAndClose}
-      title={
-        mode === 'create' ? 'Nieuwe contactpersoon' : 'Externe contactpersoon toevoegen'
-      }
+      title={mode === 'create' ? 'Nieuwe contactpersoon' : title}
       size="md"
       closeable={!isPending}
       footer={
@@ -160,14 +194,21 @@ export function AddLeadContactModal({ leadId, onClose }: Props) {
     >
       {mode === 'select' ? (
         <nldd-container gap="16">
+          {hint && (
+            <nldd-text size="sm" color="secondary">{hint}</nldd-text>
+          )}
           <CreatableSelect
             label="Persoon"
             value={personId}
             onChange={setPersonId}
             options={personOptions}
-            placeholder="Zoek of maak een persoon..."
-            onCreate={async (name) => switchToCreate(name)}
-            createLabel="Nieuwe persoon aanmaken"
+            placeholder={allowCreate ? 'Zoek of maak een persoon...' : 'Zoek een persoon...'}
+            {...(allowCreate
+              ? {
+                  onCreate: async (name: string) => switchToCreate(name),
+                  createLabel: 'Nieuwe persoon aanmaken',
+                }
+              : {})}
             required
           />
           <CreatableSelect

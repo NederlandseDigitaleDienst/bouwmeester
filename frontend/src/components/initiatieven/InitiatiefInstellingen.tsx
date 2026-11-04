@@ -11,7 +11,12 @@ import type { InitiatiefDetail, InitiatiefSettingsUpdate, InitiatiefUpdate } fro
 import { ColumnsManager } from '@/components/leads/ColumnsManager';
 import { InitiatiefKleurPicker } from './InitiatiefKleurPicker';
 import { InstellingenBlok } from './InstellingenBlok';
+import { CasusSoortenBeheer } from './CasusSoortenBeheer';
+import { CasusFunnelEditor } from './CasusFunnelEditor';
+import { useCasusSoorten } from '@/hooks/useCasusSoorten';
 import { NlddButton } from '@/components/nldd/NlddButton';
+import { EisenLijst } from './EisenLijst';
+import { StartvragenEditor } from './StartvragenEditor';
 
 /**
  * The "Instellingen" tab: things set once. Name, description and color are
@@ -25,6 +30,14 @@ import { NlddButton } from '@/components/nldd/NlddButton';
 export function InitiatiefInstellingen({ initiatief }: { initiatief: InitiatiefDetail }) {
   const isEigenaar = initiatief.access_level === 'eigenaar';
   const canEdit = isEigenaar || initiatief.access_level === 'contributor';
+
+  const { data: soorten } = useCasusSoorten(isEigenaar ? initiatief.id : null);
+  const aantalSoorten = soorten?.length ?? 0;
+  const aantalCriteria = initiatief.acceptatiecriteria?.length ?? 0;
+  const aantalVragen = initiatief.startvragen?.length ?? 0;
+  const criteriaSamenvatting = `${aantalVragen} ${aantalVragen === 1 ? 'vraag' : 'vragen'} · ${
+    aantalCriteria ? `${aantalCriteria} ${aantalCriteria === 1 ? 'criterium' : 'criteria'}` : 'nog geen criteria'
+  } voor satellietcasussen`;
 
   return (
     <nldd-container gap="12">
@@ -42,6 +55,34 @@ export function InitiatiefInstellingen({ initiatief }: { initiatief: InitiatiefD
           >
             <FeatureSettings initiatief={initiatief} />
           </InstellingenBlok>
+          <InstellingenBlok
+            icon="sparkles"
+            titel="Casussen"
+            samenvatting={initiatief.casussen_enabled ? 'aan' : 'uit'}
+          >
+            <CasussenSchakelaar initiatief={initiatief} />
+          </InstellingenBlok>
+          {initiatief.casussen_enabled && (
+            <>
+              <InstellingenBlok icon="check-mark-circle" titel="Casus starten" samenvatting={criteriaSamenvatting}>
+                <CasusStartenSettings initiatief={initiatief} />
+              </InstellingenBlok>
+              <InstellingenBlok
+                icon="columns-3"
+                titel="Casusfunnel"
+                samenvatting={`${initiatief.casus_fases?.length ?? 0} fases${initiatief.casus_fases_is_voorstel === false ? '' : ' · voorstel'}`}
+              >
+                <CasusFunnelEditor initiatief={initiatief} />
+              </InstellingenBlok>
+              <InstellingenBlok
+                icon="tag"
+                titel="Casussoorten"
+                samenvatting={aantalSoorten ? `${aantalSoorten} ${aantalSoorten === 1 ? 'soort' : 'soorten'}` : 'nog geen soorten'}
+              >
+                <CasusSoortenBeheer initiatiefId={initiatief.id} />
+              </InstellingenBlok>
+            </>
+          )}
           <InstellingenBlok icon="columns-3" titel="Funnel-kolommen">
             <ColumnsManager initiatiefId={initiatief.id} />
           </InstellingenBlok>
@@ -114,6 +155,89 @@ function GeneralSettings({ initiatief }: { initiatief: InitiatiefDetail }) {
         />
       </nldd-container>
     </nldd-container>
+  );
+}
+
+/**
+ * Wat je doorloopt als je een casus start, op één plek: de startvragen (per
+ * initiatief te beheren, StartvragenEditor; de vraag naar intern of
+ * satelliet ligt vast) en de acceptatiecriteria voor satellietcasussen, die het initiatief
+ * zelf beheert. Bij een satellietcasus vink je die per casus af, met een
+ * uitleg per criterium. Anders dan de DoD is er geen standaardlijst.
+ */
+function CasusStartenSettings({ initiatief }: { initiatief: InitiatiefDetail }) {
+  const settingsMutation = useUpdateInitiatiefSettings();
+  const geldend = initiatief.acceptatiecriteria ?? [];
+  const [items, setItems] = useState<string[]>(geldend);
+  // Na opslaan of een herlaadactie de lijst van de server volgen.
+  const geldendKey = JSON.stringify(geldend);
+  useEffect(() => {
+    setItems(JSON.parse(geldendKey) as string[]);
+  }, [geldendKey]);
+
+  const schoon = items.map((x) => x.trim()).filter(Boolean);
+  const dirty = JSON.stringify(schoon) !== geldendKey;
+
+  return (
+    <nldd-container gap="20">
+      <nldd-container gap="8">
+        <nldd-text size="sm" weight="bold">Startvragen</nldd-text>
+        <nldd-text size="sm" color="secondary">
+          Bij Nieuwe casus en Casus starten beantwoord je deze vragen. Per vraag kies je het soort antwoord, of
+          hij verplicht is en of het antwoord op het casuskaartje komt. Een casus houdt de vragen zoals ze bij
+          zijn start luidden.
+        </nldd-text>
+        <StartvragenEditor initiatief={initiatief} />
+      </nldd-container>
+      <nldd-container gap="12">
+        <nldd-text size="sm" weight="bold">Acceptatiecriteria voor satellietcasussen</nldd-text>
+        <nldd-text size="sm" color="secondary">
+          Alleen bij een satellietcasus loop je deze lijst na: per criterium een vinkje en een uitleg of
+          opmerking. Bij een interne casus niet.
+        </nldd-text>
+        <EisenLijst
+          items={items}
+          onChange={setItems}
+          naam="Criterium"
+          placeholder="Nieuw criterium, bijvoorbeeld: er is een partner die meedoet"
+          leeg="Nog geen criteria. Voeg er hieronder een toe."
+          nieuwLabel="Nieuw criterium"
+        />
+        <nldd-container layout="row" gap="8" horizontal-alignment="right">
+          <NlddButton variant="secondary" size="sm" disabled={!dirty} onClick={() => setItems(geldend)} text="Herstellen" />
+          <NlddButton
+            size="sm"
+            onClick={() => settingsMutation.mutate({ id: initiatief.id, data: { acceptatiecriteria: schoon } })}
+            loading={settingsMutation.isPending}
+            disabled={!dirty}
+            text="Opslaan"
+          />
+        </nldd-container>
+      </nldd-container>
+    </nldd-container>
+  );
+}
+
+/**
+ * De schakelaar voor casussen. Aan: de tab Casussen en "Casus starten" op een
+ * lead in de startkolom. Uit verbergt alleen; bestaande casussen blijven.
+ */
+function CasussenSchakelaar({ initiatief }: { initiatief: InitiatiefDetail }) {
+  const settingsMutation = useUpdateInitiatiefSettings();
+  return (
+    <ToggleRow
+      icon="sparkles"
+      label="Werken met casussen"
+      description="Een lead in de startkolom wordt een casus, met onderzoeksvragen en taken. Uitzetten verbergt de casussen; ze blijven bewaard."
+      enabled={initiatief.casussen_enabled}
+      onToggle={() =>
+        settingsMutation.mutate({
+          id: initiatief.id,
+          data: { casussen_enabled: !initiatief.casussen_enabled },
+        })
+      }
+      loading={settingsMutation.isPending}
+    />
   );
 }
 

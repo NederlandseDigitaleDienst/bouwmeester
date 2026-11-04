@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bouwmeester.api.deps import require_deleted, require_found
@@ -16,12 +17,13 @@ from bouwmeester.core.database import get_db
 from bouwmeester.core.initiatief_context import (
     InitiatiefContext,
     get_initiatief_context,
+    initiatief_niveau,
 )
 from bouwmeester.core.permissions import (
     PermissionContext,
-    build_permission_context,
     get_permission_context,
 )
+from bouwmeester.models.person import Person
 from bouwmeester.repositories.initiatief import InitiatiefRepository
 from bouwmeester.schema.initiatief import (
     EENHEID_ROL_RANK,
@@ -34,11 +36,17 @@ from bouwmeester.schema.initiatief import (
     InitiatiefListItemResponse,
     InitiatiefMemberCreate,
     InitiatiefMemberResponse,
+    InitiatiefPersoonResponse,
     InitiatiefResponse,
     InitiatiefSettingsUpdate,
     InitiatiefUpdate,
 )
 from bouwmeester.services.activity_service import log_activity
+from bouwmeester.services.casus_team_service import (
+    casusrollen_bijwerken,
+    personen_met_casusrol,
+    rangen,
+)
 
 router = APIRouter(prefix="/initiatieven", tags=["initiatieven"])
 
@@ -55,35 +63,11 @@ async def _resolve_access_level(
     - Super admin / system RBAC permissions
     - Direct membership via ResourcePermission
     - Eenheid membership via resource_permission (eenheid-scoped)
+
+    The rule itself lives in ``core.initiatief_context.initiatief_niveau``,
+    so the casus guards in ``core.authority`` use the same one.
     """
-    if not user:
-        return "eigenaar"  # dev mode, no OIDC
-    if perm_ctx is None:
-        perm_ctx = await build_permission_context(repo.session, user)
-    if perm_ctx.is_super_admin:
-        return "eigenaar"
-
-    levels: list[str] = []
-
-    # System RBAC permissions
-    if perm_ctx.has_permission("initiatief:delete"):
-        levels.append("eigenaar")
-    elif perm_ctx.has_permission("initiatief:update"):
-        levels.append("contributor")
-
-    # Direct membership
-    direct_role = await repo.get_member_role(initiatief_id, user.id)
-    if direct_role:
-        levels.append(direct_role)
-
-    # Eenheid membership
-    eenheid_role = await repo.get_eenheid_access_level(initiatief_id, user.id)
-    if eenheid_role:
-        levels.append(eenheid_role)
-
-    if not levels:
-        return None
-    return max(levels, key=lambda r: EENHEID_ROL_RANK.get(r, 0))
+    return await initiatief_niveau(repo.session, initiatief_id, user, perm_ctx)
 
 
 async def _require_access(
@@ -202,7 +186,39 @@ async def get_initiatief(
     resp.members = members
     resp.eenheden = eenheden
     resp.access_level = access_level
+    resp.casus_fases_is_voorstel = not initiatief.casus_fases
     return resp
+
+
+@router.get("/{id}/personen", response_model=list[InitiatiefPersoonResponse])
+async def list_initiatief_personen(
+    id: UUID,
+    current_user: OptionalUser,
+    db: AsyncSession = Depends(get_db),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
+) -> list[InitiatiefPersoonResponse]:
+    """Personen die dit initiatief kunnen zien, direct of via een eenheid.
+
+    Dit is de kandidatenlijst voor een casusteam: alleen wie het initiatief
+    ziet, kan trekker of teamlid van een casus eronder worden.
+    """
+    repo = InitiatiefRepository(db)
+    require_found(await repo.get_by_id(id), "Initiatief")
+    access_level = await _resolve_access_level(repo, id, current_user, perm_ctx)
+    if access_level is None and current_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Initiatief niet gevonden",
+        )
+    personen = await repo.list_persons_with_access(id)
+    direct, via = await repo.access_sources(id)
+    out = []
+    for p in personen:
+        resp = InitiatiefPersoonResponse.model_validate(p)
+        resp.rol = direct.get(p.id)
+        resp.via_eenheden = via.get(p.id, [])
+        out.append(resp)
+    return out
 
 
 @router.put("/{id}", response_model=InitiatiefResponse)
@@ -228,6 +244,37 @@ async def update_initiatief(
     return InitiatiefResponse.model_validate(initiatief)
 
 
+async def _geen_casussen_in_weggehaalde_fase(
+    db: AsyncSession, initiatief_id: UUID, nieuw: list
+) -> None:
+    """Een fase weghalen waar nog casussen in staan kan niet (409).
+
+    Anders staat er een casus in een fase die niet meer bestaat. Lege lijst
+    betekent het voorstel; dan gelden die fases.
+    """
+    from sqlalchemy import func
+
+    from bouwmeester.models.casus import Casus
+    from bouwmeester.schema.casus_fases import geldende_casus_fases
+
+    blijft = {f.id for f in geldende_casus_fases(nieuw)}
+    stmt = (
+        select(Casus.fase, func.count())
+        .where(Casus.initiatief_id == initiatief_id)
+        .group_by(Casus.fase)
+    )
+    vast = {fase: n for fase, n in (await db.execute(stmt)).all() if fase not in blijft}
+    if vast:
+        lijst = ", ".join(f"{fase} ({n})" for fase, n in sorted(vast.items()))
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Er staan nog casussen in fases die je weghaalt: {lijst}. "
+                "Verplaats die casussen eerst naar een andere fase."
+            ),
+        )
+
+
 @router.put("/{id}/settings", response_model=InitiatiefResponse)
 async def update_initiatief_settings(
     id: UUID,
@@ -239,6 +286,8 @@ async def update_initiatief_settings(
     """Update settings (slug, toggles, score-labels). Eigenaar only."""
     repo = InitiatiefRepository(db)
     await _require_access(repo, id, current_user, perm_ctx, "eigenaar")
+    if "casus_fases" in data.model_fields_set:
+        await _geen_casussen_in_weggehaalde_fase(db, id, data.casus_fases or [])
     initiatief = require_found(await repo.update_settings(id, data), "Initiatief")
 
     await log_activity(
@@ -276,6 +325,21 @@ async def delete_initiatief(
         sa_delete(ResourcePermission).where(
             ResourcePermission.resource_type == "initiatief",
             ResourcePermission.resource_id == id,
+        )
+    )
+    # De casussen gaan via de cascade mee; hun teams (resource_permission
+    # zonder FK) ruimen we hier op, anders blijven er rollen op een casus
+    # staan die niet meer bestaat.
+    from sqlalchemy import select as sa_select
+
+    from bouwmeester.models.casus import Casus
+
+    await db.execute(
+        sa_delete(ResourcePermission).where(
+            ResourcePermission.resource_type == "casus",
+            ResourcePermission.resource_id.in_(
+                sa_select(Casus.id).where(Casus.initiatief_id == id)
+            ),
         )
     )
 
@@ -317,7 +381,16 @@ async def add_member(
         rol=data.rol,
         target_person_id=data.person_id,
     )
-    member = await repo.add_member(id, data.person_id, data.rol)
+    # Eerst de persoon: anders meldt de unieke index een onbekende persoon
+    # ook als "al lid".
+    require_found(await db.get(Person, data.person_id), "Persoon")
+    try:
+        member = await repo.add_member(id, data.person_id, data.rol)
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Deze persoon is al lid van dit initiatief",
+        ) from None
 
     await log_activity(
         db,
@@ -360,6 +433,7 @@ async def remove_member(
         person_id=person_id,
         new_rol=None,
     )
+    voor = await rangen(db, id, [person_id])
     if not await repo.remove_member(id, person_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -373,6 +447,7 @@ async def remove_member(
         "initiatief_member.removed",
         details={"initiatief_id": str(id), "person_id": str(person_id)},
     )
+    await casusrollen_bijwerken(db, id, voor, current_user=current_user)
 
 
 @router.put(
@@ -397,6 +472,7 @@ async def update_member_role(
         person_id=person_id,
         new_rol=data.rol,
     )
+    voor = await rangen(db, id, [person_id])
     member = await repo.update_member_role(id, person_id, data.rol)
     if member is None:
         raise HTTPException(
@@ -415,6 +491,7 @@ async def update_member_role(
             "rol": data.rol,
         },
     )
+    await casusrollen_bijwerken(db, id, voor, current_user=current_user)
 
     return InitiatiefMemberResponse(
         initiatief_id=member.resource_id,
@@ -503,6 +580,7 @@ async def remove_eenheid(
         eenheid_id=eenheid_id,
         new_rol=None,
     )
+    voor = await rangen(db, id, await personen_met_casusrol(db, id))
     if not await repo.remove_eenheid(id, eenheid_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -516,6 +594,7 @@ async def remove_eenheid(
         "initiatief_eenheid.removed",
         details={"initiatief_id": str(id), "eenheid_id": str(eenheid_id)},
     )
+    await casusrollen_bijwerken(db, id, voor, current_user=current_user)
 
 
 @router.put(
@@ -540,6 +619,7 @@ async def update_eenheid_rol(
         eenheid_id=eenheid_id,
         new_rol=data.rol,
     )
+    voor = await rangen(db, id, await personen_met_casusrol(db, id))
     rp = await repo.update_eenheid_rol(id, eenheid_id, data.rol)
     if rp is None:
         raise HTTPException(
@@ -558,6 +638,7 @@ async def update_eenheid_rol(
             "rol": data.rol,
         },
     )
+    await casusrollen_bijwerken(db, id, voor, current_user=current_user)
 
     return InitiatiefEenheidResponse(
         initiatief_id=rp.resource_id,

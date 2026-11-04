@@ -40,6 +40,7 @@ def _lead_options():
         selectinload(Lead.brought_by),
         selectinload(Lead.organisatie_eenheid),
         selectinload(Lead.initiatief),
+        selectinload(Lead.casus),
         selectinload(Lead.attachments),
         selectinload(Lead.lead_tags).selectinload(LeadTag.tag),
     ]
@@ -94,6 +95,7 @@ class LeadRepository(BaseRepository[Lead]):
                 selectinload(Lead.brought_by),
                 selectinload(Lead.organisatie_eenheid),
                 selectinload(Lead.initiatief),
+                selectinload(Lead.casus),
                 selectinload(Lead.attachments),
                 selectinload(Lead.activities).selectinload(LeadActivity.author),
                 selectinload(Lead.linked_nodes).selectinload(LeadNode.node),

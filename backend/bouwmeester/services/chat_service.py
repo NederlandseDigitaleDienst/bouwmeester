@@ -1390,6 +1390,14 @@ async def _execute_read_tool(
         elif tool_name == "get_recent_activity":
             from bouwmeester.repositories.activity import ActivityRepository
 
+            # Zelfde recht als /api/activity/feed: het log noemt titels van
+            # alles, ook van casussen en hun onderzoeksvragen.
+            access = await _chat_access(db, person_id)
+            if not access.perm_ctx.has_permission("audit:read"):
+                return _safe_dumps(
+                    {"error": "Je hebt geen rechten om de activiteit te bekijken."}
+                )
+
             repo = ActivityRepository(db)
             limit = min(int(args.get("limit", 10)), 20)
             activities = await repo.get_recent(limit=limit)
@@ -1665,6 +1673,20 @@ _WRITE_TOOL_POLICY: dict[str, tuple[str | None, tuple[tuple[str, str], ...]]] = 
     "move_lead": (None, ()),
     "add_lead_activity": (None, ()),
 }
+
+
+async def _lead_open_of_weiger(db: AsyncSession, lead) -> dict | None:
+    """Een lead met een casus is alleen-lezen, ook voor de chat; zoals de
+    leadroutes (``_require_lead_open``). Geeft de weigering, of None."""
+    from fastapi import HTTPException
+
+    from bouwmeester.api.routes.leads import _require_lead_open
+
+    try:
+        await _require_lead_open(db, lead)
+    except HTTPException as exc:
+        return {"success": False, "summary": str(exc.detail)}
+    return None
 
 
 async def _authorize_write_tool(
@@ -2139,6 +2161,8 @@ async def _execute_write_tool(
             existing = await repo.get(UUID(args["lead_id"]), init_ctx=init_ctx)
             if not existing:
                 return {"success": False, "summary": "Lead niet gevonden"}
+            if weigering := await _lead_open_of_weiger(db, existing):
+                return weigering
 
             update_data: dict = {}
             # Allow clearing text fields by passing empty string or null
@@ -2195,6 +2219,8 @@ async def _execute_write_tool(
             existing = await repo.get(UUID(args["lead_id"]), init_ctx=init_ctx)
             if not existing:
                 return {"success": False, "summary": "Lead niet gevonden"}
+            if weigering := await _lead_open_of_weiger(db, existing):
+                return weigering
 
             try:
                 stage = LeadStage(args["stage"])
@@ -2231,6 +2257,8 @@ async def _execute_write_tool(
             lead = await lead_repo.get(UUID(args["lead_id"]), init_ctx=init_ctx)
             if not lead:
                 return {"success": False, "summary": "Lead niet gevonden"}
+            if weigering := await _lead_open_of_weiger(db, lead):
+                return weigering
 
             act_repo = LeadActivityRepository(db)
             act_data = LeadActivityCreate(

@@ -13,7 +13,7 @@ describe('initiatiefPath', () => {
 });
 
 describe('isInitiatiefTab', () => {
-  it('knows the five tabs and nothing else', () => {
+  it('knows the tabs and nothing else', () => {
     expect(isInitiatiefTab('mensen')).toBe(true);
     expect(isInitiatiefTab('leden')).toBe(false);
     expect(isInitiatiefTab(undefined)).toBe(false);

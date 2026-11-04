@@ -187,6 +187,7 @@ export const queryKeys = {
     lists: () => ['initiatieven', 'list'] as const,
     list: (params?: { search?: string }) => ['initiatieven', 'list', params] as const,
     detail: (id: string | undefined) => ['initiatieven', 'detail', id] as const,
+    personen: (id: string | undefined) => ['initiatieven', 'detail', id, 'personen'] as const,
     mattermostChannels: (id: string | undefined) =>
       ['initiatieven', 'detail', id, 'mattermost-channels'] as const,
     debatten: (id: string | undefined) => ['initiatieven', 'detail', id, 'debatten'] as const,
@@ -208,6 +209,18 @@ export const queryKeys = {
     detail: (id: string | null) => ['leads', 'detail', id] as const,
     githubLinks: (leadId: string | null) => ['leads', 'detail', leadId, 'github-links'] as const,
     metrics: () => ['leads', 'metrics'] as const,
+  },
+
+  // --- Casussen ---
+  casussen: {
+    all: ['casussen'] as const,
+    lists: () => ['casussen', 'list'] as const,
+    list: (initiatiefId: string | undefined) => ['casussen', 'list', initiatiefId] as const,
+    detail: (id: string | null) => ['casussen', 'detail', id] as const,
+  },
+  casusSoorten: {
+    all: ['casus-soorten'] as const,
+    list: (initiatiefId: string | null) => ['casus-soorten', 'list', initiatiefId] as const,
   },
 
   // --- Lead-kolommen (per-initiatief funnel-stages) ---

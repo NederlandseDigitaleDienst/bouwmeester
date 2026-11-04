@@ -12,47 +12,13 @@ import {
   useUpdateLeadColumn,
 } from '@/hooks/useLeadColumns';
 import type { LeadColumn } from '@/types';
-import { leadColumnTagColor } from './stageColors';
+import { TAG_KLEUR_OPTIES as COLOR_PRESETS, leadColumnTagColor } from './stageColors';
 import { NlddButton } from '@/components/nldd/NlddButton';
 
 type NlddTagColor = NonNullable<React.ComponentProps<'nldd-tag'>['color']>;
 
 type NlddIconColor = NonNullable<React.ComponentProps<'nldd-icon'>['color']>;
 
-/**
- * The closed set of nldd-tag color names `LeadColumn.color` may hold,
- * mirrored from backend `schema.lead_column.LEAD_COLUMN_COLORS` (kept in
- * sync by hand). The swatch is an nldd-icon in that color: the icon takes the
- * same Rijkshuisstijl names and semantic roles as the tag, except that its
- * grey is 'secondary-content' rather than 'neutral'.
- */
-const COLOR_PRESETS: { label: string; value: NlddTagColor }[] = [
-  // Semantic roles
-  { label: 'Neutraal', value: 'neutral' },
-  { label: 'Accent', value: 'accent' },
-  { label: 'Succes', value: 'success' },
-  { label: 'Waarschuwing', value: 'warning' },
-  { label: 'Kritiek', value: 'critical' },
-  // Rijkshuisstijl
-  { label: 'Lintblauw', value: 'lintblauw' },
-  { label: 'Donkerblauw', value: 'donkerblauw' },
-  { label: 'Hemelblauw', value: 'hemelblauw' },
-  { label: 'Lichtblauw', value: 'lichtblauw' },
-  { label: 'Paars', value: 'paars' },
-  { label: 'Violet', value: 'violet' },
-  { label: 'Robijnrood', value: 'robijnrood' },
-  { label: 'Roze', value: 'roze' },
-  { label: 'Rood', value: 'rood' },
-  { label: 'Oranje', value: 'oranje' },
-  { label: 'Donkergeel', value: 'donkergeel' },
-  { label: 'Geel', value: 'geel' },
-  { label: 'Donkerbruin', value: 'donkerbruin' },
-  { label: 'Bruin', value: 'bruin' },
-  { label: 'Donkergroen', value: 'donkergroen' },
-  { label: 'Groen', value: 'groen' },
-  { label: 'Mosgroen', value: 'mosgroen' },
-  { label: 'Mintgroen', value: 'mintgroen' },
-];
 
 interface ColumnsManagerProps {
   initiatiefId: string;

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  getInitiatiefPersonen,
   getInitiatieven,
   getInitiatief,
   createInitiatief,
@@ -39,6 +40,15 @@ export function useInitiatief(id: string | undefined) {
   return useQuery({
     queryKey: queryKeys.initiatieven.detail(id),
     queryFn: () => getInitiatief(id!),
+    enabled: !!id,
+  });
+}
+
+/** Wie het initiatief kan zien: de kandidaten voor een casusteam. */
+export function useInitiatiefPersonen(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.initiatieven.personen(id),
+    queryFn: () => getInitiatiefPersonen(id!),
     enabled: !!id,
   });
 }

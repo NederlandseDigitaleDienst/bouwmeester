@@ -14,6 +14,15 @@ from bouwmeester.schema.bron import (
     BronResponse,
     BronUpdate,
 )
+from bouwmeester.schema.casus import (
+    CasusDetailResponse,
+    CasusResponse,
+    CasusStart,
+    CasusTeamCreate,
+    CasusTeamResponse,
+    CasusUpdate,
+    Startvoorwaarden,
+)
 from bouwmeester.schema.chat import (
     ChatAction,
     ChatAttachmentResponse,
@@ -106,6 +115,7 @@ from bouwmeester.schema.initiatief import (
     InitiatiefEenheidResponse,
     InitiatiefMemberCreate,
     InitiatiefMemberResponse,
+    InitiatiefPersoonResponse,
     InitiatiefResponse,
     InitiatiefUpdate,
 )
@@ -378,6 +388,7 @@ __all__ = [
     "InitiatiefDetailResponse",
     "InitiatiefMemberCreate",
     "InitiatiefMemberResponse",
+    "InitiatiefPersoonResponse",
     "InitiatiefResponse",
     "InitiatiefEenheidCreate",
     "InitiatiefEenheidResponse",
@@ -581,6 +592,14 @@ __all__ = [
     "ParlementairItemResponse",
     "ReviewAction",
     "SuggestedEdgeResponse",
+    # casus
+    "CasusDetailResponse",
+    "CasusResponse",
+    "CasusStart",
+    "CasusTeamCreate",
+    "CasusTeamResponse",
+    "CasusUpdate",
+    "Startvoorwaarden",
     # suggested_lead
     "SuggestedLeadResponse",
     # whitelist / admin

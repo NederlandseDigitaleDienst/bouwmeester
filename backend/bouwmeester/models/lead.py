@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from bouwmeester.core.database import Base
 
 if TYPE_CHECKING:
+    from bouwmeester.models.casus import Casus
     from bouwmeester.models.initiatief import Initiatief
     from bouwmeester.models.lead_activity import LeadActivity
     from bouwmeester.models.lead_attachment import LeadAttachment
@@ -132,4 +133,9 @@ class Lead(Base):
         back_populates="lead",
         cascade="all, delete-orphan",
         order_by="LeadUpdatePost.created_at.desc()",
+    )
+    # De casus die uit deze lead is gestart, als die er is. Daarna is de
+    # lead alleen-lezen (zie _require_lead_open in routes/leads.py).
+    casus: Mapped[Optional["Casus"]] = relationship(
+        "Casus", back_populates="lead", uselist=False
     )

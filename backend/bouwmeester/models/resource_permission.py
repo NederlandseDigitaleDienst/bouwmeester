@@ -11,6 +11,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Numeric,
     Text,
     UniqueConstraint,
@@ -46,6 +47,36 @@ class ResourcePermission(Base):
             "source IN ('manual', 'ai')",
             name="ck_resource_permission_source",
         ),
+        # Eén rij per persoon en rol in een casusteam, en één per persoon en
+        # per eenheid op een initiatief (migratie 139f2db78246). De
+        # constraint hierboven helpt daar niet: de andere kolom is leeg, en
+        # twee lege waarden tellen in Postgres als verschillend.
+        Index(
+            "uq_resource_permission_casus_team",
+            "resource_id",
+            "person_id",
+            "rol",
+            unique=True,
+            postgresql_where=text("resource_type = 'casus'"),
+        ),
+        Index(
+            "uq_resource_permission_initiatief_lid",
+            "resource_id",
+            "person_id",
+            unique=True,
+            postgresql_where=text(
+                "resource_type = 'initiatief' AND person_id IS NOT NULL"
+            ),
+        ),
+        Index(
+            "uq_resource_permission_initiatief_eenheid",
+            "resource_id",
+            "organisatie_eenheid_id",
+            unique=True,
+            postgresql_where=text(
+                "resource_type = 'initiatief' AND organisatie_eenheid_id IS NOT NULL"
+            ),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -67,7 +98,7 @@ class ResourcePermission(Base):
     )
     resource_type: Mapped[str] = mapped_column(
         nullable=False,
-        comment="corpus_node|initiatief|lead|opdracht",
+        comment="corpus_node|initiatief|lead|opdracht|casus",
     )
     resource_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -76,7 +107,7 @@ class ResourcePermission(Base):
     )
     rol: Mapped[str] = mapped_column(
         nullable=False,
-        comment="eigenaar|betrokken|adviseur|indiener|contributor|viewer|contactpersoon|opdrachtgever",
+        comment="eigenaar|betrokken|adviseur|indiener|contributor|viewer|contactpersoon|opdrachtgever|trekker|teamlid",
     )
     # AI matching metadata (nullable — only set for AI-generated links)
     source: Mapped[str | None] = mapped_column(

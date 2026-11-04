@@ -10,6 +10,7 @@ import {
   useAddInitiatiefEenheid,
   useRemoveInitiatiefEenheid,
   useUpdateInitiatiefEenheidRol,
+  useInitiatiefPersonen,
 } from '@/hooks/useInitiatieven';
 import { usePeople } from '@/hooks/usePeople';
 import { useOrganisatieFlat } from '@/hooks/useOrganisatie';
@@ -30,17 +31,22 @@ const tel = (n: number, een: string, meer: string) => `${n} ${n === 1 ? een : me
  * stakeholders.
  *
  * Elk onderdeel is een inklapbaar blok met de telling in de kop, zoals de
- * instellingen: dicht is de tab een overzicht. De leden staan open, want
- * daar kom je meestal voor.
+ * instellingen: dicht is de tab een overzicht. Het team staat open, want dat
+ * is waar je meestal voor komt: wie kan dit initiatief zien.
  */
 export function InitiatiefMensen({ initiatief }: { initiatief: InitiatiefDetail }) {
   const isEigenaar = initiatief.access_level === 'eigenaar';
   const canEdit = isEigenaar || initiatief.access_level === 'contributor';
+  const { data: personen } = useInitiatiefPersonen(initiatief.id);
+  const teamGrootte = (personen ?? []).filter((p) => !p.is_agent).length;
   const { data: stakeholders } = useStakeholderAssessments('initiatief', initiatief.id);
 
   return (
     <nldd-container gap="12">
-      <InstellingenBlok icon="person" titel="Leden" samenvatting={tel(initiatief.members.length, 'lid', 'leden')} defaultOpen>
+      <InstellingenBlok icon="users" titel="Team" samenvatting={personen ? tel(teamGrootte, 'persoon', 'mensen') : undefined} defaultOpen>
+        <Team initiatief={initiatief} />
+      </InstellingenBlok>
+      <InstellingenBlok icon="person" titel="Leden" samenvatting={tel(initiatief.members.length, 'lid', 'leden')}>
         <Members initiatief={initiatief} isEigenaar={isEigenaar} />
       </InstellingenBlok>
       {(isEigenaar || initiatief.eenheden.length > 0) && (
@@ -51,6 +57,53 @@ export function InitiatiefMensen({ initiatief }: { initiatief: InitiatiefDetail 
       <InstellingenBlok icon="centralized-network" titel="Stakeholders" samenvatting={stakeholders ? tel(stakeholders.length, 'stakeholder', 'stakeholders') : undefined}>
         <StakeholderTab scopeType="initiatief" scopeId={initiatief.id} readOnly={!canEdit} />
       </InstellingenBlok>
+    </nldd-container>
+  );
+}
+
+/**
+ * Het team: iedereen die dit initiatief kan zien, direct lid of via een
+ * gekoppelde eenheid. Dit is de lijst die telt voor het casuswerk: alleen
+ * deze mensen zien casussen, onderzoeksvragen en taken, en alleen zij zijn
+ * te kiezen op een taak of in een casusteam. De backend bewaakt dat.
+ */
+function Team({ initiatief }: { initiatief: InitiatiefDetail }) {
+  const { data: personen, isLoading } = useInitiatiefPersonen(initiatief.id);
+  const mensen = (personen ?? []).filter((p) => !p.is_agent);
+
+  return (
+    <nldd-container gap="8">
+      <nldd-text size="xs" color="secondary">
+        Alleen deze mensen zien de casussen, onderzoeksvragen en taken van dit initiatief, en alleen zij zijn
+        te kiezen op een taak of in een casusteam. Iemand erbij? Voeg die hieronder toe als lid, of via een
+        eenheid.
+      </nldd-text>
+      {isLoading ? (
+        <nldd-text size="sm" color="secondary">Laden...</nldd-text>
+      ) : mensen.length === 0 ? (
+        <nldd-text size="sm" color="secondary">Nog niemand kan dit initiatief zien.</nldd-text>
+      ) : (
+        <nldd-list type="list" appearance="box-tinted" accessible-label="Team van dit initiatief">
+          {mensen.map((p) => (
+            <nldd-list-item key={p.id}>
+              <nldd-container layout="row" width="full" gap="8" vertical-alignment="center">
+                {/* Naam en functie nemen wat de badges overlaten. Met
+                    `fit-content` in een row-fill kromp de naam tot één letter
+                    breed en stond hij letter voor letter onder elkaar. */}
+                <nldd-text-cell text={p.naam} supporting-text={p.functie || undefined} width="full" />
+                <div className="hug">
+                  {p.rol && (
+                    <Badge color={p.rol === 'eigenaar' ? 'paars' : 'coolgray'}>{INITIATIEF_ROL_LABELS[p.rol] ?? p.rol}</Badge>
+                  )}
+                  {(p.via_eenheden ?? []).map((naam) => (
+                    <Badge key={naam} color="coolgray">via {naam}</Badge>
+                  ))}
+                </div>
+              </nldd-container>
+            </nldd-list-item>
+          ))}
+        </nldd-list>
+      )}
     </nldd-container>
   );
 }

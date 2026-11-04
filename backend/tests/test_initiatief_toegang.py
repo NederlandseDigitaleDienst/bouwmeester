@@ -14,7 +14,7 @@ import pytest
 from bouwmeester.core.auth import DEV_PERSON_COOKIE
 from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.models.resource_permission import ResourcePermission
-from tests.factories import client_as, make_org, make_person, place
+from tests.factories import client_as, grant_role, make_org, make_person, place
 
 
 @pytest.fixture
@@ -102,3 +102,39 @@ async def test_personenkeuze_rechtsboven_volgt_dezelfde_regel(
     client.cookies.delete(DEV_PERSON_COOKIE)
     in_lijst, status, _ = await _zichtbaar(client, initiatief)
     assert (in_lijst, status) == (True, 200)
+
+
+async def _beheer(c, initiatief) -> tuple[int, int, int]:
+    """(naam wijzigen, instellingen wijzigen, verwijderen)."""
+    naam = await c.put(f"/api/initiatieven/{initiatief.id}", json={"naam": "Anders"})
+    inst = await c.put(
+        f"/api/initiatieven/{initiatief.id}/settings", json={"casussen_enabled": True}
+    )
+    weg = await c.delete(f"/api/initiatieven/{initiatief.id}")
+    return naam.status_code, inst.status_code, weg.status_code
+
+
+@pytest.mark.parametrize("rol", ["editor", "unit_manager"])
+async def test_rol_in_een_andere_eenheid_geeft_geen_rechten(
+    db_session, initiatief, rol
+):
+    """Wie elders editor of unit_manager is en geen rol op dit initiatief
+    heeft, ziet het niet en kan het niet wijzigen of verwijderen."""
+    elders = await make_org(db_session, "Eenheid elders")
+    p = await make_person(db_session, f"Elders {rol}")
+    await place(db_session, p, elders)
+    await grant_role(db_session, p, rol, elders)
+    async with client_as(db_session, p) as c:
+        assert await _zichtbaar(c, initiatief) == (False, 404, None)
+        assert await _beheer(c, initiatief) == (403, 403, 403)
+    assert await db_session.get(Initiatief, initiatief.id) is not None
+
+
+async def test_kijker_met_een_rol_elders_blijft_kijker(db_session, initiatief):
+    p = await _lid(db_session, initiatief, "Kijker manager", "viewer")
+    elders = await make_org(db_session, "Eenheid elders")
+    await place(db_session, p, elders)
+    await grant_role(db_session, p, "unit_manager", elders)
+    async with client_as(db_session, p) as c:
+        assert await _zichtbaar(c, initiatief) == (True, 200, "viewer")
+        assert await _beheer(c, initiatief) == (403, 403, 403)
