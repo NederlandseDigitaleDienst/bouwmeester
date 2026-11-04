@@ -1973,11 +1973,6 @@ declare module 'react' {
 				/** Override of `shortcut` on Linux (falls back to `shortcut`). */
 				'shortcut-linux'?: NLDDSegmentedControlItem['shortcutLinux'];
 			};
-			/** NOT REGISTERED. Using this renders its children unstyled with no
-			 *  error. Add `import '@nldd/design-system/sheet';` to
-			 *  components/nldd/register.ts first. Some elements register through a
-			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
-			 *  those. */
 			'nldd-sheet': NlddElement & {
 				/** Custom width for side sheets (left/right) as a CSS length (e.g. '480px', '32rem'). Applied from the md breakpoint up; ignored on sm (bottom sheet) and for `placement="bottom"`. Clamped to `100vw - 2 * inset` so the sheet always fits. */
 				'width'?: NLDDSheet['width'];

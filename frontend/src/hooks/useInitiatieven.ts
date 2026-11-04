@@ -5,7 +5,6 @@ import {
   createInitiatief,
   updateInitiatief,
   updateInitiatiefSettings,
-  deleteInitiatief,
   addInitiatiefMember,
   removeInitiatiefMember,
   updateInitiatiefMemberRole,
@@ -59,16 +58,6 @@ export function useUpdateInitiatief() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: InitiatiefUpdate }) =>
       updateInitiatief(id, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.initiatieven.all });
-    },
-  });
-}
-
-export function useDeleteInitiatief() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => deleteInitiatief(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.initiatieven.all });
     },

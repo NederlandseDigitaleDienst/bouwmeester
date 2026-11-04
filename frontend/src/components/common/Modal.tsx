@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { EntityColor } from '@/types';
 import { useNlddEvent, useNlddOverlay } from '@/components/nldd/events';
 
@@ -9,6 +10,9 @@ const SIZE_WIDTH = {
   lg: 'min(672px, calc(100vw - 32px))',
   xl: 'min(896px, calc(100vw - 32px))',
 } as const;
+
+/** Breedte van een zijpaneel per stap. De sheet begrenst zelf tot het scherm. */
+const SHEET_WIDTH = { sm: '448px', md: '512px', lg: '672px', xl: '896px' } as const;
 
 interface ModalProps {
   open: boolean;
@@ -24,6 +28,27 @@ interface ModalProps {
   /** Small back-link above the title for modal stacking navigation */
   backLabel?: string;
   onBack?: () => void;
+  /**
+   * Waar het venster staat. Standaard in het midden. `left` en `right` maken
+   * er een paneel van over de volle hoogte aan die kant, zodat wat ernaast
+   * staat (een kaartje op een bord) in beeld blijft. Een zijpaneel sluit
+   * altijd bij een klik ernaast, dus niet combineren met `closeable={false}`.
+   */
+  placement?: 'center' | 'left' | 'right';
+  /**
+   * Knoppen in de titelbalk, links van Sluiten. Elk element heeft
+   * `slot="toolbar"` nodig (NlddButton heeft daar een prop voor).
+   */
+  toolbar?: ReactNode;
+  /** De tekst van de sluitknop rechtsboven. Standaard "Sluiten". */
+  dismissText?: string;
+  /**
+   * Een veld om de titel ter plekke te bewerken. Zolang het er is, staat het
+   * in de kop op de plek van de titelbalk: die balk toont alleen tekst en
+   * heeft geen plek voor een invoerveld. De balk blijft gemount (verborgen),
+   * zodat Sluiten en Terug daarna gewoon blijven werken.
+   */
+  titleEditor?: ReactNode;
 }
 
 /**
@@ -36,8 +61,21 @@ interface ModalProps {
  * The title bar is `nldd-top-title-bar` in the page's sticky header, which
  * supplies the heading, the back affordance and the dismiss button, each with
  * its own accessible name.
+ *
+ * Links of rechts is het geen zwevend venster maar een `nldd-sheet`: die loopt
+ * over de volle hoogte (op de overlay-marge na) en wordt op een smal scherm
+ * vanzelf een paneel van onderen. Een `nldd-window` kan dat niet, die is
+ * begrensd op de hoogte van het scherm min twee keer de marge en bleef
+ * daardoor bovenaan plakken met onderin een strook pagina.
  */
-export function Modal({
+export function Modal(props: ModalProps) {
+  // Een ander element (sheet of window) betekent een nieuwe open-cyclus: de
+  // effecten hieronder moeten opnieuw lopen, anders blijft het nieuwe element
+  // dicht terwijl `open` al true is. De key regelt dat.
+  return <ModalOverlay key={props.placement && props.placement !== 'center' ? 'sheet' : 'window'} {...props} />;
+}
+
+function ModalOverlay({
   open,
   onClose,
   title,
@@ -50,6 +88,10 @@ export function Modal({
   accentColor,
   backLabel,
   onBack,
+  placement = 'center',
+  toolbar,
+  dismissText = 'Sluiten',
+  titleEditor,
 }: ModalProps) {
   const windowRef = useRef<HTMLElement>(null);
   const barRef = useRef<HTMLElement>(null);
@@ -87,14 +129,8 @@ export function Modal({
   useNlddEvent(barRef, 'dismiss', closeable ? onClose : undefined);
   useNlddEvent(barRef, 'back', onBack);
 
-  return (
-    <nldd-window
-      ref={windowRef}
-      accessible-label={title}
-      centered
-      width={SIZE_WIDTH[size]}
-      {...(closeable ? {} : { 'no-light-dismiss': true })}
-    >
+  const content = (
+    <>
       {/* A 3px line in the entity color along the top edge, which is how this app
           signals "you are looking at a lead / a node / an opdracht". */}
       {accentColor && (
@@ -106,14 +142,22 @@ export function Modal({
         />
       )}
       <nldd-page sticky-header {...(footer ? { 'sticky-footer': true } : {})}>
+        {titleEditor && (
+          <nldd-container slot="header" padding-inline="16" padding-block="8">
+            {titleEditor}
+          </nldd-container>
+        )}
         <nldd-top-title-bar
           ref={barRef}
           slot="header"
+          hidden={!!titleEditor}
           text={title}
           {...(entityLabel ? { 'supporting-text': entityLabel } : {})}
           {...(backLabel && onBack ? { 'back-text': `Terug naar ${backLabel}` } : {})}
-          {...(closeable ? { 'dismiss-text': 'Sluiten' } : {})}
-        />
+          {...(closeable ? { 'dismiss-text': dismissText } : {})}
+        >
+          {toolbar}
+        </nldd-top-title-bar>
         {/* `headerIcon` has nowhere to go: nldd-top-title-bar has only a
             `toolbar` slot, beside the dismiss button, and an icon there would
             read as an action rather than as the entity's type. The type is
@@ -134,6 +178,30 @@ export function Modal({
           </nldd-container>
         )}
       </nldd-page>
+    </>
+  );
+
+  if (placement !== 'center') {
+    // Aan de documentwortel, zoals de sheet vraagt: binnen een split view
+    // zou hij als flex-kind hoogte van het paneel afsnoepen. Een portal houdt
+    // de React-context gewoon vast.
+    return createPortal(
+      <nldd-sheet ref={windowRef} accessible-label={title} placement={placement} width={SHEET_WIDTH[size]}>
+        {content}
+      </nldd-sheet>,
+      document.body,
+    );
+  }
+
+  return (
+    <nldd-window
+      ref={windowRef}
+      accessible-label={title}
+      centered
+      width={SIZE_WIDTH[size]}
+      {...(closeable ? {} : { 'no-light-dismiss': true })}
+    >
+      {content}
     </nldd-window>
   );
 }

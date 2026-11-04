@@ -99,6 +99,31 @@ describe('Modal', () => {
     expect(bar(labelOnly.container)).not.toHaveAttribute('back-text');
   });
 
+  it('becomes a full-height side sheet at the document root when placed left or right', () => {
+    const { container } = render(
+      <Modal open onClose={vi.fn()} title="Taak" placement="left">
+        Paneelinhoud
+      </Modal>,
+    );
+    // Geen zwevend venster: dat is begrensd op schermhoogte min de marge.
+    expect(win(container)).toBeNull();
+    const sheet = document.body.querySelector('nldd-sheet');
+    expect(sheet).toHaveAttribute('placement', 'left');
+    expect(sheet).toHaveAttribute('accessible-label', 'Taak');
+    // Aan de wortel, niet in de flow van de pagina.
+    expect(sheet?.parentElement).toBe(document.body);
+    expect(screen.getByText('Paneelinhoud')).toBeInTheDocument();
+  });
+
+  it('puts toolbar actions inside the title bar', () => {
+    const { container } = render(
+      <Modal open onClose={vi.fn()} title="Taak" toolbar={<button slot="toolbar">Bewerken</button>}>
+        Content
+      </Modal>,
+    );
+    expect(screen.getByText('Bewerken').closest('nldd-top-title-bar')).toBe(bar(container));
+  });
+
   it('names the entity type as supporting text', () => {
     const { container } = render(
       <Modal open onClose={vi.fn()} title="Iets" entityLabel="Taak">

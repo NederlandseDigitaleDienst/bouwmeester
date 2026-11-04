@@ -93,7 +93,15 @@ export const Input = forwardRef<HTMLElement, InputProps>(
       ...(disabled ? { disabled: true as const } : {}),
       ...(readOnly ? { readonly: true as const } : {}),
       ...(error ? { invalid: true as const, unmet: ERROR_ID } : {}),
-      ...(label ? {} : { 'accessible-label': placeholder ?? '' }),
+      // Zonder zichtbaar label: aria-label als die er is, anders de placeholder.
+      ...(label ? {} : { 'accessible-label': rest['aria-label'] ?? placeholder ?? '' }),
+      // Enter in een snelinvoer (nieuwe taak, nieuwe subtaak). De toets komt
+      // uit de shadow-DOM en bubbelt naar het element; zonder doorgeven viel
+      // hij weg en werkte alleen de plusknop ernaast.
+      ...(rest.onKeyDown ? { onKeyDown: rest.onKeyDown as unknown as React.KeyboardEventHandler<HTMLElement> } : {}),
+      // Verlaten van het veld, voor opslaan bij verlaten (bijvoorbeeld een
+      // naam in een lijst). React vangt het via focusout, dat wel bubbelt.
+      ...(rest.onBlur ? { onBlur: rest.onBlur as unknown as React.FocusEventHandler<HTMLElement> } : {}),
       ...(placeholder ? { placeholder } : {}),
       ...(name ? { name } : {}),
       ...(autoComplete ? { autocomplete: autoComplete } : {}),

@@ -26,6 +26,11 @@ interface ConfirmDialogProps {
  * undo beats confirm. People click OK on autopilot, so a confirmation catches
  * few mistakes. Replacing these dialogs with optimistic updates plus an undo is
  * its own piece of work, and the toast already carries an action slot for it.
+ *
+ * `horizontal-alignment="left"`: zonder die instelling zet het design system
+ * de knoppen van een gecentreerde dialoog onder elkaar, over de volle
+ * breedte. Links uitgelijnd legt het ze naast elkaar, wat bij twee knoppen
+ * (annuleren, bevestigen) is wat je verwacht.
  */
 export function ConfirmDialog({
   open,
@@ -50,6 +55,7 @@ export function ConfirmDialog({
       ref={ref}
       accessible-label={title}
       text={title}
+      horizontal-alignment="left"
       {...(variant === 'danger' ? { variant: 'alert' } : {})}
       {...(supporting ? { 'supporting-text': supporting } : {})}
     >

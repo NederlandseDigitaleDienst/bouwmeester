@@ -63,11 +63,14 @@ export function Sidebar({ mobile }: SidebarProps) {
       },
       { to: '/eenheid-overzicht', icon: 'users', label: eenheidLabel, permission: 'org:read', group: 'organisatie' },
       { to: '/opdrachten', icon: 'euro-sign', label: 'Opdrachten', permission: 'opdracht:read', group: 'organisatie' },
+      // Altijd zichtbaar, zonder recht: de lijst toont alleen initiatieven
+      // waar je toegang toe hebt (lidmaatschap, net als de backend), en dit is
+      // de enige weg terug naar het overzicht vanuit een initiatief. Met
+      // 'lead:read' als voorwaarde zat een lid zonder dat recht vast.
       {
         to: '/initiatieven',
         icon: 'chart-x-y-axis-line',
         label: 'Initiatieven',
-        permission: 'lead:read',
         group: 'organisatie',
       },
       {
