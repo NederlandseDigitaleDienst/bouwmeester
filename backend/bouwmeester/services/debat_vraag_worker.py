@@ -58,6 +58,7 @@ from bouwmeester.services import debat_direct as dd
 from bouwmeester.services import debat_stem as stem
 from bouwmeester.services import debat_stemmen_service as stemmen
 from bouwmeester.services import tk_activiteit
+from bouwmeester.services.debat_besluiten import DebatBesluiten
 from bouwmeester.services.debat_kanaal_service import AMSTERDAM
 from bouwmeester.services.debat_slotlijst import (
     BEWINDSPERSOON,
@@ -665,6 +666,9 @@ class DebatVraagWorker:
                 result.sessies += 1
                 if _pause.waiting(sessie_id, now):
                     continue
+                # Before the turns: a procedurevergadering has none to read,
+                # only the chairman going through the agenda.
+                await self._besluiten(sessie_id, client, now, result)
                 try:
                     waiting = await self._waiting(sessie_id, now)
                     # The list of the chairman only when no turn waits: it
@@ -742,6 +746,66 @@ class DebatVraagWorker:
                 ronde.gewijzigd,
                 ronde.mislukt,
             )
+
+    async def _besluiten(
+        self,
+        sessie_id: uuid.UUID,
+        client: httpx.AsyncClient,
+        now: datetime,
+        result: VraagTickResult,
+    ) -> None:
+        """Keep the overview of the decisions of a procedurevergadering.
+
+        Nothing else depends on this: whatever goes wrong, the transcript
+        is in the channel and the round goes on.
+        """
+        try:
+            sessie = (
+                await self.session.execute(
+                    select(
+                        DebatSessie.activiteit_id,
+                        DebatSessie.onderwerp,
+                        DebatSessie.besluiten,
+                    ).where(DebatSessie.id == sessie_id)
+                )
+            ).first()
+            if sessie is None:
+                return
+            activiteit_id, onderwerp, state = sessie
+            if (state or {}).get("af"):
+                return
+            known = self.contexts.get(sessie_id)
+            # By the subject: the TK API names every procedurevergadering
+            # "Procedurevergadering <commissie>" (all of them in the week
+            # of 3 November 2026). Not by asking the TK API for each debate
+            # every round, which is what the subject spares.
+            if not dd.is_procedurevergadering(
+                onderwerp, known.soort if known else None
+            ):
+                return
+
+            async def agenda() -> list[str]:
+                # What the model is given to name the points by. Read once
+                # and kept, with what the questions need.
+                context = await self._context(
+                    sessie_id, activiteit_id, onderwerp, client
+                )
+                return list(context.agendapunten)
+
+            await DebatBesluiten(self.session, self.mattermost, self._llm).update(
+                sessie_id, onderwerp, agenda, now
+            )
+        except Exception:
+            await self.session.rollback()
+            result.fouten += 1
+            logger.exception("Besluiten van sessie %s niet bijgewerkt", sessie_id)
+
+    async def _llm(self) -> BaseLLMService | None:
+        if self.llm is not None:
+            return self.llm
+        from bouwmeester.services.llm import get_llm_service
+
+        return await get_llm_service(self.session)
 
     async def _service(self) -> DebatVraagService | None:
         if self.llm is not None:

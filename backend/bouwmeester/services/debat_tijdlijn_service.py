@@ -218,13 +218,15 @@ def format_event(
         return f"_Voorzitter is nu {naam}_ · {_hhmm(event.start)}"
     if event.type == dd.EVENT_DEBATE_START:
         zaal = f" in de {_escape(debat.location_name)}" if debat.location_name else ""
-        return f"▶️ **Het debat is begonnen**{zaal} · {_linked_time(debat, event)}"
+        wat = dd.meeting_noun(debat.debate_type)
+        return f"▶️ **{wat} is begonnen**{zaal} · {_linked_time(debat, event)}"
     if event.type == dd.EVENT_SUSPENDED:
         return f"⏸️ **Geschorst** · {_hhmm(event.start)}"
     if event.type == dd.EVENT_CONTINUED:
         return f"▶️ **Hervat** · {_linked_time(debat, event)}"
     if event.type == dd.EVENT_DEBATE_END:
-        return f"⏹️ **Het debat is afgelopen** · {_hhmm(event.start)}"
+        wat = dd.meeting_noun(debat.debate_type)
+        return f"⏹️ **{wat} is afgelopen** · {_hhmm(event.start)}"
     return None
 
 

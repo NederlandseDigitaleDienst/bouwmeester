@@ -318,6 +318,9 @@ class DebatContext:
     # ten of such debates (see `tk_activiteit`). Empty means not known,
     # and everything is then as it was before the names were read.
     initiatiefnemer_namen: tuple[Initiatiefnemer, ...] = ()
+    # The subjects of the agendapunten, in order. What a procedurevergadering
+    # goes through (`debat_besluiten`).
+    agendapunten: tuple[str, ...] = ()
     # When this was read from the TK API. For whoever keeps it: the names
     # of the initiatiefnemers may be added on the day of the debate.
     gelezen_at: datetime | None = field(default=None, compare=False)
@@ -338,6 +341,9 @@ class DebatContext:
             initiatiefnemers=bool(activiteit.initiatiefnemers)
             or "initiatief" in activiteit.onderwerp.lower(),
             initiatiefnemer_namen=activiteit.initiatiefnemers,
+            agendapunten=tuple(
+                p.onderwerp for p in activiteit.agendapunten if p.onderwerp
+            ),
         )
 
 
