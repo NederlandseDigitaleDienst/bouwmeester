@@ -1,7 +1,7 @@
 """besluiten van een procedurevergadering
 
 Revision ID: c4e8a2d61f93
-Revises: 139f2db78246
+Revises: 23a62e0a8edb
 Create Date: 2026-11-04
 
 Een kolom op debat_sessie waarin staat hoe ver het overzicht van de
@@ -18,7 +18,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "c4e8a2d61f93"
-down_revision: str | None = "139f2db78246"
+down_revision: str | None = "23a62e0a8edb"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
