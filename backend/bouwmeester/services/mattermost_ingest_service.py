@@ -42,6 +42,7 @@ from bouwmeester.models.lead import Lead
 from bouwmeester.models.lead_activity import LeadActivity
 from bouwmeester.models.lead_attachment import LeadAttachment
 from bouwmeester.models.mattermost_channel_link import (
+    SCOPE_CASUS,
     SCOPE_INITIATIEF,
     SCOPE_LEAD,
 )
@@ -538,6 +539,14 @@ class MattermostIngestService:
 
         if lead_activity_id is not None:
             text = ":memo: Genoteerd bij deze lead in Bouwmeester."
+        elif channel_link.scope_type == SCOPE_CASUS:
+            # Een casus leest niet mee; zonder deze regel kreeg je hier
+            # "Gezien, niets mee gedaan" en bleef de vraag waarom.
+            text = (
+                ":information_source: Dit kanaal hangt aan een casus in "
+                "Bouwmeester. Van berichten hier maak ik geen notities. Staat "
+                "bij de casus de voortgang aan, dan zet ik die hier neer."
+            )
         elif (
             channel_link.scope_type == SCOPE_LEAD and not channel_link.auto_note_enabled
         ):

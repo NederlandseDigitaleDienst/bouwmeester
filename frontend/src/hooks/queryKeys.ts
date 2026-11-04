@@ -201,6 +201,11 @@ export const queryKeys = {
     search: (q: string) => ['mattermost-channels', 'search', q] as const,
     forLead: (leadId: string | undefined) =>
       ['leads', 'detail', leadId, 'mattermost-channels'] as const,
+    forCasus: (casusId: string | undefined) =>
+      ['casussen', 'detail', casusId, 'mattermost-channels'] as const,
+    // Onder de casus: wat een casus of issue wijzigt, ververst ze mee.
+    berichtenForCasus: (casusId: string | undefined) =>
+      ['casussen', 'detail', casusId, 'kanaalberichten'] as const,
   },
 
   // --- Leads ---

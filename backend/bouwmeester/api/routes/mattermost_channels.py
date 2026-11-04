@@ -1,10 +1,13 @@
-"""Mattermost-kanaalkoppelingen aan initiatieven en leads.
+"""Mattermost-kanaalkoppelingen aan initiatieven, leads en casussen.
 
 Routes:
   GET  /api/initiatieven/{id}/mattermost-channels
   POST /api/initiatieven/{id}/mattermost-channels
   GET  /api/leads/{id}/mattermost-channels
   POST /api/leads/{id}/mattermost-channels
+  GET  /api/casussen/{id}/mattermost-channels
+  POST /api/casussen/{id}/mattermost-channels
+  GET  /api/casussen/{id}/kanaalberichten
   GET  /api/mattermost-channels/search?q=...
   PATCH /api/mattermost-channels/{link_id}
   DELETE /api/mattermost-channels/{link_id}
@@ -20,14 +23,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bouwmeester.api.routes.leads import _require_lead_open
 from bouwmeester.core.auth import OptionalUser
+from bouwmeester.core.authority import require_can_change_casus
 from bouwmeester.core.database import get_db
 from bouwmeester.core.initiatief_context import (
     InitiatiefContext,
     get_initiatief_context,
+    require_initiatief_visible,
 )
+from bouwmeester.core.permissions import PermissionContext, get_permission_context
+from bouwmeester.models.casus import Casus
 from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.models.lead import Lead
 from bouwmeester.models.mattermost_channel_link import (
+    SCOPE_CASUS,
     SCOPE_INITIATIEF,
     SCOPE_LEAD,
     MattermostChannelLink,
@@ -36,11 +44,14 @@ from bouwmeester.repositories.mattermost_channel_link import (
     MattermostChannelLinkRepository,
 )
 from bouwmeester.schema.mattermost_channel_link import (
+    CasusKanaalberichtResponse,
     MattermostChannelLinkCreate,
     MattermostChannelLinkResponse,
     MattermostChannelLinkUpdate,
     MattermostChannelSearchResult,
 )
+from bouwmeester.services.activity_service import log_activity
+from bouwmeester.services.casus_kanaal_service import berichten_van_casus
 from bouwmeester.services.mattermost_service import vul_teamnaam_aan
 
 logger = logging.getLogger(__name__)
@@ -92,6 +103,103 @@ async def _resolve_lead(
     return lead
 
 
+async def _resolve_casus(
+    db: AsyncSession, casus_id: UUID, init_ctx: InitiatiefContext
+) -> Casus:
+    """Haal de casus op, met de toegangsregel van de casus zelf (404)."""
+    casus = await db.get(Casus, casus_id)
+    if casus is None:
+        raise _not_found()
+    require_initiatief_visible(casus.initiatief_id, init_ctx)
+    return casus
+
+
+async def _mag_casuskanaal_beheren(
+    db: AsyncSession,
+    casus: Casus,
+    current_user: OptionalUser,
+    perm_ctx: PermissionContext,
+) -> None:
+    """403 voor wie in het initiatief alleen kijkt.
+
+    Een kanaal aan een casus stuurt casusinhoud naar Mattermost. Dat valt
+    onder het wijzigen van de casus: een bijdrager of eigenaar van het
+    initiatief, of de trekker. Zien mag iedereen die het initiatief ziet;
+    dat regelt `_resolve_casus` al, met 404 erbuiten.
+    """
+    await require_can_change_casus(db, perm_ctx, current_user, casus)
+
+
+async def _privekanaal(db: AsyncSession, channel_id: str) -> dict:
+    """Het kanaal zoals Mattermost het kent, als het een privékanaal is.
+
+    Alleen een privékanaal krijgt de voortgang van een casus: daar kom je
+    alleen in als iemand je uitnodigt, dus de inhoud komt niet bij wie
+    toevallig in een open kanaal zit. De bot moet erin zitten, en de naam
+    komt uit Mattermost, niet uit het verzoek.
+    """
+    from bouwmeester.services.mattermost_service import (
+        MattermostService,
+        MattermostUnavailableError,
+    )
+
+    service = MattermostService(db)
+    try:
+        if not await service.is_enabled():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Mattermost is niet geconfigureerd",
+            )
+        kanaal = await service.get_channel(channel_id)
+        if not kanaal or kanaal.get("delete_at"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Dit kanaal is niet te vinden in Mattermost",
+            )
+        if kanaal.get("type") != "P":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Alleen een privékanaal kan de voortgang van een casus krijgen",
+            )
+        try:
+            bot_erin = await service.is_bot_member_of_channel(channel_id)
+        except MattermostUnavailableError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Mattermost is tijdelijk niet bereikbaar. Probeer het zo opnieuw."
+                ),
+            )
+        if not bot_erin:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "De bot zit niet in dit kanaal. Voeg hem eerst toe in Mattermost."
+                ),
+            )
+        return kanaal
+    finally:
+        await service.close()
+
+
+async def _log_casuskanaal(
+    db: AsyncSession, current_user: OptionalUser, soort: str, link
+) -> None:
+    """Koppelen, voortgang aan of uit en ontkoppelen in het activiteitenlog."""
+    await log_activity(
+        db,
+        current_user,
+        None,
+        soort,
+        details={
+            "casus_id": str(link.scope_id),
+            "channel_id": link.channel_id,
+            "kanaal": link.channel_display_name,
+            "voortgang": link.casus_updates_enabled,
+        },
+    )
+
+
 async def _can_manage_link(
     db: AsyncSession,
     link: MattermostChannelLink,
@@ -126,6 +234,14 @@ async def _can_manage_link(
         if lead.initiatief_id is None:
             return True
         return lead.initiatief_id in init_ctx.visible_initiatief_ids
+    if link.scope_type == SCOPE_CASUS:
+        casus = await db.get(Casus, link.scope_id)
+        if casus is None:
+            return False
+        return (
+            casus.initiatief_id is None
+            or casus.initiatief_id in init_ctx.visible_initiatief_ids
+        )
     return False
 
 
@@ -251,7 +367,8 @@ async def create_lead_channel(
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> MattermostChannelLinkResponse:
     lead = await _resolve_lead(db, lead_id, init_ctx)
-    # Een lead met een casus is alleen-lezen; het kanaal hoort dan bij de casus.
+    # Een lead met een casus is alleen-lezen, en zijn kanaal is meegegaan
+    # naar de casus. Een nieuw kanaal hoort dan ook bij de casus.
     await _require_lead_open(db, lead)
     repo = MattermostChannelLinkRepository(db)
     existing = await repo.get_by_channel_id(data.channel_id)
@@ -283,6 +400,102 @@ async def create_lead_channel(
             detail="Dit kanaal is al gekoppeld",
         )
     return MattermostChannelLinkResponse.model_validate(link)
+
+
+# ---------------------------------------------------------------------------
+# Casus-scope endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/casussen/{casus_id}/mattermost-channels",
+    response_model=list[MattermostChannelLinkResponse],
+)
+async def list_casus_channels(
+    casus_id: UUID,
+    current_user: OptionalUser,
+    db: AsyncSession = Depends(get_db),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+) -> list[MattermostChannelLinkResponse]:
+    await _resolve_casus(db, casus_id, init_ctx)
+    repo = MattermostChannelLinkRepository(db)
+    links = await repo.list_for_scope(SCOPE_CASUS, casus_id)
+    return await _met_teamnaam(db, links)
+
+
+@router.post(
+    "/casussen/{casus_id}/mattermost-channels",
+    response_model=MattermostChannelLinkResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_casus_channel(
+    casus_id: UUID,
+    data: MattermostChannelLinkCreate,
+    current_user: OptionalUser,
+    db: AsyncSession = Depends(get_db),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
+) -> MattermostChannelLinkResponse:
+    """Koppel een privékanaal aan een casus; daar komt de voortgang in.
+
+    Een casus leest niet mee: geen notities, geen lead-suggesties en geen
+    alerts, die horen bij een lead of initiatief.
+    """
+    casus = await _resolve_casus(db, casus_id, init_ctx)
+    await _mag_casuskanaal_beheren(db, casus, current_user, perm_ctx)
+    repo = MattermostChannelLinkRepository(db)
+    existing = await repo.get_by_channel_id(data.channel_id)
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Dit kanaal is al gekoppeld",
+        )
+    kanaal = await _privekanaal(db, data.channel_id)
+    naam = kanaal.get("name") or data.channel_name
+    try:
+        link = await repo.create(
+            channel_id=data.channel_id,
+            channel_name=naam,
+            channel_display_name=kanaal.get("display_name") or naam,
+            team_id=kanaal.get("team_id") or None,
+            scope_type=SCOPE_CASUS,
+            scope_id=casus_id,
+            auto_note_enabled=False,
+            suggest_leads_enabled=False,
+            casus_updates_enabled=data.casus_updates_enabled
+            if data.casus_updates_enabled is not None
+            else True,
+            created_by_id=current_user.id if current_user else None,
+        )
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Dit kanaal is al gekoppeld",
+        )
+    # Wie casusinhoud naar welk kanaal stuurt, moet terug te vinden zijn.
+    await _log_casuskanaal(db, current_user, "casus.kanaal_gekoppeld", link)
+    return MattermostChannelLinkResponse.model_validate(link)
+
+
+@router.get(
+    "/casussen/{casus_id}/kanaalberichten",
+    response_model=list[CasusKanaalberichtResponse],
+)
+async def list_casus_kanaalberichten(
+    casus_id: UUID,
+    current_user: OptionalUser,
+    db: AsyncSession = Depends(get_db),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+) -> list[CasusKanaalberichtResponse]:
+    """Wat Bouwmeester over deze casus in het kanaal zette, nieuwste eerst.
+
+    Ook de berichten die alleen hier staan, omdat er geen kanaal was of
+    Mattermost uit stond.
+    """
+    await _resolve_casus(db, casus_id, init_ctx)
+    berichten = await berichten_van_casus(db, casus_id)
+    return [CasusKanaalberichtResponse.model_validate(b) for b in berichten]
 
 
 # ---------------------------------------------------------------------------
@@ -326,6 +539,7 @@ async def update_channel_link(
     current_user: OptionalUser,
     db: AsyncSession = Depends(get_db),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
 ) -> MattermostChannelLinkResponse:
     repo = MattermostChannelLinkRepository(db)
     link = await repo.get(link_id)
@@ -333,6 +547,34 @@ async def update_channel_link(
         raise _not_found()
     if not await _can_manage_link(db, link, init_ctx):
         raise _not_found()
+
+    # Alleen de schakelaars die bij deze soort kanaal horen. Een casus leest
+    # niet mee; een vlag die hier blijft hangen, gaat anders mee terug naar
+    # de lead als de casus verdwijnt en zet daar meelezen aan.
+    meelezen = (
+        data.auto_note_enabled,
+        data.suggest_leads_enabled,
+        data.parlementaire_alerts_enabled,
+        data.nieuws_alerts_enabled,
+    )
+    if link.scope_type == SCOPE_CASUS:
+        if any(v is not None for v in meelezen):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Een kanaal aan een casus leest niet mee",
+            )
+        casus = await db.get(Casus, link.scope_id)
+        if casus is not None:
+            await _mag_casuskanaal_beheren(db, casus, current_user, perm_ctx)
+        # Voortgang aan kan alleen in een privékanaal. Een kanaal dat van
+        # de lead is meegekomen, kan open zijn.
+        if data.casus_updates_enabled:
+            await _privekanaal(db, link.channel_id)
+    elif data.casus_updates_enabled is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Voortgang hoort alleen bij een kanaal aan een casus",
+        )
 
     # Reenable mag alleen als de bot daadwerkelijk weer in het kanaal zit
     # — anders zet je `disabled_at=None` op een dode koppeling en raakt de
@@ -380,8 +622,11 @@ async def update_channel_link(
         suggest_leads_enabled=data.suggest_leads_enabled,
         parlementaire_alerts_enabled=data.parlementaire_alerts_enabled,
         nieuws_alerts_enabled=data.nieuws_alerts_enabled,
+        casus_updates_enabled=data.casus_updates_enabled,
         reenable=data.reenable,
     )
+    if link.scope_type == SCOPE_CASUS and data.casus_updates_enabled is not None:
+        await _log_casuskanaal(db, current_user, "casus.kanaal_voortgang", updated)
     return MattermostChannelLinkResponse.model_validate(updated)
 
 
@@ -394,6 +639,7 @@ async def delete_channel_link(
     current_user: OptionalUser,
     db: AsyncSession = Depends(get_db),
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
 ) -> None:
     repo = MattermostChannelLinkRepository(db)
     link = await repo.get(link_id)
@@ -401,4 +647,9 @@ async def delete_channel_link(
         raise _not_found()
     if not await _can_manage_link(db, link, init_ctx):
         raise _not_found()
+    if link.scope_type == SCOPE_CASUS:
+        casus = await db.get(Casus, link.scope_id)
+        if casus is not None:
+            await _mag_casuskanaal_beheren(db, casus, current_user, perm_ctx)
+        await _log_casuskanaal(db, current_user, "casus.kanaal_ontkoppeld", link)
     await repo.delete(link)

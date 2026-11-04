@@ -30,6 +30,7 @@ from bouwmeester.schema.issue import (
     IssueResponse,
     IssueUpdate,
 )
+from bouwmeester.services import casus_kanaal_service as kanaal
 from bouwmeester.services.activity_service import log_activity
 
 router = APIRouter(prefix="/casussen/{casus_id}/issues", tags=["issues"])
@@ -95,6 +96,8 @@ async def create_issue(
             "title": issue.title,
         },
     )
+    actor = current_user.naam if current_user else None
+    await kanaal.meld(db, casus.id, kanaal.bericht_issue_nieuw(casus, issue, actor))
     return (await _with_counts(repo, [issue]))[0]
 
 
@@ -169,7 +172,18 @@ async def update_issue(
     if old_status != issue.status:
         details["old_status"], details["new_status"] = old_status, issue.status
     await log_activity(db, current_user, None, "issue.updated", details=details)
-    return (await _with_counts(repo, [issue]))[0]
+    resp = (await _with_counts(repo, [issue]))[0]
+    if old_status != "done" and issue.status == "done":
+        hier = nieuwe_casus or casus
+        actor = current_user.naam if current_user else None
+        await kanaal.meld(
+            db,
+            hier.id,
+            kanaal.bericht_issue_afgerond(
+                hier, issue, resp.task_done_count, resp.task_count, actor
+            ),
+        )
+    return resp
 
 
 @router.delete("/{issue_id}", status_code=status.HTTP_204_NO_CONTENT)

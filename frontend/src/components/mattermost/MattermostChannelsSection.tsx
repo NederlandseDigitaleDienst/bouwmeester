@@ -6,6 +6,8 @@ import { NlddIconButton } from '@/components/nldd/NlddIconButton';
 import { eventValue, orUndef, useNlddEvent } from '@/components/nldd/events';
 import { useDebounce } from '@/hooks/useDebounce';
 import {
+  useCasusChannels,
+  useCreateCasusChannelLink,
   useCreateInitiatiefChannelLink,
   useCreateLeadChannelLink,
   useDeleteChannelLink,
@@ -13,6 +15,7 @@ import {
   useLeadChannels,
   useSearchMattermostChannels,
   useUpdateChannelLink,
+  type ChannelScope,
 } from '@/hooks/useMattermostChannels';
 import type {
   MattermostChannelLink,
@@ -20,22 +23,36 @@ import type {
 } from '@/api/mattermostChannels';
 import { NlddButton } from '@/components/nldd/NlddButton';
 
-type Scope =
-  | { type: 'initiatief'; id: string }
-  | { type: 'lead'; id: string };
+type Scope = ChannelScope;
 
 interface Props {
   scope: Scope;
+  /**
+   * Mag koppelen, wijzigen en ontkoppelen. Bij een casus niet voor een
+   * kijker van het initiatief; de backend weigert dan ook (403).
+   */
+  kanBeheren?: boolean;
 }
 
-export function MattermostChannelsSection({ scope }: Props) {
+/** Wat een kanaal zonder koppeling hier zou doen, per scope. */
+const LEEG_UITLEG: Record<Scope['type'], string> = {
+  initiatief: 'Bouwmeester leest mee in gekoppelde kanalen en stelt nieuwe leads voor.',
+  lead: 'Berichten in gekoppelde kanalen worden notities op deze lead.',
+  casus: 'Bouwmeester zet de voortgang van de casus in een privékanaal: fase en onderzoeksvragen.',
+};
+
+export function MattermostChannelsSection({ scope, kanBeheren = true }: Props) {
   const initiatiefQuery = useInitiatiefChannels(
     scope.type === 'initiatief' ? scope.id : undefined,
   );
   const leadQuery = useLeadChannels(
     scope.type === 'lead' ? scope.id : undefined,
   );
-  const query = scope.type === 'initiatief' ? initiatiefQuery : leadQuery;
+  const casusQuery = useCasusChannels(
+    scope.type === 'casus' ? scope.id : undefined,
+  );
+  const query =
+    scope.type === 'initiatief' ? initiatiefQuery : scope.type === 'lead' ? leadQuery : casusQuery;
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const updateMutation = useUpdateChannelLink(scope);
@@ -64,7 +81,9 @@ export function MattermostChannelsSection({ scope }: Props) {
             </nldd-text>
           </nldd-container>
         </nldd-container>
-        <NlddButton variant="secondary" size="sm" startIcon="plus" onClick={() => setPickerOpen(true)} text="Kanaal koppelen" />
+        {kanBeheren && (
+          <NlddButton variant="secondary" size="sm" startIcon="plus" onClick={() => setPickerOpen(true)} text="Kanaal koppelen" />
+        )}
       </nldd-container>
 
       {query.isLoading && (
@@ -86,11 +105,7 @@ export function MattermostChannelsSection({ scope }: Props) {
               ? 'Nog geen kanalen gekoppeld.'
               : 'Nog geen kanaal gekoppeld.'
           }
-          supporting-text={
-            scope.type === 'initiatief'
-              ? 'Bouwmeester leest mee in gekoppelde kanalen en stelt nieuwe leads voor.'
-              : 'Berichten in gekoppelde kanalen worden notities op deze lead.'
-          }
+          supporting-text={LEEG_UITLEG[scope.type]}
         />
       )}
       {query.data && query.data.length > 0 && (
@@ -99,6 +114,14 @@ export function MattermostChannelsSection({ scope }: Props) {
             <ChannelRow
               key={link.id}
               link={link}
+              scopeType={scope.type}
+              kanBeheren={kanBeheren}
+              onToggleCasus={(value) =>
+                updateMutation.mutate({
+                  linkId: link.id,
+                  data: { casus_updates_enabled: value },
+                })
+              }
               onToggleAutoNote={(value) =>
                 updateMutation.mutate({
                   linkId: link.id,
@@ -146,6 +169,9 @@ function checkedValue(event: Event): boolean {
 
 function ChannelRow({
   link,
+  scopeType,
+  kanBeheren,
+  onToggleCasus,
   onToggleAutoNote,
   onToggleSuggest,
   onToggleAlerts,
@@ -153,16 +179,21 @@ function ChannelRow({
   onDelete,
 }: {
   link: MattermostChannelLink;
+  scopeType: Scope['type'];
+  kanBeheren: boolean;
+  onToggleCasus: (value: boolean) => void;
   onToggleAutoNote: (value: boolean) => void;
   onToggleSuggest: (value: boolean) => void;
   onToggleAlerts: (value: boolean) => void;
   onToggleNieuws: (value: boolean) => void;
   onDelete: () => void;
 }) {
+  const casusRef = useRef<HTMLElement>(null);
   const autoNoteRef = useRef<HTMLElement>(null);
   const suggestRef = useRef<HTMLElement>(null);
   const alertsRef = useRef<HTMLElement>(null);
   const nieuwsRef = useRef<HTMLElement>(null);
+  useNlddEvent(casusRef, 'change', (e) => onToggleCasus(checkedValue(e)));
   useNlddEvent(autoNoteRef, 'change', (e) => onToggleAutoNote(checkedValue(e)));
   useNlddEvent(suggestRef, 'change', (e) => onToggleSuggest(checkedValue(e)));
   useNlddEvent(alertsRef, 'change', (e) => onToggleAlerts(checkedValue(e)));
@@ -184,6 +215,16 @@ function ChannelRow({
             )}
             {link.disabled_at && <nldd-tag color="critical" size="sm" text="uitgeschakeld" />}
           </nldd-container>
+          {/* Een casus leest niet mee, dus alleen de voortgang. De vier
+              schakelaars hieronder horen bij een lead of initiatief. */}
+          {scopeType === 'casus' ? (
+            <nldd-checkbox-field
+              ref={casusRef}
+              label="Voortgang in dit kanaal"
+              checked={orUndef(link.casus_updates_enabled)}
+              disabled={orUndef(!kanBeheren)}
+            />
+          ) : (
           <nldd-container layout="wrap" gap="16">
             <nldd-checkbox-field
               ref={autoNoteRef}
@@ -214,14 +255,17 @@ function ChannelRow({
               checked={orUndef(link.nieuws_alerts_enabled)}
             />
           </nldd-container>
+          )}
         </nldd-container>
-        <NlddIconButton
-          icon="trash"
-          accessibleLabel="Ontkoppelen"
-          variant="neutral-transparent"
-          size="sm"
-          onClick={onDelete}
-        />
+        {kanBeheren && (
+          <NlddIconButton
+            icon="trash"
+            accessibleLabel="Ontkoppelen"
+            variant="neutral-transparent"
+            size="sm"
+            onClick={onDelete}
+          />
+        )}
       </nldd-container>
     </nldd-list-item>
   );
@@ -245,7 +289,14 @@ function ChannelPickerModal({
   const createLead = useCreateLeadChannelLink(
     scope.type === 'lead' ? scope.id : undefined,
   );
-  const createMutation = scope.type === 'initiatief' ? createInit : createLead;
+  const createCasus = useCreateCasusChannelLink(
+    scope.type === 'casus' ? scope.id : undefined,
+  );
+  const createMutation =
+    scope.type === 'initiatief' ? createInit : scope.type === 'lead' ? createLead : createCasus;
+  // Een casus krijgt alleen een privékanaal: open kanalen laten we niet zien.
+  const gevonden =
+    scope.type === 'casus' ? search.data?.filter((ch) => ch.is_private) : search.data;
   const errorMsg = useMemo(() => {
     if (search.isError) {
       const err = search.error as { message?: string } | undefined;
@@ -280,6 +331,8 @@ function ChannelPickerModal({
         <nldd-text size="xs" color="secondary">
           Zoek een kanaal waar de Bouwmeester-bot al lid van is. Niet
           gevonden? Voeg de bot eerst toe aan dat kanaal in Mattermost.
+          {scope.type === 'casus' &&
+            ' Alleen privékanalen: de voortgang van een casus gaat niet naar een open kanaal.'}
         </nldd-text>
         <nldd-text-field
           ref={searchRef}
@@ -294,17 +347,17 @@ function ChannelPickerModal({
             <LoadingSpinner />
           </nldd-container>
         )}
-        {search.data && search.data.length === 0 && debounced.length >= 2 && (
+        {gevonden && gevonden.length === 0 && debounced.length >= 2 && (
           <nldd-inline-dialog text={`Geen kanalen gevonden voor "${debounced}".`} />
         )}
-        {search.data && search.data.length > 0 && (
+        {gevonden && gevonden.length > 0 && (
           <nldd-list
             type="list"
             appearance="box-tinted"
             height="288px"
             accessible-label="Gevonden kanalen"
           >
-            {search.data.map((ch) => (
+            {gevonden.map((ch) => (
               <ChannelSearchRow
                 key={ch.channel_id}
                 channel={ch}

@@ -34,10 +34,14 @@ from bouwmeester.core.storage import delete_blob
 from bouwmeester.models.casus import Casus
 from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.models.lead import Lead
+from bouwmeester.models.mattermost_channel_link import SCOPE_CASUS, SCOPE_LEAD
 from bouwmeester.models.resource_permission import ResourcePermission
 from bouwmeester.repositories.casus import CasusRepository, bijlage_paden_van_casussen
 from bouwmeester.repositories.casus_soort import CasusSoortRepository
 from bouwmeester.repositories.issue import IssueRepository
+from bouwmeester.repositories.mattermost_channel_link import (
+    MattermostChannelLinkRepository,
+)
 from bouwmeester.repositories.task import TaskRepository
 from bouwmeester.schema.casus import (
     DEFAULT_DOD,
@@ -60,6 +64,7 @@ from bouwmeester.schema.task import (
     BacklogResponse,
     BacklogTask,
 )
+from bouwmeester.services import casus_kanaal_service as kanaal
 from bouwmeester.services.activity_service import log_activity
 
 router = APIRouter(prefix="/casussen", tags=["casussen"])
@@ -90,6 +95,11 @@ async def _require_team_candidate(
     Dezelfde regel als voor wie een taak doet: `require_initiatief_member`.
     """
     await require_initiatief_member(db, casus.initiatief_id, person_id)
+
+
+def _actor(current_user) -> str | None:
+    """Wie het deed, voor het bericht in het casuskanaal."""
+    return current_user.naam if current_user else None
 
 
 def _team_response(rp: ResourcePermission) -> CasusTeamResponse:
@@ -233,6 +243,18 @@ async def start_casus(
         await soort_repo.zet_voor_casus(casus.id, data.soort_ids)
         await db.refresh(casus, attribute_names=["soorten"])
 
+    # Het kanaal van de lead gaat mee: de lead is vanaf nu alleen-lezen, en
+    # het gesprek loopt door bij de casus. De voortgang staat er uit: zo'n
+    # kanaal is gekozen om berichten binnen te halen, niet om casusinhoud
+    # naar buiten te sturen. Aanzetten doet het team bij de casus, en dat
+    # kan alleen in een privékanaal.
+    await MattermostChannelLinkRepository(db).verhuis(
+        van=(SCOPE_LEAD, lead.id),
+        naar=(SCOPE_CASUS, casus.id),
+        casus_updates_enabled=False,
+        van_de_lead=True,
+    )
+
     await log_activity(
         db,
         current_user,
@@ -355,6 +377,11 @@ async def update_casus(
         details["eind_eisen_totaal"] = len(eind_eisen)
     if old_fase != casus.fase:
         details["old_fase"], details["new_fase"] = old_fase, casus.fase
+        await kanaal.meld(
+            db,
+            casus.id,
+            kanaal.bericht_fase(casus, old_fase, casus.fase, _actor(current_user)),
+        )
     await log_activity(db, current_user, None, "casus.updated", details=details)
     return await _detail(repo, casus)
 
@@ -378,6 +405,9 @@ async def delete_casus(
     # Bijlagen van de taken gaan in de database mee (CASCADE), hun bestanden
     # niet: die ruimen we na de commit op, anders blijven ze staan.
     bijlage_paden = await bijlage_paden_van_casussen(db, [casus_id])
+    # Het kanaal van de lead gaat terug naar de lead, die weer bewerkbaar
+    # wordt. Wat het team zelf aan de casus hing, wordt ontkoppeld.
+    await MattermostChannelLinkRepository(db).casus_weg(casus_id, casus.lead_id)
     await db.execute(
         sa_delete(ResourcePermission).where(
             ResourcePermission.resource_type == "casus",
