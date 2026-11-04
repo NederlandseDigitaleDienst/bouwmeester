@@ -90,3 +90,43 @@ async def casusrollen_na_rolwijziging(
     if weg:
         await db.flush()
     return weg
+
+
+async def rangen_voor_rij(db: AsyncSession, rp: ResourcePermission) -> dict[UUID, int]:
+    """De rangen die een wijziging van deze initiatiefrij kan raken: de
+    persoon zelf, of bij een eenheidsrij iedereen met een casusrol."""
+    if rp.person_id is not None:
+        return await rangen(db, rp.resource_id, [rp.person_id])
+    return await rangen(
+        db, rp.resource_id, await personen_met_casusrol(db, rp.resource_id)
+    )
+
+
+async def casusrollen_bijwerken(
+    db: AsyncSession,
+    initiatief_id: UUID,
+    rangen_voor: dict[UUID, int],
+    *,
+    current_user=None,
+    actor_id: UUID | None = None,
+) -> None:
+    """Na een rolwijziging: casusrollen die hun grond verloren gaan weg, met
+    een regel in het log per rij. Voor de initiatiefroutes en de generieke
+    toekenningsroutes, zodat beide paden hetzelfde doen."""
+    from bouwmeester.services.activity_service import log_activity
+
+    for casus_id, person_id, rol in await casusrollen_na_rolwijziging(
+        db, initiatief_id, rangen_voor
+    ):
+        await log_activity(
+            db,
+            current_user,
+            actor_id,
+            "casus_team.removed",
+            details={
+                "casus_id": str(casus_id),
+                "person_id": str(person_id),
+                "rol": rol,
+                "reden": "rol op het initiatief gewijzigd of ingetrokken",
+            },
+        )

@@ -1009,6 +1009,53 @@ async def test_eenheid_die_kijker_wordt_of_weggaat_neemt_de_casusrollen_mee(
         assert (await c.get(f"/api/casussen/{cid}")).status_code == 404
 
 
+async def test_generieke_toekenningsroutes_ruimen_casusrollen_ook_op(
+    client, db_session, initiatief, lead_gewonnen
+):
+    """Beheer > persoon werkt via /resource-permissions/{id}, niet via de
+    initiatiefroutes. Ook daar volgen de casusrollen de rol."""
+    from sqlalchemy import select
+
+    from tests.factories import client_as
+
+    async def rij_van(p):
+        return await db_session.scalar(
+            select(ResourcePermission.id).where(
+                ResourcePermission.resource_type == "initiatief",
+                ResourcePermission.resource_id == initiatief.id,
+                ResourcePermission.person_id == p.id,
+            )
+        )
+
+    # PUT naar kijker: trekker weg
+    p = await _met_rol(db_session, initiatief, "Via beheer", "contributor")
+    cid = (await _start(client, lead_gewonnen, trekker_id=str(p.id))).json()["id"]
+    resp = await client.put(
+        f"/api/resource-permissions/{await rij_van(p)}", json={"rol": "viewer"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert await _team(client, cid) == []
+
+    # DELETE van de toekenning: uit elk casusteam, en de casus is weg uit zicht
+    resp = await client.post(
+        f"/api/casussen/{cid}/team", json={"person_id": str(p.id), "rol": "teamlid"}
+    )
+    assert resp.status_code == 201, resp.text
+    resp = await client.delete(f"/api/resource-permissions/{await rij_van(p)}")
+    assert resp.status_code == 200, resp.text
+    assert await _team(client, cid) == []
+    async with client_as(db_session, p) as c:
+        assert (await c.get(f"/api/casussen/{cid}")).status_code == 404
+
+
+async def test_onbekende_persoon_als_lid_is_404(client, initiatief):
+    resp = await client.post(
+        f"/api/initiatieven/{initiatief.id}/members",
+        json={"person_id": str(uuid.uuid4()), "rol": "viewer"},
+    )
+    assert resp.status_code == 404, resp.text
+
+
 async def test_tweede_lidmaatschap_is_409_en_intrekken_trekt_in(
     client, db_session, initiatief
 ):
