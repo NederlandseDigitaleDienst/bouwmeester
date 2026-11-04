@@ -27,6 +27,7 @@ from bouwmeester.models.person import Person
 from bouwmeester.models.resource_permission import ResourcePermission
 from bouwmeester.repositories.initiatief import InitiatiefRepository
 from bouwmeester.schema.initiatief import EENHEID_ROL_RANK
+from bouwmeester.services.activity_service import log_activity
 
 BIJDRAGER = EENHEID_ROL_RANK["contributor"]
 
@@ -113,8 +114,6 @@ async def casusrollen_bijwerken(
     """Na een rolwijziging: casusrollen die hun grond verloren gaan weg, met
     een regel in het log per rij. Voor de initiatiefroutes en de generieke
     toekenningsroutes, zodat beide paden hetzelfde doen."""
-    from bouwmeester.services.activity_service import log_activity
-
     for casus_id, person_id, rol in await casusrollen_na_rolwijziging(
         db, initiatief_id, rangen_voor
     ):

@@ -1078,3 +1078,51 @@ async def test_tweede_lidmaatschap_is_409_en_intrekken_trekt_in(
     assert (await client.post(eenheden, json=body)).status_code == 201
     assert (await client.post(eenheden, json=body)).status_code == 409
     assert (await client.delete(f"{eenheden}/{eenheid.id}")).status_code == 204
+
+
+async def test_generieke_routes_op_een_eenheidsrij_nemen_de_leden_mee(
+    client, db_session, initiatief, lead_gewonnen
+):
+    """Een eenheidsrij via /resource-permissions/{id}: wie zijn rang alleen
+    aan die eenheid ontleent, verliest trekker bij kijker en gaat uit het
+    team als de koppeling weg is."""
+    from sqlalchemy import select
+
+    from tests.factories import client_as, make_org, make_person, place
+
+    eenheid = await make_org(db_session, "Directie via beheer")
+    p = await make_person(db_session, "Lid via beheer")
+    await place(db_session, p, eenheid)
+    rij = ResourcePermission(
+        organisatie_eenheid_id=eenheid.id,
+        resource_type="initiatief",
+        resource_id=initiatief.id,
+        rol="contributor",
+    )
+    db_session.add(rij)
+    await db_session.flush()
+    rij_id = await db_session.scalar(
+        select(ResourcePermission.id).where(
+            ResourcePermission.resource_type == "initiatief",
+            ResourcePermission.resource_id == initiatief.id,
+            ResourcePermission.organisatie_eenheid_id == eenheid.id,
+        )
+    )
+    cid = (await _start(client, lead_gewonnen, trekker_id=str(p.id))).json()["id"]
+
+    resp = await client.put(
+        f"/api/resource-permissions/{rij_id}", json={"rol": "viewer"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert await _team(client, cid) == []
+
+    resp = await client.post(
+        f"/api/casussen/{cid}/team", json={"person_id": str(p.id), "rol": "teamlid"}
+    )
+    assert resp.status_code == 201, resp.text
+    assert (
+        await client.delete(f"/api/resource-permissions/{rij_id}")
+    ).status_code == 200
+    assert await _team(client, cid) == []
+    async with client_as(db_session, p) as c:
+        assert (await c.get(f"/api/casussen/{cid}")).status_code == 404
