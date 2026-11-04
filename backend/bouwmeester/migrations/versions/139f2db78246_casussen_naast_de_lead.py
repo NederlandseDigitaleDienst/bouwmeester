@@ -158,9 +158,55 @@ def upgrade() -> None:
         unique=True,
         postgresql_where=sa.text("resource_type = 'casus'"),
     )
+    # Eén rij per persoon en per eenheid op een initiatief, om dezelfde
+    # reden. Casustoegang leunt op het intrekken van een lidmaatschap, en
+    # met twee rijen trok "intrekken" er maar één in. Bestaande dubbelen
+    # eerst samenvoegen tot de rij met de hoogste rol (bij gelijke rol de
+    # oudste), anders weigert Postgres de index.
+    for kolom, naam in (
+        ("person_id", "uq_resource_permission_initiatief_lid"),
+        ("organisatie_eenheid_id", "uq_resource_permission_initiatief_eenheid"),
+    ):
+        op.execute(
+            f"""
+            DELETE FROM resource_permission WHERE id IN (
+                SELECT id FROM (
+                    SELECT id, row_number() OVER (
+                        PARTITION BY resource_id, {kolom}
+                        ORDER BY CASE rol
+                                     WHEN 'eigenaar' THEN 3
+                                     WHEN 'contributor' THEN 2
+                                     WHEN 'viewer' THEN 1
+                                     ELSE 0
+                                 END DESC,
+                                 created_at ASC, id ASC
+                    ) AS rang
+                    FROM resource_permission
+                    WHERE resource_type = 'initiatief' AND {kolom} IS NOT NULL
+                ) dubbel WHERE rang > 1
+            )
+            """
+        )
+        op.create_index(
+            naam,
+            "resource_permission",
+            ["resource_id", kolom],
+            unique=True,
+            postgresql_where=sa.text(
+                f"resource_type = 'initiatief' AND {kolom} IS NOT NULL"
+            ),
+        )
 
 
 def downgrade() -> None:
+    # De samengevoegde dubbele lidmaatschappen komen niet terug; van elk lid
+    # is de hoogste rol gebleven, dus niemand verliest toegang.
+    op.drop_index(
+        "uq_resource_permission_initiatief_eenheid", table_name="resource_permission"
+    )
+    op.drop_index(
+        "uq_resource_permission_initiatief_lid", table_name="resource_permission"
+    )
     # Verwijdert bewust de casussen, hun soorten en de inrichting per
     # initiatief: die bestonden voor deze migratie niet.
     op.drop_column("initiatief", "casussen_enabled")

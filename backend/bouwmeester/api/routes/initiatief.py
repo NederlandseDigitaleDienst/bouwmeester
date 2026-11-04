@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bouwmeester.api.deps import require_deleted, require_found
@@ -40,8 +41,35 @@ from bouwmeester.schema.initiatief import (
     InitiatiefUpdate,
 )
 from bouwmeester.services.activity_service import log_activity
+from bouwmeester.services.casus_team_service import (
+    casusrollen_na_rolwijziging,
+    personen_met_casusrol,
+    rangen,
+)
 
 router = APIRouter(prefix="/initiatieven", tags=["initiatieven"])
+
+
+async def _casusrollen_bijwerken(
+    db: AsyncSession, current_user, initiatief_id: UUID, rangen_voor: dict
+) -> None:
+    """Na een rolwijziging: casusrollen die hun grond verloren gaan weg,
+    met een regel in het log per rij (zie services.casus_team_service)."""
+    for casus_id, person_id, rol in await casusrollen_na_rolwijziging(
+        db, initiatief_id, rangen_voor
+    ):
+        await log_activity(
+            db,
+            current_user,
+            None,
+            "casus_team.removed",
+            details={
+                "casus_id": str(casus_id),
+                "person_id": str(person_id),
+                "rol": rol,
+                "reden": "rol op het initiatief gewijzigd of ingetrokken",
+            },
+        )
 
 
 async def _resolve_access_level(
@@ -374,7 +402,13 @@ async def add_member(
         rol=data.rol,
         target_person_id=data.person_id,
     )
-    member = await repo.add_member(id, data.person_id, data.rol)
+    try:
+        member = await repo.add_member(id, data.person_id, data.rol)
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Deze persoon is al lid van dit initiatief",
+        ) from None
 
     await log_activity(
         db,
@@ -417,6 +451,7 @@ async def remove_member(
         person_id=person_id,
         new_rol=None,
     )
+    voor = await rangen(db, id, [person_id])
     if not await repo.remove_member(id, person_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -430,6 +465,7 @@ async def remove_member(
         "initiatief_member.removed",
         details={"initiatief_id": str(id), "person_id": str(person_id)},
     )
+    await _casusrollen_bijwerken(db, current_user, id, voor)
 
 
 @router.put(
@@ -454,6 +490,7 @@ async def update_member_role(
         person_id=person_id,
         new_rol=data.rol,
     )
+    voor = await rangen(db, id, [person_id])
     member = await repo.update_member_role(id, person_id, data.rol)
     if member is None:
         raise HTTPException(
@@ -472,6 +509,7 @@ async def update_member_role(
             "rol": data.rol,
         },
     )
+    await _casusrollen_bijwerken(db, current_user, id, voor)
 
     return InitiatiefMemberResponse(
         initiatief_id=member.resource_id,
@@ -560,6 +598,7 @@ async def remove_eenheid(
         eenheid_id=eenheid_id,
         new_rol=None,
     )
+    voor = await rangen(db, id, await personen_met_casusrol(db, id))
     if not await repo.remove_eenheid(id, eenheid_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -573,6 +612,7 @@ async def remove_eenheid(
         "initiatief_eenheid.removed",
         details={"initiatief_id": str(id), "eenheid_id": str(eenheid_id)},
     )
+    await _casusrollen_bijwerken(db, current_user, id, voor)
 
 
 @router.put(
@@ -597,6 +637,7 @@ async def update_eenheid_rol(
         eenheid_id=eenheid_id,
         new_rol=data.rol,
     )
+    voor = await rangen(db, id, await personen_met_casusrol(db, id))
     rp = await repo.update_eenheid_rol(id, eenheid_id, data.rol)
     if rp is None:
         raise HTTPException(
@@ -615,6 +656,7 @@ async def update_eenheid_rol(
             "rol": data.rol,
         },
     )
+    await _casusrollen_bijwerken(db, current_user, id, voor)
 
     return InitiatiefEenheidResponse(
         initiatief_id=rp.resource_id,

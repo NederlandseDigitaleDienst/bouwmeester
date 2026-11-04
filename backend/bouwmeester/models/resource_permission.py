@@ -47,7 +47,10 @@ class ResourcePermission(Base):
             "source IN ('manual', 'ai')",
             name="ck_resource_permission_source",
         ),
-        # Eén rij per persoon en rol in een casusteam (migratie 139f2db78246).
+        # Eén rij per persoon en rol in een casusteam, en één per persoon en
+        # per eenheid op een initiatief (migratie 139f2db78246). De
+        # constraint hierboven helpt daar niet: de andere kolom is leeg, en
+        # twee lege waarden tellen in Postgres als verschillend.
         Index(
             "uq_resource_permission_casus_team",
             "resource_id",
@@ -55,6 +58,24 @@ class ResourcePermission(Base):
             "rol",
             unique=True,
             postgresql_where=text("resource_type = 'casus'"),
+        ),
+        Index(
+            "uq_resource_permission_initiatief_lid",
+            "resource_id",
+            "person_id",
+            unique=True,
+            postgresql_where=text(
+                "resource_type = 'initiatief' AND person_id IS NOT NULL"
+            ),
+        ),
+        Index(
+            "uq_resource_permission_initiatief_eenheid",
+            "resource_id",
+            "organisatie_eenheid_id",
+            unique=True,
+            postgresql_where=text(
+                "resource_type = 'initiatief' AND organisatie_eenheid_id IS NOT NULL"
+            ),
         ),
     )
 

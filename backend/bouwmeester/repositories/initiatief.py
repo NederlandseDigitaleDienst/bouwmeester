@@ -212,6 +212,12 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
     # Member (person-scoped) management via ResourcePermission
     # -----------------------------------------------------------------------
 
+    # Eén rij per persoon en per eenheid, bewaakt door een unieke index
+    # (migratie 139f2db78246). Toevoegen gebeurt in een savepoint, zodat een
+    # geweigerde rij (IntegrityError, in de route een 409) de sessie niet
+    # breekt. Wijzigen en intrekken nemen alle passende rijen mee: zo blijft
+    # er nooit een rij over die stilletjes toegang geeft.
+
     async def add_member(
         self, initiatief_id: UUID, person_id: UUID, rol: str = "contributor"
     ) -> ResourcePermission:
@@ -221,8 +227,9 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
             resource_id=initiatief_id,
             rol=rol,
         )
-        self.session.add(rp)
-        await self.session.flush()
+        async with self.session.begin_nested():
+            self.session.add(rp)
+            await self.session.flush()
         await self.session.refresh(rp, attribute_names=["person"])
         return rp
 
@@ -238,14 +245,14 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
             )
             .options(selectinload(ResourcePermission.person))
         )
-        result = await self.session.execute(stmt)
-        rp = result.scalar_one_or_none()
-        if rp is None:
+        rijen = (await self.session.execute(stmt)).scalars().all()
+        if not rijen:
             return None
-        rp.rol = rol
+        for rp in rijen:
+            rp.rol = rol
         await self.session.flush()
-        await self.session.refresh(rp, attribute_names=["person"])
-        return rp
+        await self.session.refresh(rijen[0], attribute_names=["person"])
+        return rijen[0]
 
     async def remove_member(self, initiatief_id: UUID, person_id: UUID) -> bool:
         stmt = select(ResourcePermission).where(
@@ -253,11 +260,11 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
             ResourcePermission.resource_id == initiatief_id,
             ResourcePermission.person_id == person_id,
         )
-        result = await self.session.execute(stmt)
-        rp = result.scalar_one_or_none()
-        if rp is None:
+        rijen = (await self.session.execute(stmt)).scalars().all()
+        if not rijen:
             return False
-        await self.session.delete(rp)
+        for rp in rijen:
+            await self.session.delete(rp)
         await self.session.flush()
         return True
 
@@ -274,8 +281,9 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
             resource_id=initiatief_id,
             rol=rol,
         )
-        self.session.add(rp)
-        await self.session.flush()
+        async with self.session.begin_nested():
+            self.session.add(rp)
+            await self.session.flush()
         await self.session.refresh(rp, attribute_names=["eenheid"])
         return rp
 
@@ -287,14 +295,14 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
             ResourcePermission.resource_id == initiatief_id,
             ResourcePermission.organisatie_eenheid_id == eenheid_id,
         )
-        result = await self.session.execute(stmt)
-        rp = result.scalar_one_or_none()
-        if rp is None:
+        rijen = (await self.session.execute(stmt)).scalars().all()
+        if not rijen:
             return None
-        rp.rol = rol
+        for rp in rijen:
+            rp.rol = rol
         await self.session.flush()
-        await self.session.refresh(rp, attribute_names=["eenheid"])
-        return rp
+        await self.session.refresh(rijen[0], attribute_names=["eenheid"])
+        return rijen[0]
 
     async def remove_eenheid(self, initiatief_id: UUID, eenheid_id: UUID) -> bool:
         stmt = select(ResourcePermission).where(
@@ -302,11 +310,11 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
             ResourcePermission.resource_id == initiatief_id,
             ResourcePermission.organisatie_eenheid_id == eenheid_id,
         )
-        result = await self.session.execute(stmt)
-        rp = result.scalar_one_or_none()
-        if rp is None:
+        rijen = (await self.session.execute(stmt)).scalars().all()
+        if not rijen:
             return False
-        await self.session.delete(rp)
+        for rp in rijen:
+            await self.session.delete(rp)
         await self.session.flush()
         return True
 

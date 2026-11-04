@@ -700,27 +700,24 @@ async def test_lid_via_twee_eenheden_geeft_geen_500(
     assert resp.status_code == 201, resp.text
 
 
-async def test_twee_directe_rollen_geven_geen_500(
-    db_session, initiatief, lead_gewonnen, client
-):
-    """Twee directe rijen op het initiatief (viewer en contributor): de
-    hoogste telt, en niemand krijgt een 500."""
-    from tests.factories import client_as
+async def test_de_database_weigert_een_tweede_lidmaatschap(db_session, initiatief):
+    """Twee directe rijen voor dezelfde persoon op een initiatief kunnen
+    niet meer bestaan: intrekken moet alles intrekken, en de lezers hoeven
+    niet op twee rijen te rekenen."""
+    from sqlalchemy.exc import IntegrityError
 
-    cid = (await _start(client, lead_gewonnen)).json()["id"]
     p = await _met_rol(db_session, initiatief, "Dubbel direct", "viewer")
-    db_session.add(
-        ResourcePermission(
-            person_id=p.id,
-            resource_type="initiatief",
-            resource_id=initiatief.id,
-            rol="contributor",
-        )
-    )
-    await db_session.flush()
-    async with client_as(db_session, p) as c:
-        resp = await c.put(f"/api/casussen/{cid}", json={"title": "Bijgewerkt"})
-        assert resp.status_code == 200, resp.text
+    with pytest.raises(IntegrityError):
+        async with db_session.begin_nested():
+            db_session.add(
+                ResourcePermission(
+                    person_id=p.id,
+                    resource_type="initiatief",
+                    resource_id=initiatief.id,
+                    rol="contributor",
+                )
+            )
+            await db_session.flush()
 
 
 async def test_de_database_weigert_een_dubbele_teamrij(
@@ -882,3 +879,136 @@ async def test_chat_leest_het_log_alleen_met_audit_read(
         )
     )
     assert any(a["event_type"] == "casus.started" for a in uit["activities"])
+
+
+# ---------------------------------------------------------------------------
+# Casusrollen volgen de rol op het initiatief (review #444, derde ronde)
+# ---------------------------------------------------------------------------
+
+
+async def _team(client, cid):
+    resp = await client.get(f"/api/casussen/{cid}")
+    return sorted((t["person_id"], t["rol"]) for t in resp.json()["team"])
+
+
+async def test_trekker_die_kijker_wordt_is_geen_trekker_meer(
+    client, db_session, initiatief, lead_gewonnen
+):
+    """Een bijdrager maakt zichzelf trekker en wordt daarna kijker. De
+    trekkerrol gaat mee weg; anders overleeft die de rol die hem gaf."""
+    from tests.factories import client_as
+
+    p = await _met_rol(db_session, initiatief, "Zelfbenoemd", "contributor")
+    async with client_as(db_session, p) as c:
+        cid = (await _start(c, lead_gewonnen, trekker_id=str(p.id))).json()["id"]
+    assert await _team(client, cid) == [(str(p.id), "trekker")]
+    resp = await client.put(
+        f"/api/initiatieven/{initiatief.id}/members/{p.id}",
+        json={"person_id": str(p.id), "rol": "viewer"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert await _team(client, cid) == []
+    async with client_as(db_session, p) as c:
+        resp = await c.put(f"/api/casussen/{cid}", json={"title": "Toch maar"})
+        assert resp.status_code == 403, resp.text
+
+
+async def test_wie_uit_het_initiatief_gaat_is_uit_elk_casusteam(
+    client, db_session, initiatief, lead_gewonnen
+):
+    from tests.factories import client_as
+
+    p = await _met_rol(db_session, initiatief, "Vertrekker", "viewer")
+    cid = (await _start(client, lead_gewonnen, trekker_id=str(p.id))).json()["id"]
+    resp = await client.post(
+        f"/api/casussen/{cid}/team", json={"person_id": str(p.id), "rol": "teamlid"}
+    )
+    assert resp.status_code == 201, resp.text
+    resp = await client.delete(f"/api/initiatieven/{initiatief.id}/members/{p.id}")
+    assert resp.status_code == 204, resp.text
+    assert await _team(client, cid) == []
+    async with client_as(db_session, p) as c:
+        assert (await c.get(f"/api/casussen/{cid}")).status_code == 404
+
+
+async def test_aangewezen_kijker_blijft_trekker_bij_een_andere_wijziging(
+    client, db_session, initiatief, lead_gewonnen
+):
+    """Een kijker die bewust trekker is gemaakt, raakt dat niet kwijt als
+    een ander van rol wisselt of zijn eigen rol opnieuw wordt gezet."""
+    from tests.factories import client_as
+
+    kijker = await _met_rol(db_session, initiatief, "Kijker trekker", "viewer")
+    ander = await _met_rol(db_session, initiatief, "Ander lid", "contributor")
+    cid = (await _start(client, lead_gewonnen, trekker_id=str(kijker.id))).json()["id"]
+    leden = f"/api/initiatieven/{initiatief.id}/members"
+    for persoon in (ander, kijker):
+        resp = await client.put(
+            f"{leden}/{persoon.id}",
+            json={"person_id": str(persoon.id), "rol": "viewer"},
+        )
+        assert resp.status_code == 200, resp.text
+    assert await _team(client, cid) == [(str(kijker.id), "trekker")]
+    async with client_as(db_session, kijker) as c:
+        resp = await c.put(f"/api/casussen/{cid}", json={"title": "Nog trekker"})
+        assert resp.status_code == 200, resp.text
+
+
+async def test_eenheid_die_kijker_wordt_of_weggaat_neemt_de_casusrollen_mee(
+    client, db_session, initiatief, lead_gewonnen
+):
+    """Dezelfde regel als voor een directe rol, maar dan voor wie zijn rang
+    aan een eenheid op het initiatief ontleent."""
+    from tests.factories import client_as, make_org, make_person, place
+
+    eenheid = await make_org(db_session, "Directie Casus")
+    p = await make_person(db_session, "Via de eenheid")
+    await place(db_session, p, eenheid)
+    db_session.add(
+        ResourcePermission(
+            organisatie_eenheid_id=eenheid.id,
+            resource_type="initiatief",
+            resource_id=initiatief.id,
+            rol="contributor",
+        )
+    )
+    await db_session.flush()
+    cid = (await _start(client, lead_gewonnen, trekker_id=str(p.id))).json()["id"]
+    koppeling = f"/api/initiatieven/{initiatief.id}/eenheden/{eenheid.id}"
+
+    resp = await client.put(koppeling, json={"rol": "viewer"})
+    assert resp.status_code == 200, resp.text
+    assert await _team(client, cid) == []
+
+    resp = await client.post(
+        f"/api/casussen/{cid}/team", json={"person_id": str(p.id), "rol": "teamlid"}
+    )
+    assert resp.status_code == 201, resp.text
+    assert (await client.delete(koppeling)).status_code == 204
+    assert await _team(client, cid) == []
+    async with client_as(db_session, p) as c:
+        assert (await c.get(f"/api/casussen/{cid}")).status_code == 404
+
+
+async def test_tweede_lidmaatschap_is_409_en_intrekken_trekt_in(
+    client, db_session, initiatief
+):
+    """Eén rij per lid: een tweede POST geeft 409, en na DELETE is de
+    toegang echt weg. Voorheen gaf de tweede POST 201 en de DELETE een 500."""
+    from tests.factories import client_as, make_org, make_person
+
+    p = await make_person(db_session, "Dubbel lid")
+    leden = f"/api/initiatieven/{initiatief.id}/members"
+    body = {"person_id": str(p.id), "rol": "viewer"}
+    assert (await client.post(leden, json=body)).status_code == 201
+    assert (await client.post(leden, json=body)).status_code == 409
+    assert (await client.delete(f"{leden}/{p.id}")).status_code == 204
+    async with client_as(db_session, p) as c:
+        assert (await c.get(f"/api/initiatieven/{initiatief.id}")).status_code == 404
+
+    eenheid = await make_org(db_session, "Dubbele eenheid")
+    eenheden = f"/api/initiatieven/{initiatief.id}/eenheden"
+    body = {"eenheid_id": str(eenheid.id), "rol": "viewer"}
+    assert (await client.post(eenheden, json=body)).status_code == 201
+    assert (await client.post(eenheden, json=body)).status_code == 409
+    assert (await client.delete(f"{eenheden}/{eenheid.id}")).status_code == 204
