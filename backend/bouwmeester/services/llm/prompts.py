@@ -895,6 +895,7 @@ def build_classify_mattermost_lead_prompt(
     initiatief_naam: str,
     channel_display_name: str,
     recent_leads: list[dict],
+    explicit_request: bool = False,
 ) -> str:
     """Bouw een prompt voor het classificeren van een Mattermost-bericht
     als (potentiële) lead binnen een initiatief.
@@ -903,6 +904,10 @@ def build_classify_mattermost_lead_prompt(
     van leads binnen hetzelfde initiatief, zodat de LLM duplicaten kan
     voorstellen. De caller bepaalt de selectie (recency + trigram-
     similarity); deze functie cap't alleen op ``MAX_RECENT_LEADS_IN_PROMPT``.
+
+    ``explicit_request``: een collega heeft de bot aangesproken. Dan is de
+    vraag al gesteld; de drempel gaat omlaag en ``message`` is meestal de
+    hele thread in plaats van één bericht.
     """
     leads_block = ""
     if recent_leads:
@@ -922,17 +927,44 @@ def build_classify_mattermost_lead_prompt(
             + "\n"
         )
 
+    if explicit_request:
+        intro = (
+            "Een collega heeft de bot hieronder expliciet gevraagd of hier een"
+            " lead in zit. Beoordeel alle berichten samen, niet alleen het"
+            " laatste: dat is meestal alleen de vraag aan de bot."
+        )
+        label = "BERICHTEN (oudste eerst, [naam] is de afzender)"
+        doubt_rule = (
+            "- Er is al om een oordeel gevraagd. Zit er een externe partij"
+            ' met een concreet verzoek of contact in de berichten: "is_lead":'
+            " true, ook bij twijfel. Alleen false als er echt geen externe"
+            " partij in voorkomt.\n"
+        )
+    else:
+        intro = (
+            "Beoordeel of het volgende bericht een nieuwe of bestaande lead beschrijft."
+        )
+        label = "BERICHT"
+        doubt_rule = (
+            '- Bij twijfel: "is_lead": false. Beter een gemiste suggestie dan ruis.\n'
+        )
+
     return (
         "Je bent een medewerker van team Regelrecht bij het ministerie van BZK.\n"
         f'Het Mattermost-kanaal "{channel_display_name}" is gekoppeld aan'
         f' het initiatief "{initiatief_naam}". In dit kanaal worden nieuwe'
         " leads (organisaties of mensen die geïnteresseerd zijn in onze"
         " dienstverlening) besproken.\n\n"
-        "Beoordeel of het volgende bericht een nieuwe of bestaande lead"
-        " beschrijft. Een lead is een concreet contactmoment of signaal"
-        " van een externe organisatie/persoon — niet een collega die"
-        " intern iets meldt of een algemene update.\n\n"
-        f"BERICHT:\n{message[:MAX_TEXT_IN_PROMPT]}\n"
+        f"{intro}"
+        " Een lead is een concreet contactmoment of signaal van een externe"
+        " organisatie of persoon. Dat kan een vraag om dienstverlening zijn,"
+        " maar ook een uitnodiging om te komen spreken of presenteren, een"
+        " verzoek om een demo of kennismaking, of interesse om samen te"
+        " werken. Een collega die zo'n extern contact doorstuurt, plakt of"
+        " samenvat telt ook: het gaat om het contact, niet om wie het post."
+        " Geen lead: een interne update zonder externe partij, planning"
+        " onder collega's, of een algemene discussie.\n\n"
+        f"{label}:\n{message[:MAX_TEXT_IN_PROMPT]}\n"
         f"{leads_block}\n"
         "Antwoord met JSON (en ALLEEN JSON):\n"
         "{\n"
@@ -945,8 +977,7 @@ def build_classify_mattermost_lead_prompt(
         '  "reasoning": "kort waarom je dit denkt (max 1 zin)"\n'
         "}\n"
         "Regels:\n"
-        '- Bij twijfel: "is_lead": false. Beter een gemiste suggestie'
-        " dan ruis.\n"
+        f"{doubt_rule}"
         '- Triviale berichten ("ok", "👍", "morgen even bellen")'
         ' krijgen "is_lead": false.\n'
         "- Als het overduidelijk over een bestaande lead uit de lijst"

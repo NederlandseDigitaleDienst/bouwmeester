@@ -779,6 +779,7 @@ class BaseLLMService(ABC):
         initiatief_naam: str,
         channel_display_name: str,
         recent_leads: list[dict],
+        explicit_request: bool = False,
     ) -> LeadCandidateClassification:
         """Classificeer een Mattermost-bericht als (mogelijke) lead.
 
@@ -794,6 +795,7 @@ class BaseLLMService(ABC):
             initiatief_naam=initiatief_naam,
             channel_display_name=channel_display_name,
             recent_leads=recent_leads,
+            explicit_request=explicit_request,
         )
         try:
             text = await self._complete(prompt, max_tokens=512)

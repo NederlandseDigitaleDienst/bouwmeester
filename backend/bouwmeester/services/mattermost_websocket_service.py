@@ -289,8 +289,36 @@ class MattermostWebsocketService:
         if event == "reaction_removed":
             await self._dispatch_reaction_removed(msg)
             return
-        # Andere events (`post_edited`, `post_deleted`) worden in een latere
-        # PR ingehaakt.
+        if event == "post_edited":
+            await self._dispatch_post_edited(msg)
+            return
+        # ``post_deleted`` wordt in een latere PR ingehaakt.
+
+    async def _dispatch_post_edited(self, msg: dict) -> None:
+        data = msg.get("data") or {}
+        post_raw = data.get("post")
+        if not post_raw:
+            return
+        try:
+            post = json.loads(post_raw) if isinstance(post_raw, str) else post_raw
+        except json.JSONDecodeError:
+            logger.warning("Kan post_edited-event niet parsen")
+            return
+        if not post.get("id"):
+            return
+        async with async_session() as session:
+            try:
+                ingest = MattermostIngestService(
+                    session,
+                    bot_user_id=self._bot_user_id,
+                    bot_username=self._bot_username,
+                    mm_base_url=self._mm_base_url,
+                )
+                await ingest.ingest_edit(post)
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                logger.exception("Fout bij verwerken bewerkte post %s", post.get("id"))
 
     async def _dispatch_posted(self, msg: dict) -> None:
         data = msg.get("data") or {}
