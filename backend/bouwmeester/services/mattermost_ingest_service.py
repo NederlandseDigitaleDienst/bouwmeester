@@ -110,6 +110,24 @@ def _backoff_unlinked_hint(channel_id: str) -> None:
     )
 
 
+# (post_id, edit_at) van bewerkingen die al verwerkt zijn. Mattermost stuurt
+# ``post_edited`` ook bij pinnen en losmaken; ``edit_at`` blijft dan gelijk,
+# en zonder deze rem kost elke pin een LLM-call.
+_EDIT_CACHE_CAP = 512
+_seen_edits: OrderedDict[tuple[str, int], None] = OrderedDict()
+
+
+def _claim_edit(post_id: str, edit_at: int) -> bool:
+    """True als deze bewerking nog niet verwerkt is (en claimt 'm)."""
+    key = (post_id, edit_at)
+    if key in _seen_edits:
+        return False
+    _seen_edits[key] = None
+    while len(_seen_edits) > _EDIT_CACHE_CAP:
+        _seen_edits.popitem(last=False)
+    return True
+
+
 def message_mentions_bot(message: str, bot_username: str | None) -> bool:
     """True als ``message`` de bot expliciet aanspreekt met ``@username``.
 
@@ -438,6 +456,76 @@ class MattermostIngestService:
         create_at = post.get("create_at")
         if isinstance(create_at, int):
             await link_repo.update_last_seen(channel_link, create_at)
+
+    async def ingest_edit(self, post: dict) -> None:
+        """Verwerk een bewerkte post (``post_edited``).
+
+        Mensen posten vaak eerst kort en plakken de inhoud er daarna in. Zonder
+        dit zag de bot alleen die eerste versie. Per uitkomst van de eerste
+        ronde:
+
+        * afgewezen (``no_lead`` of ``noise``): opnieuw beoordelen met de
+          nieuwe tekst, zonder nieuwe mention-bevestiging;
+        * open lead-suggestie: de intake-tekst bijwerken, zodat goedkeuren de
+          laatste versie gebruikt;
+        * notitie bij een lead: de notitie bijwerken.
+
+        Een post die we nooit gezien hebben blijft liggen: een bewerking is
+        geen reden om oude berichten alsnog op te pikken. De caller doet
+        commit/rollback.
+        """
+        post_id = post.get("id")
+        edit_at = post.get("edit_at")
+        message = (post.get("message") or "").strip()
+        if not post_id or not isinstance(edit_at, int) or edit_at <= 0:
+            return  # Pin, losmaken of andere metadata, geen tekstwijziging.
+        if self.bot_user_id and post.get("user_id") == self.bot_user_id:
+            return
+        if not message or not _claim_edit(post_id, edit_at):
+            return
+
+        record = (
+            await self.session.execute(
+                select(MattermostPostLink).where(MattermostPostLink.post_id == post_id)
+            )
+        ).scalar_one_or_none()
+        if record is None:
+            return
+
+        if record.skipped_reason in ("no_lead", "noise"):
+            logger.info("Bewerkte post %s opnieuw beoordelen", post_id)
+            await self.ingest_post(post, reply_to_mentions=False, reprocess=True)
+            return
+
+        if record.suggested_lead_id is not None:
+            suggested = await self.session.get(SuggestedLead, record.suggested_lead_id)
+            if suggested is not None and suggested.status == STATUS_PENDING:
+                suggested.raw_text = post.get("message") or ""
+                await self.session.flush()
+            return
+
+        if record.lead_activity_id is not None:
+            activity = await self.session.get(LeadActivity, record.lead_activity_id)
+            if activity is None:
+                return
+            raw = post.get("message") or ""
+            summary = await self._maybe_summarize(raw)
+            prefix = ""
+            if record.person_id is None and record.mm_user_id:
+                prefix = f"_(via mm:@{record.mm_user_id})_  \n"
+            plain_content = prefix + (summary or raw)
+            rendered, _ = await render_mattermost_message_to_markdown(
+                self.session, plain_content
+            )
+            activity.content = rendered or plain_content
+            metadata = dict(activity.metadata_ or {})
+            metadata["mm_edit_at"] = edit_at
+            if summary:
+                metadata["mm_original"] = raw
+            else:
+                metadata.pop("mm_original", None)
+            activity.metadata_ = metadata
+            await self.session.flush()
 
     async def _handle_unlinked_mention(
         self,
