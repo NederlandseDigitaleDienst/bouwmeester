@@ -1275,6 +1275,27 @@ class MattermostService:
             logger.warning("Kon Mattermost-post %s niet ophalen", post_id)
             return None
 
+    async def get_post_thread(self, post_id: str) -> list[dict]:
+        """Haal alle posts van de thread rond ``post_id`` op, oudste eerst.
+
+        ``post_id`` mag de root of een reply zijn; Mattermost geeft in beide
+        gevallen de hele thread. Bij een fout een lege lijst: de caller valt
+        dan terug op alleen het losse bericht.
+        """
+        client = await self._get_client()
+        try:
+            resp = await client.get(f"/api/v4/posts/{post_id}/thread")
+            resp.raise_for_status()
+            data = resp.json()
+        except httpx.HTTPError:
+            logger.warning("Kon thread van Mattermost-post %s niet ophalen", post_id)
+            return []
+        posts = [
+            p for p in (data.get("posts") or {}).values() if not p.get("delete_at")
+        ]
+        posts.sort(key=lambda p: p.get("create_at") or 0)
+        return posts
+
     async def get_channel_posts_since(
         self, channel_id: str, since: int, *, per_page: int = 60
     ) -> list[dict]:

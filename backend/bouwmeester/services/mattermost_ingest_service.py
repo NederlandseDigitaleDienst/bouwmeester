@@ -143,6 +143,13 @@ SIMILAR_LEADS_FOR_LLM = 50
 SIMILAR_LEAD_THRESHOLD = 0.3
 MAX_LEADS_FOR_LLM = 60
 
+# Bij een mention in een thread gaat de thread mee naar de LLM. Een thread
+# met meer posts dan dit is een discussie, geen intake; de laatste posts
+# tellen dan. De limiet per post houdt één geplakte mailwisseling binnen het
+# prompt-budget (MAX_TEXT_IN_PROMPT) zonder de rest te verdringen.
+THREAD_POSTS_FOR_LLM = 30
+THREAD_POST_CHARS_FOR_LLM = 4000
+
 
 # Fallback labels voor de 7 default-stages. De echte naam komt sinds
 # per-initiatief lead_columns uit `lead_column.name`; deze map dient
@@ -213,6 +220,9 @@ class MattermostIngestService:
         self.bot_user_id = bot_user_id
         self.bot_username = bot_username
         self.mm_base_url = mm_base_url.rstrip("/") if mm_base_url else None
+        # Waarom de LLM de laatste post afwees; de mention-bevestiging noemt
+        # het, zodat "geen lead" geen zwarte doos is.
+        self._no_lead_reasoning: str | None = None
 
     async def ingest_post(
         self,
@@ -369,12 +379,19 @@ class MattermostIngestService:
             and channel_link.suggest_leads_enabled
             and message.strip()
         ):
+            # Wie de bot in een thread aanspreekt ("zie je deze niet?") wijst
+            # naar de thread, niet naar zijn eigen vraag. Alleen dat ene
+            # bericht beoordelen levert gegarandeerd "geen lead" op.
+            text_for_llm = message
+            if mentions_bot and root_id:
+                text_for_llm = await self._thread_transcript(root_id, post) or message
             suggested_lead_id, suggest_reason = await self._create_suggested_lead(
                 channel_link_initiatief_id=channel_link.scope_id,
                 channel_display_name=channel_link.channel_display_name,
                 channel_id=channel_id,
                 post=post,
-                message=message,
+                message=text_for_llm,
+                explicit_request=mentions_bot,
             )
             if suggested_lead_id is None:
                 skipped_reason = suggest_reason
@@ -568,9 +585,10 @@ class MattermostIngestService:
                 "opnieuw sturen helpt niet."
             )
         elif skipped_reason == "no_lead":
+            why = f" ({self._no_lead_reasoning})" if self._no_lead_reasoning else ""
             text = (
-                ":mag: Gezien, maar ik zie hier geen nieuwe lead in. Maak "
-                "hem handmatig aan in Bouwmeester als dat wel zo is."
+                f":mag: Gezien, maar ik zie hier geen nieuwe lead in{why}. "
+                "Maak hem handmatig aan in Bouwmeester als dat wel zo is."
             )
         elif skipped_reason == "stale_initiatief":
             text = (
@@ -867,6 +885,7 @@ class MattermostIngestService:
         channel_id: str,
         post: dict,
         message: str,
+        explicit_request: bool = False,
     ) -> tuple[UUID | None, str | None]:
         """Vraag VLAM of dit een lead is en maak — bij ja — een SuggestedLead
         plus een bot-reply met approval-knoppen in de thread.
@@ -917,6 +936,7 @@ class MattermostIngestService:
             initiatief_naam=initiatief.naam,
             channel_display_name=channel_display_name,
             recent_leads=recent,
+            explicit_request=explicit_request,
         )
         if result.failed:
             # Onbereikbare of stukke LLM is geen oordeel. Als "no_lead"
@@ -925,6 +945,8 @@ class MattermostIngestService:
             # niemand gekeken heeft.
             return None, "llm_unavailable"
         if not result.is_lead:
+            reasoning = (result.reasoning or "").strip().rstrip(".")
+            self._no_lead_reasoning = reasoning or None
             return None, "no_lead"
 
         match_lead_uuid: UUID | None = None
@@ -985,6 +1007,49 @@ class MattermostIngestService:
             )
 
         return suggested.id, None
+
+    async def _thread_transcript(self, root_id: str, post: dict) -> str | None:
+        """De thread tot en met ``post`` als leesbare tekst voor de LLM.
+
+        Bot-posts vallen weg (eigen bevestigingen zijn geen inhoud), net als
+        posts ná ``post``. Per post de Mattermost-username, zodat de LLM kan
+        zien wie extern is en wie collega. ``None`` als de thread niet op te
+        halen is; de caller valt dan terug op het losse bericht.
+        """
+        from bouwmeester.services.mattermost_service import MattermostService
+
+        service = MattermostService(self.session)
+        try:
+            posts = await service.get_post_thread(root_id)
+            if not posts:
+                return None
+            cutoff = post.get("create_at") or 0
+            posts = [
+                p
+                for p in posts
+                if (p.get("message") or "").strip()
+                and not (self.bot_user_id and p.get("user_id") == self.bot_user_id)
+                and not (cutoff and (p.get("create_at") or 0) > cutoff)
+            ]
+            # De root draagt meestal het contact; bij een lange thread die
+            # houden en de rest van achteren aanvullen.
+            if len(posts) > THREAD_POSTS_FOR_LLM:
+                posts = [posts[0], *posts[-(THREAD_POSTS_FOR_LLM - 1) :]]
+            names: dict[str, str] = {}
+            lines: list[str] = []
+            for p in posts:
+                user_id = p.get("user_id") or ""
+                if user_id and user_id not in names:
+                    names[user_id] = await service.get_username(user_id)
+                author = names.get(user_id) or "onbekend"
+                text = p["message"].strip()[:THREAD_POST_CHARS_FOR_LLM]
+                lines.append(f"[{author}]: {text}")
+            return "\n\n".join(lines) or None
+        except Exception:
+            logger.exception("Kon thread %s niet ophalen voor classificatie", root_id)
+            return None
+        finally:
+            await service.close()
 
     async def _collect_lead_candidates_for_llm(
         self, initiatief_id: UUID, message: str
