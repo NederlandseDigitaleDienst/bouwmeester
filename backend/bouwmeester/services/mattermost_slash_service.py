@@ -12,10 +12,12 @@ from sqlalchemy.orm import selectinload
 from bouwmeester.core.config import get_settings
 from bouwmeester.core.initiatief_context import build_initiatief_context
 from bouwmeester.core.query_utils import escape_like
+from bouwmeester.models.casus import Casus
 from bouwmeester.models.corpus_node import CorpusNode
 from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.models.lead import Lead
 from bouwmeester.models.mattermost_channel_link import (
+    SCOPE_CASUS,
     SCOPE_INITIATIEF,
     SCOPE_LEAD,
 )
@@ -316,6 +318,18 @@ class MattermostSlashService:
             return _ephemeral(
                 f"Geen lead gevonden voor '{_escape_md(query)}' (of geen toegang)."
             )
+        # Zelfde regel als in de API: een lead met casus is alleen-lezen en
+        # zijn kanaal is meegegaan naar de casus.
+        heeft_casus = (
+            await self.session.execute(
+                select(Casus.id).where(Casus.lead_id == target_lead.id).limit(1)
+            )
+        ).first()
+        if heeft_casus is not None:
+            return _ephemeral(
+                "Uit deze lead is een casus gestart. Koppel het kanaal in "
+                "Bouwmeester aan de casus."
+            )
         await link_repo.create(
             channel_id=ch.channel_id,
             channel_name=ch.channel_name,
@@ -345,8 +359,58 @@ class MattermostSlashService:
         link = await link_repo.get_by_channel_id(ch.channel_id)
         if link is None:
             return _ephemeral("Dit kanaal is niet gekoppeld.")
+        if link.scope_type == SCOPE_CASUS and not await self._mag_casuskanaal_beheren(
+            link.scope_id, person_id
+        ):
+            return _ephemeral(
+                "Het kanaal van een casus ontkoppelt een bijdrager of eigenaar "
+                "van het initiatief, of de trekker."
+            )
+        if link.scope_type == SCOPE_CASUS:
+            from bouwmeester.services.activity_service import log_activity
+
+            await log_activity(
+                self.session,
+                None,
+                person_id,
+                "casus.kanaal_ontkoppeld",
+                details={
+                    "casus_id": str(link.scope_id),
+                    "channel_id": link.channel_id,
+                    "kanaal": link.channel_display_name,
+                    "via": "mattermost",
+                },
+            )
         await link_repo.delete(link)
         return _ephemeral(":wastebasket: Koppeling verwijderd.")
+
+    async def _mag_casuskanaal_beheren(self, casus_id: UUID, person_id: UUID) -> bool:
+        """Zelfde regel als in de API: het initiatief zien, en de casus mogen
+        wijzigen (bijdrager, eigenaar of trekker)."""
+        from fastapi import HTTPException
+
+        from bouwmeester.core.authority import require_can_change_casus
+        from bouwmeester.core.initiatief_context import build_initiatief_context
+        from bouwmeester.core.permissions import build_permission_context
+        from bouwmeester.models.person import Person
+
+        casus = await self.session.get(Casus, casus_id)
+        person = await self.session.get(Person, person_id)
+        if casus is None or person is None:
+            return False
+        perm_ctx = await build_permission_context(self.session, person)
+        ctx = await build_initiatief_context(self.session, person, perm_ctx=perm_ctx)
+        if (
+            not ctx.is_admin
+            and casus.initiatief_id is not None
+            and casus.initiatief_id not in ctx.visible_initiatief_ids
+        ):
+            return False
+        try:
+            await require_can_change_casus(self.session, perm_ctx, person, casus)
+        except HTTPException:
+            return False
+        return True
 
     async def _handle_kanaal_status(
         self, mattermost_user_id: str, args: str, ch: _ChannelCtx
@@ -367,6 +431,23 @@ class MattermostSlashService:
                 f":link: Gekoppeld aan initiatief **{_escape_md(naam)}**. "
                 f"Auto-note: {'aan' if link.auto_note_enabled else 'uit'} · "
                 f"Suggesties: {'aan' if link.suggest_leads_enabled else 'uit'}"
+            )
+        if link.scope_type == SCOPE_CASUS:
+            # Een casus is vertrouwelijker dan een lead: alleen wie hem in
+            # Bouwmeester mag zien, krijgt de titel. In Mattermost kan
+            # iedereen een open kanaal joinen, en een lead-kanaal dat
+            # meeverhuisde kan open zijn.
+            person_id = await self._resolve_person_id(mattermost_user_id)
+            if not person_id or not await self._mag_scope_zien(link, person_id):
+                return _ephemeral(
+                    "Dit kanaal hangt aan een casus in Bouwmeester waar je "
+                    "geen toegang toe hebt."
+                )
+            casus = await self.session.get(Casus, link.scope_id)
+            titel = casus.title if casus else str(link.scope_id)
+            return _ephemeral(
+                f":link: Gekoppeld aan casus **{_escape_md(titel)}**. "
+                f"Voortgang: {'aan' if link.casus_updates_enabled else 'uit'}"
             )
         lead = await self.session.get(Lead, link.scope_id)
         titel = lead.title if lead else str(link.scope_id)
@@ -406,6 +487,16 @@ class MattermostSlashService:
                 "`/bouwmeester koppel initiatief <naam>`; de zoektermen "
                 "horen bij het initiatief, niet bij het kanaal.",
             )
+        # Een casuskanaal krijgt alleen de voortgang van de casus. Zonder
+        # deze regel kwam er een abonnement op de casus, en behandelden de
+        # checks hieronder hem als lead.
+        if link.scope_type == SCOPE_CASUS:
+            return (
+                person_id,
+                None,
+                "Dit kanaal hangt aan een casus. Zoektermen horen bij een "
+                "initiatief; volg ze in het kanaal van het initiatief.",
+            )
 
         # Toegang tot het kanaal is niet hetzelfde als toegang tot het
         # initiatief: in Mattermost kan iedereen een open kanaal joinen,
@@ -436,6 +527,15 @@ class MattermostSlashService:
 
         if link.scope_type == SCOPE_INITIATIEF:
             return link.scope_id in ctx.visible_initiatief_ids
+
+        if link.scope_type == SCOPE_CASUS:
+            casus = await self.session.get(Casus, link.scope_id)
+            if casus is None:
+                return False
+            return (
+                casus.initiatief_id is None
+                or casus.initiatief_id in ctx.visible_initiatief_ids
+            )
 
         # Een lead erft de zichtbaarheid van zijn initiatief; een lead
         # zonder initiatief is voor iedereen zichtbaar, net als in

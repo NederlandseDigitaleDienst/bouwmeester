@@ -14,25 +14,31 @@ function formatRelative(iso: string | null): string {
   return `${Math.round(ms / 86_400_000)} dagen geleden`;
 }
 
+const SCOPE_PREFIX: Record<Channel['scope_type'], string> = {
+  initiatief: 'Initiatief',
+  lead: 'Lead',
+  casus: 'Casus',
+};
+
 function scopeText(channel: Channel): string {
   const label = channel.scope_label ?? '(niet gevonden)';
-  const prefix = channel.scope_type === 'lead' ? 'Lead' : 'Initiatief';
-  return `${prefix}: ${label}`;
+  return `${SCOPE_PREFIX[channel.scope_type] ?? 'Initiatief'}: ${label}`;
 }
 
-/** De vier schakelaars van een koppeling, in de volgorde van de kaart.
+/** De schakelaars van een koppeling, in de volgorde van de kaart.
  *
  * De tekst is korter dan het label op de checkbox ("Kamerstuk-alerts"
  * wordt "Kamerstukken"), want er passen er vier naast elkaar in deze
  * kolom. Elke schakelaar krijgt een eigen tag in plaats van één
  * samengestelde regel: met drie of vier actieve schakelaars liep die
- * regel de kolom uit.
+ * regel de kolom uit. "Voortgang" staat alleen bij een casus aan.
  */
 const MODES = [
   { key: 'auto_note_enabled', text: 'Notities' },
   { key: 'suggest_leads_enabled', text: 'Leads' },
   { key: 'parlementaire_alerts_enabled', text: 'Kamerstukken' },
   { key: 'nieuws_alerts_enabled', text: 'Nieuws' },
+  { key: 'casus_updates_enabled', text: 'Voortgang' },
 ] as const satisfies ReadonlyArray<{ key: keyof Channel; text: string }>;
 
 function modeCell(channel: Channel) {

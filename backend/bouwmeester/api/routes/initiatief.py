@@ -342,6 +342,22 @@ async def delete_initiatief(
             ),
         )
     )
+    # Zo ook hun Mattermost-kanalen (scope_id zonder FK). Anders wijst de
+    # koppeling naar een casus die er niet meer is: het kanaal is dan nergens
+    # meer te koppelen, en alleen een systeembeheerder haalt hem nog weg.
+    from bouwmeester.models.mattermost_channel_link import (
+        SCOPE_CASUS,
+        MattermostChannelLink,
+    )
+
+    await db.execute(
+        sa_delete(MattermostChannelLink).where(
+            MattermostChannelLink.scope_type == SCOPE_CASUS,
+            MattermostChannelLink.scope_id.in_(
+                sa_select(Casus.id).where(Casus.initiatief_id == id)
+            ),
+        )
+    )
 
     # Bijlagen van casustaken: de rijen gaan via de cascade mee, de
     # bestanden ruimen we na de commit op.

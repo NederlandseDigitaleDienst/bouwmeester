@@ -1,4 +1,4 @@
-"""MattermostChannelLink - bindt een MM-kanaal aan een initiatief of lead."""
+"""MattermostChannelLink - bindt een MM-kanaal aan een initiatief, lead of casus."""
 
 import uuid
 from datetime import datetime
@@ -16,13 +16,16 @@ if TYPE_CHECKING:
 
 SCOPE_INITIATIEF = "initiatief"
 SCOPE_LEAD = "lead"
+# Een casus leest niet mee: Bouwmeester post er de voortgang van de casus.
+# Start uit een lead een casus, dan verhuist het kanaal van de lead mee.
+SCOPE_CASUS = "casus"
 
 
 class MattermostChannelLink(Base):
-    """Eén kanaal hangt aan precies één initiatief of één lead.
+    """Eén kanaal hangt aan precies één initiatief, één lead of één casus.
 
-    `scope_id` is polymorf — geen DB-FK omdat het zowel naar `initiatief.id`
-    als naar `lead.id` kan wijzen. De route checkt scope_type vóór gebruik.
+    `scope_id` is polymorf — geen DB-FK omdat het naar `initiatief.id`,
+    `lead.id` of `casus.id` kan wijzen. De route checkt scope_type vóór gebruik.
     """
 
     __tablename__ = "mattermost_channel_link"
@@ -41,7 +44,7 @@ class MattermostChannelLink(Base):
     scope_type: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
-        comment="initiatief|lead",
+        comment="initiatief|lead|casus",
     )
     scope_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -76,6 +79,26 @@ class MattermostChannelLink(Base):
             "naar dit kanaal. Apart van de kamerstukken, want dat zijn "
             "andere stukken voor een ander gesprek: een kanaal dat de "
             "Kamer volgt heeft niet vanzelf om nieuws gevraagd."
+        ),
+    )
+    casus_updates_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment=(
+            "Post de voortgang van de casus in dit kanaal: fase en "
+            "onderzoeksvragen. Alleen bij een privékanaal aan een casus."
+        ),
+    )
+    van_de_lead: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment=(
+            "Kwam bij de casusstart mee van de lead. Alleen zo'n kanaal gaat "
+            "terug naar de lead als de casus verdwijnt; de rest wordt ontkoppeld."
         ),
     )
     last_seen_post_at: Mapped[int | None] = mapped_column(
