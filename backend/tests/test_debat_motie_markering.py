@@ -864,6 +864,34 @@ class TestInitiatiefnemers:
         )
         assert (nieuw, afgevallen) == ([], 1)
 
+    def test_an_interruption_of_a_member_names_the_minister_only_in_passing(self):
+        """The minister named in the turn, the question put to the member
+        who has the floor."""
+        tekst = (
+            "Als dat plan wordt aangenomen, dan moet deze minister van "
+            "Financiën dat uitvoeren. Het is toch niet denkbaar dat uw partij "
+            "dat meemaakt? Zeg dat dan gewoon eerlijk."
+        )
+        citaat = (
+            "Het is toch niet denkbaar dat uw partij dat meemaakt? Zeg dat dan "
+            "gewoon eerlijk."
+        )
+        nieuw, _, afgevallen = lees_antwoord(
+            [_vraag(citaat)], tekst, [], set(), onderbreekt_ander=True
+        )
+        assert (nieuw, afgevallen) == ([], 1)
+
+    def test_an_interruption_of_a_member_can_still_ask_the_minister(self):
+        citaat = "Kan de minister daar vandaag op reageren?"
+        nieuw, _, _ = lees_antwoord(
+            [_vraag(citaat)],
+            f"Dat ben ik niet met u eens. {citaat}",
+            [],
+            set(),
+            onderbreekt_ander=True,
+        )
+        assert [n.citaat for n in nieuw] == [citaat]
+
     def test_the_prompt_says_what_was_measured_not_to_be_a_question(self):
         prompt = build_debat_vragen_prompt(
             onderwerp="Onderwerp",
