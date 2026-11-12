@@ -400,11 +400,11 @@ async def _debat_stemmingen_loop(settings) -> None:  # type: ignore[no-untyped-d
                     result = await service.tick(datetime.now(UTC))
                 finally:
                     await service.close()
-            if result.geplaatst or result.bijgewerkt or result.fouten:
+            if result.posted or result.updated or result.errors:
                 logger.info("Stemmingsuitslagen: %s", result.summary())
             await health_tick(
                 "debat_stemmingen",
-                status="error" if result.fouten else "ok",
+                status="error" if result.errors else "ok",
                 detail=result.summary(),
             )
         except Exception as exc:

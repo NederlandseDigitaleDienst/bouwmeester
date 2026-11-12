@@ -85,7 +85,7 @@ _ASSUMED_DURATION = timedelta(hours=12)
 # Mattermost refuses a post above 16383 characters. Stay well below it:
 # the limit counts the message as stored, and that is not always what we
 # send.
-_MESSAGE_MAX = 15000
+MESSAGE_MAX = 15000
 _SUMMARY_MAX = 300
 
 _TK_TIMEOUT = 15.0
@@ -199,12 +199,14 @@ def _local(moment: datetime) -> datetime:
     return moment.astimezone(AMSTERDAM)
 
 
+def format_day(day: date) -> str:
+    """The day as it is said: "donderdag 12 november"."""
+    return f"{_WEEKDAGEN[day.weekday()]} {day.day} {_MAANDEN[day.month - 1]}"
+
+
 def _format_start(moment: datetime) -> str:
     start = _local(moment)
-    return (
-        f"{_WEEKDAGEN[start.weekday()]} {start.day} {_MAANDEN[start.month - 1]}, "
-        f"{start:%H:%M}"
-    )
+    return f"{format_day(start.date())}, {start:%H:%M}"
 
 
 def format_moment(activiteit: Activiteit) -> str:
@@ -404,15 +406,15 @@ def stukken_message(
     # Too long: first drop the summaries, then the tail of the agenda. A
     # message Mattermost refuses leaves a channel without its agenda.
     bericht = build(True, None)
-    if len(bericht) > _MESSAGE_MAX:
+    if len(bericht) > MESSAGE_MAX:
         bericht = build(False, None)
     limit = len(activiteit.agendapunten)
-    while len(bericht) > _MESSAGE_MAX and limit > 1:
+    while len(bericht) > MESSAGE_MAX and limit > 1:
         limit = limit // 2
         bericht = build(False, limit)
     # Last resort, for a header that is itself too long. A cut message is
     # ugly; a refused one leaves the channel without its agenda.
-    return bericht[:_MESSAGE_MAX]
+    return bericht[:MESSAGE_MAX]
 
 
 def change_message(
