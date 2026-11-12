@@ -252,6 +252,21 @@ class Beurt:
     # question to the bewindspersoon when that person is the bewindspersoon.
     onderbroken: str | None = None
     onderbroken_is_bewindspersoon: bool = False
+
+    @property
+    def interrupts_other(self) -> bool:
+        """An interruption of someone known not to be the bewindspersoon.
+
+        Not when who had the floor is unknown (after a missed stretch, or
+        a speaker not on the list): then a question is not taken away for
+        want of naming the bewindspersoon.
+        """
+        return (
+            self.soort == SOORT_INTERRUPTER
+            and self.onderbroken is not None
+            and not self.onderbroken_is_bewindspersoon
+        )
+
     # For a turn of the bewindspersoon: the label of the member whose
     # interruption came right before it, and what they said. The answer
     # that follows is to them, and "dat zeg ik toe" says what only with
@@ -1083,7 +1098,7 @@ def lees_antwoord(
     *,
     moties: Sequence[Motie] = (),
     van_initiatiefnemer: bool = False,
-    onderbreekt_ander: bool = False,
+    interrupts_other: bool = False,
 ) -> tuple[list[_Nieuw], list[_Herhaling], int]:
     """Sort what the model answered into new, repeated and dropped.
 
@@ -1107,12 +1122,13 @@ def lees_antwoord(
       does not name the bewindspersoon. They sit at the table to answer,
       and a question in their turn is one they repeat or put to the room;
     * in an interruption of someone who is not the bewindspersoon
-      (`onderbreekt_ander`), a quote that does not name the bewindspersoon.
-      The turn got to the model because it named one, but that can be in
-      passing: on 12 November 2026 a member interrupting a VVD member said
-      "dan moet wel deze minister van Financiën dat uitvoeren", and then
-      asked him "Zeg dat dan gewoon eerlijk", which became a question to
-      the minister.
+      (`interrupts_other`), a quote that does not name the bewindspersoon,
+      unless the turn put a question to one before it ("Ik heb een vraag
+      aan de minister. Is zij bereid ..."). The turn got to the model
+      because it named one, but that can be in passing: on 12 November
+      2026 a member interrupting a VVD member said "dan moet wel deze
+      minister van Financiën dat uitvoeren", and then asked him "Zeg dat
+      dan gewoon eerlijk", which became a question to the minister.
 
     Measured on the three debates these were made on, over five runs: the
     checks took away 12 to 21 of the 26 to 43 wrong markings per run and
@@ -1157,7 +1173,11 @@ def lees_antwoord(
             continue
         gezien.add(sleutel)
         waarom = _geen_vraag(
-            citaat, plek, moties, van_initiatiefnemer, onderbreekt_ander
+            citaat,
+            plek,
+            moties,
+            van_initiatiefnemer,
+            interrupts_other and not _vraagt_bewindspersoon(tekst[:plek]),
         )
         if waarom:
             afgevallen += 1
@@ -1200,7 +1220,7 @@ def _geen_vraag(
     plek: int,
     moties: Sequence[Motie],
     van_initiatiefnemer: bool,
-    onderbreekt_ander: bool = False,
+    interrupts_other: bool = False,
 ) -> str:
     """Why a quote that stands in the turn is no question, or an empty string."""
     eind = plek + len(citaat)
@@ -1223,7 +1243,7 @@ def _geen_vraag(
         return "geen vorm van een vraag"
     if van_initiatiefnemer and not _noemt_bewindspersoon(citaat):
         return "initiatiefnemer noemt de bewindspersoon niet"
-    if onderbreekt_ander and not _noemt_bewindspersoon(citaat):
+    if interrupts_other and not _noemt_bewindspersoon(citaat):
         return "interruptie van een ander noemt de bewindspersoon niet"
     return ""
 
@@ -1976,8 +1996,7 @@ class DebatVraagService:
             context.onderwerp,
             moties=moties,
             van_initiatiefnemer=van_initiatiefnemer,
-            onderbreekt_ander=beurt.soort == SOORT_INTERRUPTER
-            and not beurt.onderbroken_is_bewindspersoon,
+            interrupts_other=beurt.interrupts_other,
         )
         if not nieuw and not herhaald and not gevonden:
             return Beoordeling(
@@ -3165,6 +3184,18 @@ def _vraag_moment(beurt: Beurt, plek: int) -> datetime | None:
 _BEWINDSPERSOON_GEZEGD = re.compile(
     r"mini?ster|staats*ecreta|kabinet|regering|bewinds|premier"
 )
+
+
+# "aan de minister", "aan de staatssecretaris van Financiën": a question put
+# to one, as opposed to one named in passing.
+_AAN_BEWINDSPERSOON_GEVRAAGD = re.compile(
+    r"\baan (de|het) (mini?ster|staats*ecreta|kabinet|regering|bewinds|premier)"
+)
+
+
+def _vraagt_bewindspersoon(tekst: str) -> bool:
+    """Whether a text puts something to a bewindspersoon by title."""
+    return bool(_AAN_BEWINDSPERSOON_GEVRAAGD.search(tekst.lower()))
 
 
 def _noemt_bewindspersoon(tekst: str) -> bool:

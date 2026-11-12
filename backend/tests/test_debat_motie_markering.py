@@ -36,6 +36,7 @@ from bouwmeester.services.debat_vraag_reacties import LEGENDA, stand_marker
 from bouwmeester.services.debat_vraag_service import (
     KOP_AANGEKONDIGD,
     KOP_OVERWOGEN,
+    SOORT_INTERRUPTER,
     UITKOMST_AL_BEOORDEELD,
     UITKOMST_GEEN_VRAAG,
     UITKOMST_GEMARKEERD,
@@ -877,7 +878,7 @@ class TestInitiatiefnemers:
             "gewoon eerlijk."
         )
         nieuw, _, afgevallen = lees_antwoord(
-            [_vraag(citaat)], tekst, [], set(), onderbreekt_ander=True
+            [_vraag(citaat)], tekst, [], set(), interrupts_other=True
         )
         assert (nieuw, afgevallen) == ([], 1)
 
@@ -888,9 +889,46 @@ class TestInitiatiefnemers:
             f"Dat ben ik niet met u eens. {citaat}",
             [],
             set(),
-            onderbreekt_ander=True,
+            interrupts_other=True,
         )
         assert [n.citaat for n in nieuw] == [citaat]
+
+    def test_a_question_put_to_the_minister_earlier_in_the_turn_stays(self):
+        citaat = "Is zij bereid die uitvoeringstoets naar de Kamer te sturen?"
+        nieuw, _, _ = lees_antwoord(
+            [_vraag(citaat)],
+            f"Ik heb een vraag aan de minister van Financiën. {citaat}",
+            [],
+            set(),
+            interrupts_other=True,
+        )
+        assert [n.citaat for n in nieuw] == [citaat]
+
+    @pytest.mark.parametrize(
+        ("onderbroken", "is_bewindspersoon", "other"),
+        [
+            ("Kamerlid B (Y)", False, True),
+            ("Minister C", True, False),
+            # Who had the floor is not known: nothing is taken away for it.
+            (None, False, False),
+        ],
+    )
+    def test_who_is_interrupted(self, onderbroken, is_bewindspersoon, other):
+        beurt = Beurt(
+            sessie_id=uuid.uuid4(),
+            spreekbeurt_id=None,
+            post_id=None,
+            channel_id=CHANNEL,
+            soort=SOORT_INTERRUPTER,
+            spreker="Kamerlid A (X)",
+            fractie="X",
+            start=MOMENT,
+            moment_url=None,
+            tekst="",
+            onderbroken=onderbroken,
+            onderbroken_is_bewindspersoon=is_bewindspersoon,
+        )
+        assert beurt.interrupts_other is other
 
     def test_the_prompt_says_what_was_measured_not_to_be_a_question(self):
         prompt = build_debat_vragen_prompt(

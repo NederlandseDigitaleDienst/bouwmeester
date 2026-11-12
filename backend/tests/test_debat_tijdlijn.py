@@ -1423,6 +1423,41 @@ class TestEnding:
             == 1
         )
 
+    async def test_joining_in_the_second_part_does_not_say_it_is_over(
+        self, db_session, monkeypatch
+    ):
+        shift = timedelta(hours=4)
+        raw = dict(FIXTURE["debate"])
+        second = dd.parse_debate({**raw, "id": "deel-2"})
+        second = dd.DdDebat(
+            **{
+                **second.__dict__,
+                "starts_at": second.starts_at + shift,
+                "started_at": second.started_at + shift,
+                "ended_at": second.ended_at + shift,
+                "events": tuple(
+                    dd.DdEvent(e.start + shift, e.type, e.object_id, e.raw_start)
+                    for e in second.events[:12]
+                ),
+            }
+        )
+        feed = Feed(monkeypatch, parts=[FULL, second])
+        mm = FakeMattermost()
+        sessie = await _sessie(db_session)
+
+        await _run(
+            db_session,
+            mm,
+            feed,
+            second.started_at + timedelta(minutes=5),
+            second.started_at + timedelta(minutes=8),
+            step=60,
+        )
+
+        assert sessie.debat_direct_ids == [FULL.id, "deel-2"]
+        assert mm.texts
+        assert not any("afgelopen" in t for t in mm.texts)
+
     async def test_the_same_subject_hours_after_the_end_is_not_a_second_part(
         self, db_session, monkeypatch
     ):
