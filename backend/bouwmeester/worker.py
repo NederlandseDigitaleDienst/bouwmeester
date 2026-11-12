@@ -5,7 +5,7 @@ import asyncio
 import logging
 import time
 import traceback
-from datetime import datetime
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 from bouwmeester.core.config import get_settings
@@ -383,6 +383,39 @@ async def _debat_aankondiging_loop(settings) -> None:  # type: ignore[no-untyped
         await asyncio.sleep(settings.DEBAT_AANKONDIGING_INTERVAL_SECONDS)
 
 
+async def _debat_stemmingen_loop(settings) -> None:  # type: ignore[no-untyped-def]
+    """Put the outcome of the votes on a bill in the channel of its debate."""
+    if not settings.DEBAT_STEMMINGEN_ENABLED:
+        logger.info("Stemmingsuitslagen staan uit (DEBAT_STEMMINGEN_ENABLED=false)")
+        await health_tick("debat_stemmingen", status="disabled")
+        return
+    from bouwmeester.services.debat_stemmingsuitslag import DebatStemmingsuitslag
+
+    await health_tick("debat_stemmingen", status="starting")
+    while True:
+        try:
+            async with async_session() as session:
+                service = DebatStemmingsuitslag(session)
+                try:
+                    result = await service.tick(datetime.now(UTC))
+                finally:
+                    await service.close()
+            if result.posted or result.updated or result.errors:
+                logger.info("Stemmingsuitslagen: %s", result.summary())
+            await health_tick(
+                "debat_stemmingen",
+                status="error" if result.errors else "ok",
+                detail=result.summary(),
+            )
+        except Exception as exc:
+            logger.exception("Error in stemmingsuitslag tick")
+            await health_tick(
+                "debat_stemmingen", status="error", detail=_short_error(exc)
+            )
+
+        await asyncio.sleep(settings.DEBAT_STEMMINGEN_INTERVAL_SECONDS)
+
+
 async def _cleanup_obsolete_heartbeats() -> None:
     """Verwijder heartbeat-rijen van loops die niet meer bestaan.
 
@@ -560,6 +593,7 @@ async def main() -> None:
         asyncio.create_task(_debat_tijdlijn_loop(settings)),
         asyncio.create_task(_debat_vragen_loop(settings)),
         asyncio.create_task(_debat_aankondiging_loop(settings)),
+        asyncio.create_task(_debat_stemmingen_loop(settings)),
     ]
     await asyncio.gather(*tasks)
 
