@@ -831,7 +831,7 @@ def _worker_expected_cadence_sec() -> dict[str, float]:
         # per debate are each read by a model for several seconds.
         "debat_vragen": 180.0,
         "debat_aankondiging": float(settings.DEBAT_AANKONDIGING_INTERVAL_SECONDS),
-        "debat_opruimen": float(settings.DEBAT_OPRUIMEN_INTERVAL_SECONDS),
+        "debat_cleanup": float(settings.DEBAT_CLEANUP_INTERVAL_SECONDS),
         "opdracht_task": float(settings.OPDRACHT_TASK_INTERVAL_SECONDS),
         "fcc_sync": float(settings.FCC_POLL_INTERVAL_SECONDS),
         "mattermost_retry": float(settings.MATTERMOST_RETRY_INTERVAL_SECONDS),

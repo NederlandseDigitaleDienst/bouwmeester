@@ -383,19 +383,19 @@ async def _debat_aankondiging_loop(settings) -> None:  # type: ignore[no-untyped
         await asyncio.sleep(settings.DEBAT_AANKONDIGING_INTERVAL_SECONDS)
 
 
-async def _debat_opruimen_loop(settings) -> None:  # type: ignore[no-untyped-def]
+async def _debat_cleanup_loop(settings) -> None:  # type: ignore[no-untyped-def]
     """Archive the channel of a debate that is long over and quiet."""
-    if not settings.DEBAT_OPRUIMEN_ENABLED:
-        logger.info("Debatkanalen opruimen staat uit (DEBAT_OPRUIMEN_ENABLED=false)")
-        await health_tick("debat_opruimen", status="disabled")
+    if not settings.DEBAT_CLEANUP_ENABLED:
+        logger.info("Debatkanalen opruimen staat uit (DEBAT_CLEANUP_ENABLED=false)")
+        await health_tick("debat_cleanup", status="disabled")
         return
-    from bouwmeester.services.debat_kanaal_opruimen import DebatKanaalOpruimen
+    from bouwmeester.services.debat_channel_cleanup import DebateChannelCleanup
 
-    await health_tick("debat_opruimen", status="starting")
+    await health_tick("debat_cleanup", status="starting")
     while True:
         try:
             async with async_session() as session:
-                service = DebatKanaalOpruimen(session)
+                service = DebateChannelCleanup(session)
                 try:
                     result = await service.tick()
                 finally:
@@ -403,17 +403,15 @@ async def _debat_opruimen_loop(settings) -> None:  # type: ignore[no-untyped-def
             if result.archived or result.errors:
                 logger.info("Debatkanalen opruimen: %s", result.summary())
             await health_tick(
-                "debat_opruimen",
+                "debat_cleanup",
                 status="error" if result.errors else "ok",
                 detail=result.summary(),
             )
         except Exception as exc:
             logger.exception("Error in debatkanalen-opruimen tick")
-            await health_tick(
-                "debat_opruimen", status="error", detail=_short_error(exc)
-            )
+            await health_tick("debat_cleanup", status="error", detail=_short_error(exc))
 
-        await asyncio.sleep(settings.DEBAT_OPRUIMEN_INTERVAL_SECONDS)
+        await asyncio.sleep(settings.DEBAT_CLEANUP_INTERVAL_SECONDS)
 
 
 async def _cleanup_obsolete_heartbeats() -> None:
@@ -593,7 +591,7 @@ async def main() -> None:
         asyncio.create_task(_debat_tijdlijn_loop(settings)),
         asyncio.create_task(_debat_vragen_loop(settings)),
         asyncio.create_task(_debat_aankondiging_loop(settings)),
-        asyncio.create_task(_debat_opruimen_loop(settings)),
+        asyncio.create_task(_debat_cleanup_loop(settings)),
     ]
     await asyncio.gather(*tasks)
 
