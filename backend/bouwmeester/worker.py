@@ -383,6 +383,39 @@ async def _debat_aankondiging_loop(settings) -> None:  # type: ignore[no-untyped
         await asyncio.sleep(settings.DEBAT_AANKONDIGING_INTERVAL_SECONDS)
 
 
+async def _debat_opruimen_loop(settings) -> None:  # type: ignore[no-untyped-def]
+    """Archive the channel of a debate that is long over and quiet."""
+    if not settings.DEBAT_OPRUIMEN_ENABLED:
+        logger.info("Debatkanalen opruimen staat uit (DEBAT_OPRUIMEN_ENABLED=false)")
+        await health_tick("debat_opruimen", status="disabled")
+        return
+    from bouwmeester.services.debat_kanaal_opruimen import DebatKanaalOpruimen
+
+    await health_tick("debat_opruimen", status="starting")
+    while True:
+        try:
+            async with async_session() as session:
+                service = DebatKanaalOpruimen(session)
+                try:
+                    result = await service.tick()
+                finally:
+                    await service.close()
+            if result.archived or result.errors:
+                logger.info("Debatkanalen opruimen: %s", result.summary())
+            await health_tick(
+                "debat_opruimen",
+                status="error" if result.errors else "ok",
+                detail=result.summary(),
+            )
+        except Exception as exc:
+            logger.exception("Error in debatkanalen-opruimen tick")
+            await health_tick(
+                "debat_opruimen", status="error", detail=_short_error(exc)
+            )
+
+        await asyncio.sleep(settings.DEBAT_OPRUIMEN_INTERVAL_SECONDS)
+
+
 async def _cleanup_obsolete_heartbeats() -> None:
     """Verwijder heartbeat-rijen van loops die niet meer bestaan.
 
@@ -560,6 +593,7 @@ async def main() -> None:
         asyncio.create_task(_debat_tijdlijn_loop(settings)),
         asyncio.create_task(_debat_vragen_loop(settings)),
         asyncio.create_task(_debat_aankondiging_loop(settings)),
+        asyncio.create_task(_debat_opruimen_loop(settings)),
     ]
     await asyncio.gather(*tasks)
 

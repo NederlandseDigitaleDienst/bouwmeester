@@ -102,6 +102,10 @@ class Settings(BaseSettings):
     # is on today. The reminder goes out once, in the morning, so minutes
     # do not matter here.
     DEBAT_AANKONDIGING_INTERVAL_SECONDS: int = 600
+    # Archive the channel of a debate once it is quiet and long over
+    # (`debat_kanaal_opruimen`). Off leaves every channel as it is.
+    DEBAT_OPRUIMEN_ENABLED: bool = True
+    DEBAT_OPRUIMEN_INTERVAL_SECONDS: int = 3600
 
     # tkconv (berthub.eu) draait op een privéserver zonder SLA en heeft een
     # eigen poll-ritme, los van de officiële TK-API. Het ritme volgt wanneer
