@@ -14,6 +14,7 @@ _TYPE_LABELS: dict[str, str] = {
     "amendement": "amendement",
     "commissiedebat": "commissiedebat",
     "tkconv_document": "kamerstuk",
+    "bekendmaking": "officiële bekendmaking",
 }
 
 _NODE_TYPE_LABELS: dict[str, str] = {
@@ -198,6 +199,28 @@ _CATEGORIE_CONTEXT: dict[str, str] = {
         "hele artikel. Vat samen wat daarin staat en vul niets aan. Is de "
         "koptekst te dun om iets zinnigs over de zoekterm te zeggen, zeg "
         "dat dan en houd de samenvatting kort."
+    ),
+    "regelgeving": (
+        "Dit is GEEN kamerstuk maar een officiële bekendmaking: een wet, "
+        "AMvB, ministeriële regeling, beleidsregel of besluit zoals het in "
+        "het Staatsblad, de Staatscourant of het Tractatenblad is "
+        "gepubliceerd. Het is vastgesteld, geen voorstel.\n"
+        "Zeg wie het besluit nam (de minister, de organisatie onder "
+        "GEPUBLICEERD IN), wat er wordt geregeld rond de zoekterm, en "
+        "vanaf wanneer het geldt als dat erin staat.\n"
+        "Uitzondering: een advies van de Raad van State gaat over een "
+        "ontwerp. Dat is advies, geen vastgestelde regel; schrijf het "
+        "ook zo op."
+    ),
+    "bekendmaking": (
+        "Dit is GEEN kamerstuk maar een officiële bekendmaking in de "
+        "Staatscourant: een besluit, vergunning, kennisgeving of "
+        "mededeling van een overheidsorganisatie. Het is een genomen "
+        "besluit of een feitelijke mededeling, geen voorstel en geen "
+        "standpunt in een debat.\n"
+        "Zeg wie het besluit nam of de mededeling doet (de organisatie "
+        "onder GEPUBLICEERD IN), wat er besloten of meegedeeld wordt rond "
+        "de zoekterm, en vanaf wanneer het geldt als dat erin staat."
     ),
     "overig": (
         "Het soort van dit stuk is niet vastgesteld. Leid uit de tekst af "

@@ -51,6 +51,25 @@ interface FollowUpTaskRow {
 }
 
 /**
+ * Where a document link goes, named after its site. Not always
+ * tweedekamer.nl: a search-term hit opens on tkconv, a bekendmaking on
+ * officielebekendmakingen.nl, a news item on the site of the feed.
+ */
+function bekijkOp(url: string): string {
+  try {
+    return `Bekijk op ${new URL(url).hostname.replace(/^www\./, '')}`;
+  } catch {
+    return 'Bekijk het document';
+  }
+}
+
+/** The chamber for Kamer items; any other source (a blad, a feed) by its own name. */
+const BRON_LABELS: Record<string, string> = {
+  tweede_kamer: 'Tweede Kamer',
+  eerste_kamer: 'Eerste Kamer',
+};
+
+/**
  * An `nldd-link` that stops its click from bubbling into a clickable ancestor
  * row (the card header toggles `expanded` on click). Click has to go through
  * `useNlddEvent` rather than a React `onClick` prop for consistency with the
@@ -417,7 +436,7 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
             >
               {PARLEMENTAIR_ITEM_STATUS_LABELS[item.status]}
             </Badge>
-            <nldd-text size="xs" color="secondary">{item.bron === 'tweede_kamer' ? 'Tweede Kamer' : 'Eerste Kamer'}</nldd-text>
+            <nldd-text size="xs" color="secondary">{BRON_LABELS[item.bron] ?? item.bron}</nldd-text>
             <nldd-text size="xs" color="secondary">{item.zaak_nummer}</nldd-text>
             {/* `hug`: as containers at the default 100% each date took a line
                 of its own in this wrap row instead of sitting beside the
@@ -455,7 +474,7 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
           <nldd-container layout="row" gap="8" vertical-alignment="center">
             <nldd-text size="sm" weight="bold">{item.onderwerp}</nldd-text>
             {item.document_url && (
-              <ExternalDocLink href={item.document_url} label="Bekijk op tweedekamer.nl" iconOnly />
+              <ExternalDocLink href={item.document_url} label={bekijkOp(item.document_url)} iconOnly />
             )}
           </nldd-container>
           <nldd-text size="xs" color="secondary">Zaak: {item.titel}</nldd-text>
@@ -484,7 +503,7 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
               />
             )}
             {item.document_url && (
-              <ExternalDocLink href={item.document_url} label="Bekijk op tweedekamer.nl" />
+              <ExternalDocLink href={item.document_url} label={bekijkOp(item.document_url)} />
             )}
           </nldd-container>
 
