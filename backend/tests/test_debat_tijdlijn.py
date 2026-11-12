@@ -329,7 +329,7 @@ class FakeMattermost:
     async def get_post(self, post_id) -> dict | None:
         if post_id not in self.now:
             raise PostNotFoundError(post_id)
-        return {"id": post_id}
+        return {"id": post_id, "message": self.posts[self.now[post_id]][1]}
 
     async def update_channel(self, channel_id, **fields) -> bool:
         self.headers.append((channel_id, fields))
@@ -1298,6 +1298,24 @@ class TestTimeline:
 
 
 @pytest.mark.asyncio
+class TestBreakHeading:
+    async def test_what_is_under_the_heading_stays(self, db_session):
+        mm = FakeMattermost()
+        kop = "⏹️ **Het debat is afgelopen** · 13:00"
+        post_id = await mm.send_channel_message(
+            "c", f"{kop}\n\nIk sluit de vergadering.\n\n---\n2 toezeggingen"
+        )
+        service = DebatTijdlijnService(db_session, mm)
+        kop_now = mod.as_break(kop, mod.BREAK_END)
+
+        assert await service._rewrite_heading(post_id, kop, kop_now)
+        assert mm.texts == [
+            "⏸️ **Onderbroken** · 13:00\n\nIk sluit de vergadering.\n\n---\n"
+            "2 toezeggingen"
+        ]
+
+
+@pytest.mark.asyncio
 class TestEnding:
     async def test_over_some_hours_after_the_last_part_ended(
         self, db_session, monkeypatch
@@ -1390,7 +1408,20 @@ class TestEnding:
         assert sessie.debat_direct_ids == [FULL.id, "deel-2"]
         # Not closed after the first part ended, although that was hours ago.
         assert sessie.tijdlijn_status == TIJDLIJN_LOOPT
-        assert sum(1 for t in mm.texts if "Het debat is begonnen" in t) == 2
+        # The end of the first part was posted as the end of the debate, as
+        # the second part did not exist yet. Once it does, that end is a
+        # break and the start of the second the debate going on.
+        assert sum(1 for t in mm.texts if "Het debat is begonnen" in t) == 1
+        assert not any("Het debat is afgelopen" in t for t in mm.texts)
+        assert sum(1 for t in mm.texts if t.startswith("⏸️ **Onderbroken** · ")) == 1
+        assert (
+            sum(
+                1
+                for t in mm.texts
+                if t.startswith("▶️ **Hervat** · [") and "event=debate_start" in t
+            )
+            == 1
+        )
 
     async def test_the_same_subject_hours_after_the_end_is_not_a_second_part(
         self, db_session, monkeypatch

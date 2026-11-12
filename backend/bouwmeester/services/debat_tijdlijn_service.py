@@ -46,7 +46,7 @@ from bouwmeester.services.debat_transcript_service import (
     WRITE_AGAIN,
     DebatTranscript,
 )
-from bouwmeester.services.mattermost_service import MattermostService
+from bouwmeester.services.mattermost_service import MattermostService, PostNotFoundError
 from bouwmeester.services.mattermost_utils import (
     escape_mattermost_prose as _escape,
 )
@@ -189,6 +189,22 @@ def heading_as(kop: str, kind: str) -> str:
     before, after = _INTERRUPTION
     bare = kop.removeprefix(before).removesuffix(after)
     return f"{before}{bare}{after}" if kind == dd.EVENT_INTERRUPTER else bare
+
+
+# The first line of the end of a part that has a next part, and of the
+# start of that next part. Like a suspension in the feed.
+BREAK_END = "⏸️ **Onderbroken**"
+BREAK_START = "▶️ **Hervat**"
+
+
+def as_break(kop: str, heading: str) -> str:
+    """A first line with `heading` before its time, the time kept as it is.
+
+    The time can carry a link to the moment in the stream, and that link
+    is kept.
+    """
+    _, sep, time = kop.partition(" · ")
+    return f"{heading} · {time}" if sep else heading
 
 
 def format_event(
@@ -413,6 +429,7 @@ class DebatTijdlijnService:
 
         fouten = result.fouten
         await self._post_new_events(sessie, client, now, result)
+        await self._mark_breaks(sessie)
         # Taken here, before the headings: a heading that cannot be
         # rewritten is counted as an error too, and it must not keep the
         # text of the whole debate from being read.
@@ -876,6 +893,79 @@ class DebatTijdlijnService:
             .on_conflict_do_nothing(constraint="uq_debat_spreekbeurt_event")
         )
         await self.session.execute(stmt)
+
+    async def _mark_breaks(self, sessie: DebatSessie) -> None:
+        """Make the end of a part that has a next part a break.
+
+        Debat Direct cuts a plenary debate in two around the regeling van
+        werkzaamheden, with an end and a start of its own. Both are posted
+        as the feed says them, and a second part only appears once it
+        starts: on 12 November 2026 the channel said the debate was over
+        while it went on a minute later. Once the next part is known, the
+        end before it becomes "Onderbroken" and the start after it
+        "Hervat". Asked of the rows on every tick, so a heading posted
+        before this existed is put right too.
+
+        """
+        parts = list(sessie.debat_direct_ids or [])
+        if len(parts) < 2:
+            return
+        wrong = {
+            dd.EVENT_DEBATE_END: (parts[:-1], BREAK_END),
+            dd.EVENT_DEBATE_START: (parts[1:], BREAK_START),
+        }
+        for event_type, (ids, heading) in wrong.items():
+            rows = (
+                await self.session.execute(
+                    select(
+                        DebatSpreekbeurt.id,
+                        DebatSpreekbeurt.post_id,
+                        DebatSpreekbeurt.kop,
+                    ).where(
+                        DebatSpreekbeurt.sessie_id == sessie.id,
+                        DebatSpreekbeurt.debat_direct_id.in_(ids),
+                        DebatSpreekbeurt.event_type == event_type,
+                        DebatSpreekbeurt.post_id.is_not(None),
+                        DebatSpreekbeurt.kop.is_not(None),
+                    )
+                )
+            ).all()
+            for row_id, post_id, kop in rows:
+                kop_now = as_break(kop, heading)
+                if kop_now == kop:
+                    continue
+                if not await self._rewrite_heading(post_id, kop, kop_now):
+                    # Tried again on the next tick.
+                    continue
+                await self.session.execute(
+                    update(DebatSpreekbeurt)
+                    .where(DebatSpreekbeurt.id == row_id)
+                    .values(kop=kop_now)
+                )
+                await self.session.commit()
+
+    async def _rewrite_heading(self, post_id: str, kop: str, kop_now: str) -> bool:
+        """Put `kop_now` over the message in place of its first line.
+
+        The message itself and not the rows: under the end of a part there
+        can be the chairman's last words and the toezeggingen counted from
+        them, and an end without words under it is no turn the
+        transcription writes. What is below the first line stays as it is.
+        """
+        try:
+            post = await self.mattermost.get_post(post_id)
+        except PostNotFoundError:
+            # Gone: nothing to put right, only the row.
+            return True
+        message = (post or {}).get("message")
+        if not isinstance(message, str):
+            return False
+        if message.startswith(kop):
+            rest = message[len(kop) :]
+        else:
+            _, newline, below = message.partition("\n")
+            rest = newline + below
+        return await self.mattermost.update_post(post_id, kop_now + rest)
 
     async def _change_turn(
         self, sessie_id: uuid.UUID, debate_id: str, floor: Floor, kind: str
