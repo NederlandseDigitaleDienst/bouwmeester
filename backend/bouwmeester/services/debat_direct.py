@@ -101,7 +101,8 @@ class Spreker:
         return self.naam
 
 
-def _moment(value: object) -> datetime | None:
+def parse_moment(value: object) -> datetime | None:
+    """A moment as Debat Direct writes it, or ``None``."""
     if not value or not isinstance(value, str):
         return None
     try:
@@ -126,7 +127,7 @@ def parse_debate(raw: dict) -> DdDebat | None:
         if not isinstance(item, dict):
             continue
         raw_start = item.get("eventStart")
-        start = _moment(raw_start)
+        start = parse_moment(raw_start)
         kind = _text(item.get("eventType"))
         if start is None or not kind:
             continue
@@ -155,9 +156,9 @@ def parse_debate(raw: dict) -> DdDebat | None:
         slug=_text(raw.get("slug")),
         debate_type=_text(raw.get("debateType")) or None,
         debate_date=_text(raw.get("debateDate")) or None,
-        starts_at=_moment(raw.get("startsAt")),
-        started_at=_moment(raw.get("startedAt")),
-        ended_at=_moment(raw.get("endedAt")),
+        starts_at=parse_moment(raw.get("startsAt")),
+        started_at=parse_moment(raw.get("startedAt")),
+        ended_at=parse_moment(raw.get("endedAt")),
         location_id=_text(raw.get("locationId")) or None,
         location_name=_text(raw.get("locationName")) or None,
         category_ids=tuple(
@@ -212,6 +213,33 @@ async def fetch_debate(
     if not isinstance(raw, dict):
         raise DebatDirectError(f"Debat {debate_id} heeft een onverwachte vorm")
     return parse_debate(raw)
+
+
+async def _fetch_json(client: httpx.AsyncClient, path: str, base_url: str) -> dict:
+    response = await _get(client, path, base_url)
+    try:
+        response.raise_for_status()
+        raw = response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        raise DebatDirectError(f"{path} niet te lezen") from exc
+    if not isinstance(raw, dict):
+        raise DebatDirectError(f"{path} heeft een onverwachte vorm")
+    return raw
+
+
+async def fetch_debate_json(
+    client: httpx.AsyncClient, debate_id: str, base_url: str = DD_API_URL
+) -> dict:
+    """One debate as Debat Direct gives it, with what `fetch_debate` leaves
+    out, such as the votes of a block of votes."""
+    return await _fetch_json(client, f"debates/{quote(debate_id, safe='')}", base_url)
+
+
+async def fetch_actors_json(
+    client: httpx.AsyncClient, day: date, base_url: str = DD_API_URL
+) -> dict:
+    """Everyone who can speak on this day, as Debat Direct gives it."""
+    return await _fetch_json(client, f"actors/{day.isoformat()}", base_url)
 
 
 async def fetch_sprekers(

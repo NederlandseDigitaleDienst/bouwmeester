@@ -110,6 +110,9 @@ class DebatSessie(Base):
     # stands (`debat_besluiten`). The message it is, how much of the text
     # was read for it, and whether the final overview is in the channel.
     besluiten: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Of a debate on a bill: the dossiers of the bill and, per day of votes,
+    # the message with the outcome (`debat_stemmingsuitslag`).
+    stemmingen: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # When the bot archived the channel because the debate was long over
     # and the channel quiet (`debat_channel_cleanup`). Set, the channel is
     # not looked at again: one that an admin brought back stays.

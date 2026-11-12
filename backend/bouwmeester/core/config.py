@@ -92,6 +92,10 @@ class Settings(BaseSettings):
     # A turn is finished some 45 seconds before its text is complete, so
     # looking more often than this finds nothing sooner.
     DEBAT_VRAGEN_INTERVAL_SECONDS: int = 15
+    # The outcome of the votes on a bill in the channel of its debate, from
+    # Debat Direct while the votes are cast and from the TK API after.
+    DEBAT_STEMMINGEN_ENABLED: bool = True
+    DEBAT_STEMMINGEN_INTERVAL_SECONDS: int = 60
     # Around a change of speaker the voice decides whose line it is, not
     # the moment of the event, which is seconds off. Needs the speaker model
     # at the path below; the image downloads it at build. Without that file
