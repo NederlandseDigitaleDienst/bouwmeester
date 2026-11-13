@@ -45,8 +45,9 @@ from bouwmeester.services.debat_transcript_service import (
     ORDER,
     WRITE_AGAIN,
     DebatTranscript,
+    load_turns,
 )
-from bouwmeester.services.mattermost_service import MattermostService
+from bouwmeester.services.mattermost_service import MattermostService, PostNotFoundError
 from bouwmeester.services.mattermost_utils import (
     escape_mattermost_prose as _escape,
 )
@@ -189,6 +190,22 @@ def heading_as(kop: str, kind: str) -> str:
     before, after = _INTERRUPTION
     bare = kop.removeprefix(before).removesuffix(after)
     return f"{before}{bare}{after}" if kind == dd.EVENT_INTERRUPTER else bare
+
+
+# The first line of the end of a part that has a next part, and of the
+# start of that next part. Like a suspension in the feed.
+BREAK_END = "⏸️ **Onderbroken**"
+BREAK_START = "▶️ **Hervat**"
+
+
+def as_break(kop: str, heading: str) -> str:
+    """A first line with `heading` before its time, the time kept as it is.
+
+    The time can carry a link to the moment in the stream, and that link
+    is kept.
+    """
+    _, sep, time = kop.partition(" · ")
+    return f"{heading} · {time}" if sep else heading
 
 
 def format_event(
@@ -413,6 +430,7 @@ class DebatTijdlijnService:
 
         fouten = result.fouten
         await self._post_new_events(sessie, client, now, result)
+        await self._mark_breaks(sessie, result)
         # Taken here, before the headings: a heading that cannot be
         # rewritten is counted as an error too, and it must not keep the
         # text of the whole debate from being read.
@@ -619,7 +637,8 @@ class DebatTijdlijnService:
         floors = floors_from(rows)
 
         last_end: datetime | None = None
-        for debate_id in list(sessie.debat_direct_ids or []):
+        parts = list(sessie.debat_direct_ids or [])
+        for debate_id in parts:
             if debate_id in ended:
                 end_rows = [
                     r[2]
@@ -668,7 +687,10 @@ class DebatTijdlijnService:
             )
             missed = [e for e in old if last_posted is None or e.start > last_posted]
             beurten = sum(1 for e in missed if e.type in _SPEAKING)
-            is_over = any(e.type == dd.EVENT_DEBATE_END for e in missed)
+            # The end of a part with a next part is a break, not the end.
+            is_over = debate_id == parts[-1] and any(
+                e.type == dd.EVENT_DEBATE_END for e in missed
+            )
             if any(e.type in _ANNOUNCED for e in missed):
                 url = dd.debate_url(debat)
                 waar = f"[Debat Direct]({url})" if url else "Debat Direct"
@@ -746,6 +768,13 @@ class DebatTijdlijnService:
                     await self.session.commit()
                     continue
                 tekst = format_event(event, debat, sprekers)
+                if (
+                    tekst
+                    and event.type == dd.EVENT_DEBATE_START
+                    and debate_id != parts[0]
+                ):
+                    # A next part: the debate goes on.
+                    tekst = as_break(tekst, BREAK_START)
                 post_id = None
                 if tekst:
                     post_id = await self.mattermost.send_channel_message(
@@ -785,7 +814,6 @@ class DebatTijdlijnService:
                 ):
                     return
 
-        parts = list(sessie.debat_direct_ids or [])
         if parts and all(p in ended for p in parts) and last_end is not None:
             if now - last_end > END_GRACE:
                 sessie.tijdlijn_status = TIJDLIJN_AFGELOPEN
@@ -876,6 +904,96 @@ class DebatTijdlijnService:
             .on_conflict_do_nothing(constraint="uq_debat_spreekbeurt_event")
         )
         await self.session.execute(stmt)
+
+    async def _mark_breaks(self, sessie: DebatSessie, result: TickResult) -> None:
+        """Make the end of a part that has a next part a break.
+
+        Debat Direct cuts a plenary debate in two around the regeling van
+        werkzaamheden, with an end and a start of its own. A next part only
+        appears once it starts, so the end before it is posted as the end
+        of the debate: on 12 November 2026 the channel said the debate was
+        over while it went on a minute later. Once the next part is known,
+        that end becomes "Onderbroken". The start of a next part is posted
+        as "Hervat" right away; one posted before this existed is put right
+        here too.
+        """
+        parts = list(sessie.debat_direct_ids or [])
+        if (
+            len(parts) < 2
+            or sessie.channel_id is None
+            or sessie.tijdlijn_status not in _ACTIVE
+        ):
+            return
+        rows = (
+            await self.session.execute(
+                select(
+                    DebatSpreekbeurt.id,
+                    DebatSpreekbeurt.debat_direct_id,
+                    DebatSpreekbeurt.event_type,
+                    DebatSpreekbeurt.post_id,
+                    DebatSpreekbeurt.kop,
+                ).where(
+                    DebatSpreekbeurt.sessie_id == sessie.id,
+                    DebatSpreekbeurt.event_type.in_(
+                        (dd.EVENT_DEBATE_END, dd.EVENT_DEBATE_START)
+                    ),
+                    DebatSpreekbeurt.post_id.is_not(None),
+                    DebatSpreekbeurt.kop.is_not(None),
+                )
+            )
+        ).all()
+        for row_id, debate_id, event_type, post_id, kop in rows:
+            if event_type == dd.EVENT_DEBATE_END and debate_id in parts[:-1]:
+                kop_now = as_break(kop, BREAK_END)
+            elif event_type == dd.EVENT_DEBATE_START and debate_id in parts[1:]:
+                kop_now = as_break(kop, BREAK_START)
+            else:
+                continue
+            if kop_now == kop:
+                continue
+            turns = await load_turns(self.session, sessie.id, debate_id)
+            if any(turn.row_id == row_id for turn in turns):
+                # A turn the transcription writes, continuation messages
+                # and all: the row changes and the message follows, as in
+                # `_change_turn`.
+                values = {"kop": kop_now, "tekst_geplaatst_hash": WRITE_AGAIN}
+            elif await self._rewrite_heading(post_id, kop, kop_now):
+                values = {"kop": kop_now}
+            else:
+                logger.warning("Kop van %s niet herschreven", post_id)
+                result.fouten += 1
+                if await self._stop_if_channel_gone(sessie):
+                    return
+                continue
+            await self.session.execute(
+                update(DebatSpreekbeurt)
+                .where(DebatSpreekbeurt.id == row_id)
+                .values(**values)
+            )
+            await self.session.commit()
+
+    async def _rewrite_heading(self, post_id: str, kop: str, kop_now: str) -> bool:
+        """Put `kop_now` over a message in place of its first line.
+
+        For an end without the chairman's words under it, which is no turn
+        the transcription writes. The toezeggingen counted from the
+        chairman's list can still hang under it; what is below the first
+        line stays as it is.
+        """
+        try:
+            post = await self.mattermost.get_post(post_id)
+        except PostNotFoundError:
+            # Gone: nothing to put right, only the row.
+            return True
+        message = (post or {}).get("message")
+        if not isinstance(message, str):
+            return False
+        if message.startswith(kop):
+            rest = message[len(kop) :]
+        else:
+            _, newline, below = message.partition("\n")
+            rest = newline + below
+        return await self.mattermost.update_post(post_id, kop_now + rest)
 
     async def _change_turn(
         self, sessie_id: uuid.UUID, debate_id: str, floor: Floor, kind: str
