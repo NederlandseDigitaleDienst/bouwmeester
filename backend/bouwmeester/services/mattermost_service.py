@@ -668,6 +668,21 @@ class MattermostService:
             return None
         return data if isinstance(data, dict) else None
 
+    async def archive_channel(self, channel_id: str) -> bool:
+        """Archive a channel. ``True`` when it is archived now.
+
+        Mattermost calls this deleting, but the channel stays: its messages
+        can still be read, and a system admin can bring it back.
+        """
+        try:
+            client = await self._get_client()
+            resp = await client.delete(f"/api/v4/channels/{channel_id}")
+            resp.raise_for_status()
+            return True
+        except httpx.HTTPError:
+            logger.warning("Kon kanaal %s niet archiveren", channel_id, exc_info=True)
+            return False
+
     async def channel_is_gone(self, channel_id: str) -> bool:
         """Is this channel archived or deleted? Only a certain yes is True.
 
