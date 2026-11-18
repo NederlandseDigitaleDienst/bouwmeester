@@ -6,10 +6,14 @@ import { RichTextDisplay } from '@/components/common/RichTextDisplay';
 import { Icon } from '@/components/nldd/Icon';
 import { NlddButton } from '@/components/nldd/NlddButton';
 import { NlddIconButton } from '@/components/nldd/NlddIconButton';
+import { MattermostChannelsSection } from '@/components/mattermost/MattermostChannelsSection';
+import { CasusKanaalberichten } from '@/components/mattermost/CasusKanaalberichten';
 import { useLeadDetail } from '@/contexts/LeadDetailContext';
 import { useRemoveCasusTeamlid, useUpdateCasus } from '@/hooks/useCasussen';
 import { CASUS_TYPE_LABELS, CASUSTEAM_ROL_LABELS } from '@/types';
 import { useCasusFases } from '@/hooks/useCasusFases';
+import { useInitiatief } from '@/hooks/useInitiatieven';
+import { useCurrentPerson } from '@/contexts/CurrentPersonContext';
 import type { CasusDetail } from '@/types';
 import { CasusTeamModal } from './CasusTeamModal';
 import { antwoordTekst } from './startvragen';
@@ -45,6 +49,16 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
   const [afronden, setAfronden] = useState(false);
   const [herstel, setHerstel] = useState(0);
   const eindEisen = casus.eind_eisen ?? [];
+  // Een kanaal koppelen stuurt casusinhoud naar Mattermost. Dat valt onder
+  // het wijzigen van de casus: bijdrager, eigenaar of de trekker, geen
+  // kijker. De backend weigert het ook.
+  const { data: initiatief } = useInitiatief(casus.initiatief_id ?? undefined);
+  const { currentPerson } = useCurrentPerson();
+  const kanKanalenBeheren =
+    !casus.initiatief_id ||
+    initiatief?.access_level === 'eigenaar' ||
+    initiatief?.access_level === 'contributor' ||
+    casus.team.some((lid) => lid.rol === 'trekker' && lid.person_id === currentPerson?.id);
 
   return (
     <nldd-container gap="16">
@@ -185,6 +199,16 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
           <EisenMomentopname titel={`${eindEisen.filter((e) => e.akkoord).length} van ${eindEisen.length} af`} eisen={eindEisen} />
         </DetailSection>
       )}
+
+      {/* Het kanaal van de lead gaat bij de start mee; hier is ook een
+          ander kanaal te koppelen. Bouwmeester zet er de voortgang in. De
+          berichten staan er ook zonder kanaal onder. */}
+      <DetailSection title="Mattermost" separated>
+        <nldd-container gap="12">
+          <MattermostChannelsSection scope={{ type: 'casus', id: casus.id }} kanBeheren={kanKanalenBeheren} />
+          <CasusKanaalberichten casusId={casus.id} />
+        </nldd-container>
+      </DetailSection>
 
       <DetailSection title="Herkomst" icon={<Icon name="inbox" size="sm" />} separated>
         <nldd-container layout="row" gap="8" vertical-alignment="center">

@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class MattermostChannelSearchResult(BaseModel):
@@ -19,6 +19,7 @@ class MattermostChannelSearchResult(BaseModel):
     team_name: str | None = None
     member_count: int | None = None
     is_bot_member: bool = False
+    is_private: bool = False
 
 
 class MattermostChannelLinkCreate(BaseModel):
@@ -30,6 +31,7 @@ class MattermostChannelLinkCreate(BaseModel):
     suggest_leads_enabled: bool | None = None
     parlementaire_alerts_enabled: bool | None = None
     nieuws_alerts_enabled: bool | None = None
+    casus_updates_enabled: bool | None = None
 
 
 class MattermostChannelLinkUpdate(BaseModel):
@@ -37,6 +39,7 @@ class MattermostChannelLinkUpdate(BaseModel):
     suggest_leads_enabled: bool | None = None
     parlementaire_alerts_enabled: bool | None = None
     nieuws_alerts_enabled: bool | None = None
+    casus_updates_enabled: bool | None = None
     # Stuur ``reenable=true`` om een uitgeschakelde koppeling weer aan te
     # zetten nadat de bot terug is in het kanaal. ``false`` is geen
     # zinvolle waarde (uitschakelen gebeurt automatisch via WS-events of
@@ -57,6 +60,7 @@ class MattermostChannelLinkResponse(BaseModel):
     suggest_leads_enabled: bool
     parlementaire_alerts_enabled: bool
     nieuws_alerts_enabled: bool
+    casus_updates_enabled: bool
     last_seen_post_at: int | None
     disabled_at: datetime | None
     created_by_id: UUID | None
@@ -64,3 +68,22 @@ class MattermostChannelLinkResponse(BaseModel):
     updated_at: datetime | None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CasusKanaalberichtResponse(BaseModel):
+    """Een voortgangsbericht zoals het in het kanaal staat, of zou staan."""
+
+    id: UUID
+    tekst: str
+    # Alleen de namen: meer heeft wie het bericht leest niet nodig.
+    kanalen: list[str]
+    status: Literal["geen_kanaal", "wacht", "verstuurd", "mislukt", "uit"]
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("kanalen", mode="before")
+    @classmethod
+    def _namen(cls, v: list) -> list:
+        # Bewaard als [{id, naam}]; zonder naam dan maar het id.
+        return [(k.get("naam") or k.get("id")) if isinstance(k, dict) else k for k in v]
