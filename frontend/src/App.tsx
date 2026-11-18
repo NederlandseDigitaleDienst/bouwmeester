@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { CurrentPersonProvider } from '@/contexts/CurrentPersonContext';
 import { VocabularyProvider } from '@/contexts/VocabularyContext';
 import { TaskDetailProvider } from '@/contexts/TaskDetailContext';
+import { OpNaamProvider } from '@/contexts/OpNaamContext';
 import { NodeDetailProvider } from '@/contexts/NodeDetailContext';
 import { OpdrachtDetailProvider } from '@/contexts/OpdrachtDetailContext';
 import { OpdrachtCreateProvider } from '@/contexts/OpdrachtCreateContext';
@@ -163,6 +164,7 @@ function AuthenticatedApp() {
           <GlobalFileDropProvider>
             <ChatProvider>
             <TaskDetailProvider>
+            <OpNaamProvider>
             <NodeDetailProvider>
             <OpdrachtCreateProvider>
             <OpdrachtDetailProvider>
@@ -198,6 +200,7 @@ function AuthenticatedApp() {
             </OpdrachtDetailProvider>
             </OpdrachtCreateProvider>
             </NodeDetailProvider>
+            </OpNaamProvider>
             </TaskDetailProvider>
           </ChatProvider>
           </GlobalFileDropProvider>

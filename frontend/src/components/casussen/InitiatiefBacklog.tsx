@@ -17,6 +17,7 @@ import { InitiatiefIdContext } from '@/hooks/useInitiatiefPersonOptions';
 import { useTaskDetail, type TaskDetailPlacement } from '@/contexts/TaskDetailContext';
 import { Icon } from '@/components/nldd/Icon';
 import { useCreateTask, useUpdateTask } from '@/hooks/useTasks';
+import { useOpNaam } from '@/contexts/OpNaamContext';
 import {
   ISSUE_STATUS_COLORS,
   ISSUE_STATUS_LABELS,
@@ -427,6 +428,10 @@ function IssueRow({ issue, alleTaken, open, onToggle, onOpenCasus, onOpen }: Iss
  * Sleep je de laatste open taak naar Afgerond, dan komt meteen de
  * DoD-checklist (`onAllesAf`): alle taken af maakt de vraag nog niet af, de
  * DoD doet dat.
+ *
+ * Gaat een taak zonder eigenaar naar In uitvoering of Afgerond, dan vraagt een
+ * klein venster of je hem op naam wilt zetten (OpNaamContext); niet verplicht.
+ * Is het de laatste taak naar Afgerond, dan komt de DoD daarna.
  */
 function MiniKanban({
   issue,
@@ -442,6 +447,8 @@ function MiniKanban({
   const verwijderen = useTaakVerwijderen();
   const updateTask = useUpdateTask();
   const createTask = useCreateTask();
+  const vraagOpNaam = useOpNaam();
+  const initiatiefId = useContext(InitiatiefIdContext);
   const [nieuw, setNieuw] = useState('');
   const bordRef = useRef<HTMLElement>(null);
 
@@ -478,7 +485,8 @@ function MiniKanban({
       { id, data: { status } },
       {
         // Pas na een geslaagde wijziging; bij een fout toont de toast het al.
-        onSuccess: () => (vraagDoD ? onAllesAf() : undefined),
+        // Eerst de vraag naar een naam, dan pas de DoD: niet twee vensters tegelijk.
+        onSuccess: () => vraagOpNaam(task, status, initiatiefId, vraagDoD ? onAllesAf : undefined),
         onError: () =>
           setVerplaatst((prev) => {
             const { [id]: _weg, ...rest } = prev;

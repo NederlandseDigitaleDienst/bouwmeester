@@ -17,6 +17,7 @@ import { Badge } from '@/components/common/Badge';
 import { TaskCreateForm } from './TaskCreateForm';
 import { useIssues } from '@/hooks/useIssues';
 import { useTaakVerwijderen } from '@/hooks/useTaakVerwijderen';
+import { useOpNaam } from '@/contexts/OpNaamContext';
 import { useTaskFormOptions } from '@/hooks/useTaskFormOptions';
 import { eventValue, orUndef, useNlddEvent } from '@/components/nldd/events';
 import { NlddIconButton } from '@/components/nldd/NlddIconButton';
@@ -261,6 +262,14 @@ function TaakVelden({ task, onClose }: { task: Task; onClose: () => void }) {
   // Voor een casustaak alleen leden van het initiatief (de backend weigert
   // een niet-lid met 400); daarbuiten iedereen.
   const personOptions = useInitiatiefPersonOptions(task.assignee ?? null, task.casus?.initiatief_id ?? null);
+  // Zonder eigenaar naar In uitvoering of Afgerond: vragen of hij op naam
+  // moet, met dezelfde keuze aan mensen als hierboven.
+  const vraagOpNaam = useOpNaam();
+  const zetStatus = (status: TaskStatus) =>
+    updateTask.mutate(
+      { id: task.id, data: { status } },
+      { onSuccess: () => vraagOpNaam(task, status, task.casus?.initiatief_id) },
+    );
   // De onderzoeksvraag waar de taak onder hangt: alleen tonen. Een taak naar
   // een andere vraag verplaatsen kan hier bewust niet.
   const { data: vragen } = useIssues(task.casus_id ?? null);
@@ -281,7 +290,7 @@ function TaakVelden({ task, onClose }: { task: Task; onClose: () => void }) {
       <nldd-container gap="12">
         <Eigenschappen>
           <Eigenschap label="Status">
-            <Select size="sm" aria-label="Status" options={STATUS_OPTIONS} value={task.status} onChange={(e) => zet({ status: e.target.value as TaskStatus })} />
+            <Select size="sm" aria-label="Status" options={STATUS_OPTIONS} value={task.status} onChange={(e) => zetStatus(e.target.value as TaskStatus)} />
           </Eigenschap>
           <Eigenschap label="Prioriteit">
             <Select size="sm" aria-label="Prioriteit" options={PRIORITY_OPTIONS} value={task.priority} onChange={(e) => zet({ priority: e.target.value as TaskPriority })} />
