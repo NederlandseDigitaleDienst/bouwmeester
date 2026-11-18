@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 
 import { Badge } from '@/components/common/Badge';
 import { EmptyState } from '@/components/common/EmptyState';
-import { Input } from '@/components/common/Input';
 import { IssueAanmakenModal } from './IssueAanmakenModal';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Select } from '@/components/common/Select';
@@ -16,7 +15,7 @@ import { useBacklog } from '@/hooks/useCasussen';
 import { InitiatiefIdContext } from '@/hooks/useInitiatiefPersonOptions';
 import { useTaskDetail, type TaskDetailPlacement } from '@/contexts/TaskDetailContext';
 import { Icon } from '@/components/nldd/Icon';
-import { useCreateTask, useUpdateTask } from '@/hooks/useTasks';
+import { useUpdateTask } from '@/hooks/useTasks';
 import { useOpNaam } from '@/contexts/OpNaamContext';
 import {
   ISSUE_STATUS_COLORS,
@@ -32,6 +31,7 @@ import { useTaakVerwijderen } from '@/hooks/useTaakVerwijderen';
 import { initiatiefPath } from '@/utils/initiatiefRoutes';
 import { IssueDetailModal } from './IssueDetailModal';
 import { DodModal } from './DodModal';
+import { TaakAanmakenModal } from './TaakAanmakenModal';
 import { allesAfNa } from '@/utils/issueVoortgang';
 import { faseNaam, useCasusFases } from '@/hooks/useCasusFases';
 
@@ -432,6 +432,11 @@ function IssueRow({ issue, alleTaken, open, onToggle, onOpenCasus, onOpen }: Iss
  * Gaat een taak zonder eigenaar naar In uitvoering of Afgerond, dan vraagt een
  * klein venster of je hem op naam wilt zetten (OpNaamContext); niet verplicht.
  * Is het de laatste taak naar Afgerond, dan komt de DoD daarna.
+ *
+ * Onderaan elke kolom opent Taak toevoegen een klein venster; de taak krijgt
+ * de status van die kolom. Alleen in In uitvoering en Afgerond vraagt het
+ * venster meteen wie het doet: een taak in Te doen staat nog niet op naam.
+ * Maakt een nieuwe taak in Afgerond alles af, dan volgt ook de DoD.
  */
 function MiniKanban({
   issue,
@@ -446,10 +451,10 @@ function MiniKanban({
   const { openTaskDetail } = useTaskDetail();
   const verwijderen = useTaakVerwijderen();
   const updateTask = useUpdateTask();
-  const createTask = useCreateTask();
   const vraagOpNaam = useOpNaam();
   const initiatiefId = useContext(InitiatiefIdContext);
-  const [nieuw, setNieuw] = useState('');
+  // De kolom waar Taak toevoegen open staat.
+  const [toevoegenIn, setToevoegenIn] = useState<(typeof KOLOMMEN)[number] | null>(null);
   const bordRef = useRef<HTMLElement>(null);
 
   // Status die net is verplaatst maar nog niet terug is van de server.
@@ -496,17 +501,6 @@ function MiniKanban({
     );
   });
 
-  const voegToe = async () => {
-    const title = nieuw.trim();
-    if (!title) return;
-    try {
-      await createTask.mutateAsync({ title, issue_id: issue.id });
-      setNieuw('');
-    } catch {
-      // toast is al getoond
-    }
-  };
-
   return (
     <div style={{ borderTop: '1px solid var(--primitives-color-neutral-200)', padding: '8px' }}>
       <nldd-task-board ref={bordRef} accessible-label={`Taken bij ${issue.title}`}>
@@ -522,28 +516,32 @@ function MiniKanban({
                   onContextMenu={(e) => verwijderen.openMenu(e, t)}
                 />
               ))}
-            {/* Een nieuwe taak begint in Te doen, dus daar staat het veld. */}
-            {kolom.status === TaskStatus.OPEN && (
-              <nldd-container slot="footer" layout="row" gap="6" vertical-alignment="center">
-                <nldd-container className="row-fill">
-                  <Input
-                    type="text"
-                    value={nieuw}
-                    onChange={(e) => setNieuw(e.target.value)}
-                    placeholder="Nieuwe taak bij deze onderzoeksvraag"
-                    aria-label={`Nieuwe taak op ${issue.title}`}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') void voegToe();
-                    }}
-                  />
-                </nldd-container>
-                <NlddIconButton icon="plus" accessibleLabel="Taak toevoegen" size="sm" variant="neutral-transparent" onClick={() => void voegToe()} />
-              </nldd-container>
-            )}
+            {/* In elke kolom: de taak begint waar je hem toevoegt. */}
+            <nldd-container slot="footer" layout="row">
+              <NlddButton
+                variant="neutral-transparent"
+                size="sm"
+                startIcon="plus"
+                text="Taak toevoegen"
+                accessibleLabel={`Taak toevoegen in ${kolom.label} bij ${issue.title}`}
+                onClick={() => setToevoegenIn(kolom)}
+              />
+            </nldd-container>
           </nldd-task-board-column>
         ))}
       </nldd-task-board>
       {verwijderen.element}
+      <TaakAanmakenModal
+        open={!!toevoegenIn}
+        onClose={() => setToevoegenIn(null)}
+        issue={issue}
+        status={toevoegenIn?.status}
+        kolomNaam={toevoegenIn?.label}
+        // Een nieuwe taak in Afgerond kan de laatste zijn die nog openstond.
+        onAangemaakt={(taak) => {
+          if (onAllesAf && allesAfNa([...alleTaken, taak], taak.id, taak.status)) onAllesAf();
+        }}
+      />
     </div>
   );
 }
