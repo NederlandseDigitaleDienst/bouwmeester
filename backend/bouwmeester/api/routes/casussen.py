@@ -421,10 +421,11 @@ async def zet_in_koelkast(
         current_user,
         None,
         "casus.koelkast_bijgewerkt" if al_in else "casus.koelkast_in",
+        # Zonder de reden: het log leest ook wie het initiatief niet ziet
+        # (audit:read), net als bij de andere casusregels alleen id en titel.
         details={
             "casus_id": str(casus.id),
             "title": casus.title,
-            "reden": casus.koelkast_reden,
             "verwacht_terug": data.verwacht_terug.isoformat(),
         },
     )
@@ -449,7 +450,6 @@ async def haal_uit_koelkast(
         details = {
             "casus_id": str(casus.id),
             "title": casus.title,
-            "reden": casus.koelkast_reden,
             "sinds": casus.koelkast_sinds.isoformat(),
         }
         casus.koelkast_sinds = None
