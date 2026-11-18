@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { RichTextDisplay } from '@/components/common/RichTextDisplay';
@@ -7,10 +7,13 @@ import { Icon } from '@/components/nldd/Icon';
 import { NlddButton } from '@/components/nldd/NlddButton';
 import { useCasusSoorten } from '@/hooks/useCasusSoorten';
 import { useLeadColumns } from '@/hooks/useLeadColumns';
-import { CASUS_START_STAGE, type CasusFaseDef, type CasusSoort, type InitiatiefDetail, type Overleg } from '@/types';
+import { CASUS_START_STAGE, type CasusFaseDef, type CasusSoort, type InitiatiefDetail, type Overleg, type Wens } from '@/types';
+import { Badge } from '@/components/common/Badge';
 import { initiatiefPath } from '@/utils/initiatiefRoutes';
 
 import { InstellingenBlok } from './InstellingenBlok';
+import { OpenPuntenEditor } from './OpenPuntenEditor';
+import { WensModal } from './WensModal';
 
 const RAND = '1px solid var(--primitives-color-neutral-200)';
 
@@ -28,7 +31,9 @@ const tel = (n: number, een: string, meer: string) => `${n} ${n === 1 ? een : me
  * Bouwmeester werkt, met de namen (startkolom, fases) uit de inrichting.
  * De rest komt helemaal uit de inrichting; deze tab schrijft niets. Wat de
  * eigenaar bij Instellingen aanpast, staat hier dus meteen goed. Wie mag
- * aanpassen, krijgt per onderdeel een knop naar de instellingen.
+ * aanpassen, krijgt per onderdeel een knop naar de instellingen. Onderaan
+ * de punten die nog openstaan en de wensen voor Bouwmeester; die past de
+ * eigenaar hier zelf aan.
  *
  * Elk onderdeel is een inklapbaar kaartje met een telling in de kop, zoals
  * op de tabs Mensen en Instellingen: dicht is de pagina een overzicht. De
@@ -47,6 +52,13 @@ export function InitiatiefRegelRitme({ initiatief }: { initiatief: InitiatiefDet
   const startkolom = columns.find((c) => c.slug === CASUS_START_STAGE)?.name;
   const stappen = procesStappen(startkolom, fases);
   const nogOpen = overleggen.filter((o) => !o.vastgesteld).length;
+  const openPunten = initiatief.open_punten ?? [];
+  const wensen = initiatief.wensen ?? [];
+  // De open punten pas je hier zelf aan, onder de lijst.
+  const [puntenBewerken, setPuntenBewerken] = useState(false);
+  // Een wens toevoegen of bewerken gaat in een venster, zoals een
+  // onderzoeksvraag; null is een nieuwe wens.
+  const [wensVenster, setWensVenster] = useState<{ wens: Wens | null } | null>(null);
 
   const aanpassen = isEigenaar ? (
     <NlddButton
@@ -181,6 +193,67 @@ export function InitiatiefRegelRitme({ initiatief }: { initiatief: InitiatiefDet
           </nldd-rich-text>
         </Sectie>
 
+        <Sectie
+          icon="list"
+          titel="Open punten"
+          samenvatting={openPunten.length ? `${tel(openPunten.length, 'punt', 'punten')} open` : 'niets open'}
+          actie={
+            isEigenaar && !puntenBewerken ? (
+              <NlddButton variant="neutral-transparent" size="sm" startIcon="pencil" text="Aanpassen" onClick={() => setPuntenBewerken(true)} />
+            ) : null
+          }
+        >
+          {puntenBewerken ? (
+            <OpenPuntenEditor initiatief={initiatief} onKlaar={() => setPuntenBewerken(false)} />
+          ) : openPunten.length === 0 ? (
+            <nldd-text size="sm" color="secondary">
+              Er staan geen punten open.
+            </nldd-text>
+          ) : (
+            <>
+              <nldd-text size="sm">Wat we als team nog moeten bespreken of besluiten.</nldd-text>
+              <nldd-rich-text>
+                <ul>
+                  {openPunten.map((punt, i) => (
+                    <li key={`${i}-${punt}`}>{punt}</li>
+                  ))}
+                </ul>
+              </nldd-rich-text>
+            </>
+          )}
+        </Sectie>
+
+        <Sectie
+          icon="lightbulb"
+          titel="Wensen voor Bouwmeester"
+          samenvatting={wensSamenvatting(wensen)}
+          actie={
+            isEigenaar ? (
+              <NlddButton variant="secondary" size="sm" startIcon="plus" text="Wens toevoegen" onClick={() => setWensVenster({ wens: null })} />
+            ) : null
+          }
+        >
+          {wensen.length === 0 ? (
+            <nldd-text size="sm" color="secondary">
+              Er staan geen wensen op de lijst.
+            </nldd-text>
+          ) : (
+            <>
+              <nldd-text size="sm">Suggesties en bugs: wat we in Bouwmeester zelf anders willen.</nldd-text>
+              <nldd-container gap="0">
+                {wensen.map((wens, i) => (
+                  <WensRegel
+                    key={wens.id}
+                    wens={wens}
+                    eerste={i === 0}
+                    onOpen={isEigenaar ? () => setWensVenster({ wens }) : undefined}
+                  />
+                ))}
+              </nldd-container>
+            </>
+          )}
+        </Sectie>
+        <WensModal initiatief={initiatief} wens={wensVenster?.wens ?? null} open={!!wensVenster} onClose={() => setWensVenster(null)} />
       </nldd-container>
     </nldd-container>
   );
@@ -243,6 +316,67 @@ const BEGRIPPEN: { icon: string; term: string; uitleg: string }[] = [
       'Ja. Het belangrijkste is dat op een taak de naam staat van wie hem uitvoert. Die naam zet je er zelf op, of iemand anders doet het. Iedereen die bijdrager of eigenaar is van het initiatief pakt taken op, ook bij een casus buiten het eigen casusteam. Ook kijkers kunnen een taak toegewezen krijgen en die dan zelf bijwerken.',
   },
 ];
+
+/** "3 suggesties · 1 bug", of "geen wensen". */
+function wensSamenvatting(wensen: Wens[]): string {
+  if (!wensen.length) return 'geen wensen';
+  const bugs = wensen.filter((w) => w.soort === 'bug').length;
+  const suggesties = wensen.length - bugs;
+  return [
+    suggesties ? tel(suggesties, 'suggestie', 'suggesties') : '',
+    bugs ? tel(bugs, 'bug', 'bugs') : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/**
+ * Eén wens: soort, titel, wie hem meldde. Met `onOpen` (de eigenaar) is de
+ * regel een knop die het venster opent om hem te bewerken.
+ */
+function WensRegel({ wens, eerste, onOpen }: { wens: Wens; eerste: boolean; onOpen?: () => void }) {
+  const gemeld = [wens.gemeld_door, wens.gemeld_op ? new Date(wens.gemeld_op).toLocaleDateString('nl-NL') : null]
+    .filter(Boolean)
+    .join(', ');
+  const inhoud = (
+    <nldd-container gap="4">
+      <nldd-container layout="row" gap="8" vertical-alignment="center">
+        <Badge color={wens.soort === 'bug' ? 'rood' : 'lintblauw'}>{wens.soort === 'bug' ? 'Bug' : 'Suggestie'}</Badge>
+        <nldd-text size="sm" weight="medium">
+          {wens.titel}
+        </nldd-text>
+      </nldd-container>
+      {gemeld && (
+        <nldd-text size="xs" color="secondary">
+          {`Gemeld door ${gemeld}`}
+        </nldd-text>
+      )}
+    </nldd-container>
+  );
+  return (
+    <div style={{ borderTop: eerste ? undefined : RAND, padding: '8px 0' }}>
+      {onOpen ? (
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={`${wens.titel}: bewerken`}
+          onClick={onOpen}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onOpen();
+            }
+          }}
+          style={{ cursor: 'pointer' }}
+        >
+          {inhoud}
+        </div>
+      ) : (
+        inhoud
+      )}
+    </div>
+  );
+}
 
 /** "a", "a en b", "a, b en c". */
 function opsomming(namen: string[]): string {

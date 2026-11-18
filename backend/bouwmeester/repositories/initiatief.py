@@ -182,6 +182,11 @@ class InitiatiefRepository(BaseRepository[Initiatief]):
         if initiatief is None:
             return None
         payload = data.model_dump(exclude_unset=True)
+        if "wensen" in payload:
+            # JSON-kolom: datums als tekst.
+            payload["wensen"] = data.model_dump(mode="json", include={"wensen"})[
+                "wensen"
+            ]
         # If a slug is being assigned/changed, validate uniqueness.
         if "slug" in payload and payload["slug"] is not None:
             new_slug = payload["slug"]

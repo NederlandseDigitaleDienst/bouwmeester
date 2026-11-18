@@ -23,6 +23,7 @@ from bouwmeester.schema.startvragen import (
     controleer_lijst,
     geldende_startvragen,
 )
+from bouwmeester.schema.wensen import Wens
 
 # Canonical eenheid-rol type — used in schemas, routes, and repository
 InitiatiefEenheidRol = Literal["eigenaar", "contributor", "viewer"]
@@ -116,6 +117,28 @@ class InitiatiefSettingsUpdate(BaseModel):
     casus_fases: list[CasusFaseDef] | None = None
     # Het ritme: de vaste overleggen. Een lege lijst (of null) haalt ze weg.
     overleggen: list[Overleg] | None = None
+    # De punten die nog openstaan; een lege lijst (of null) haalt ze weg.
+    open_punten: list[str] | None = Field(None, max_length=30)
+    # Wensen voor Bouwmeester (suggesties en bugs): de hele lijst. Een lege
+    # lijst (of null) haalt ze weg.
+    wensen: list[Wens] | None = Field(None, max_length=200)
+
+    @field_validator("open_punten")
+    @classmethod
+    def _strip_open_punten(cls, items: list[str] | None) -> list[str]:
+        # null betekent hier hetzelfde als leeg: de kolom kent geen null.
+        cleaned = [i.strip() for i in items or [] if i and i.strip()]
+        if any(len(i) > 300 for i in cleaned):
+            raise ValueError("Een open punt is maximaal 300 tekens")
+        return cleaned
+
+    @field_validator("wensen")
+    @classmethod
+    def _wensen_uniek(cls, items: list[Wens] | None) -> list[Wens]:
+        items = items or []
+        if len({w.id for w in items}) != len(items):
+            raise ValueError("Elke wens heeft een eigen id")
+        return items
 
     @field_validator("overleggen")
     @classmethod
@@ -245,6 +268,9 @@ class InitiatiefResponse(BaseModel):
     casus_fases: list[CasusFaseDef] = Field(default_factory=list)
     # Het ritme: de vaste overleggen van het team.
     overleggen: list[Overleg] = Field(default_factory=list)
+    # De punten die nog openstaan, en de wensen voor Bouwmeester.
+    open_punten: list[str] = Field(default_factory=list)
+    wensen: list[Wens] = Field(default_factory=list)
     created_by_id: UUID | None = None
     created_at: datetime
     updated_at: datetime | None = None

@@ -91,7 +91,8 @@ export function InitiatiefInstellingen({ initiatief }: { initiatief: InitiatiefD
               >
                 <CasusFunnelEditor initiatief={initiatief} />
               </InstellingenBlok>
-              {/* De vaste overleggen, voor het ritme op de tab RegelRitme. */}
+              {/* Voor de tab RegelRitme: de vaste overleggen. De open punten en de
+                  wensen pas je op die tab zelf aan. */}
               <InstellingenBlok
                 icon="calendar"
                 titel="Ritme"

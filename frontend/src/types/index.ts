@@ -1941,6 +1941,18 @@ export interface Overleg {
   vastgesteld: boolean;
 }
 
+/** Een wens voor Bouwmeester: een klein ticket, suggestie of bug (backend schema/wensen.py). */
+export interface Wens {
+  id: string;
+  soort: 'suggestie' | 'bug';
+  titel: string;
+  /** Rich text. */
+  toelichting?: string | null;
+  gemeld_door?: string | null;
+  /** ISO-datum. */
+  gemeld_op?: string | null;
+}
+
 /** De lead-kolom van waaruit een casus mag starten (dummy-regel, zie backend). */
 export const CASUS_START_STAGE = 'in_the_pocket';
 
@@ -2212,6 +2224,10 @@ export interface Initiatief {
   casus_fases?: CasusFaseDef[];
   /** Het ritme: de vaste overleggen van het team; leeg = nog niets vastgelegd. */
   overleggen?: Overleg[];
+  /** De punten die het team nog moet bespreken of besluiten, voor RegelRitme. */
+  open_punten?: string[];
+  /** Wensen om Bouwmeester zelf aan te passen, voor RegelRitme. */
+  wensen?: Wens[];
   created_by_id: string | null;
   created_at: string;
   updated_at: string | null;
@@ -2254,6 +2270,10 @@ export interface InitiatiefSettingsUpdate {
   startvragen?: Startvraag[];
   /** De vaste overleggen; een lege lijst haalt ze weg. */
   overleggen?: Overleg[];
+  /** De punten die nog openstaan; een lege lijst haalt ze weg. */
+  open_punten?: string[];
+  /** Wensen voor Bouwmeester: de hele lijst, een lege lijst haalt ze weg. */
+  wensen?: Wens[];
 }
 
 export interface InitiatiefUpdatePost {
