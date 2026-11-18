@@ -6,7 +6,8 @@ Dekt:
 - zonder reden of datum: 422; een datum in het verleden: 422;
 - bijwerken in de koelkast houdt koelkast_sinds;
 - uit de koelkast haalt alles weg, de fase blijft; nog eens is geen fout;
-- een kijker mag de casus niet wijzigen en dus ook niet in de koelkast: 403.
+- een kijker mag de casus niet wijzigen en dus ook niet in de koelkast: 403;
+- wie het initiatief niet ziet, krijgt 404 en ziet niet dat de casus bestaat.
 """
 
 import uuid
@@ -106,6 +107,7 @@ async def test_in_en_uit_de_koelkast(client, casus):
     [
         {"verwacht_terug": MORGEN},
         {"reden": "", "verwacht_terug": MORGEN},
+        {"reden": "   ", "verwacht_terug": MORGEN},
         {"reden": "Waarom"},
         {
             "reden": "Waarom",
@@ -138,3 +140,16 @@ async def test_kijker_zet_niets_in_de_koelkast(client, db_session, initiatief, c
         )
         assert resp.status_code == 403
         assert (await c.delete(_url(casus))).status_code == 403
+
+
+async def test_buitenstaander_ziet_geen_koelkast(client, db_session, casus):
+    buiten = await make_person(db_session, "Buitenstaander")
+    async with client_as(db_session, buiten) as c:
+        resp = await c.put(
+            _url(casus), json={"reden": "Waarom", "verwacht_terug": MORGEN}
+        )
+        assert resp.status_code == 404
+        assert (await c.delete(_url(casus))).status_code == 404
+    assert (await client.get(f"/api/casussen/{casus['id']}")).json()[
+        "koelkast_sinds"
+    ] is None

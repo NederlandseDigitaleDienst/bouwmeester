@@ -412,7 +412,7 @@ async def zet_in_koelkast(
     al_in = casus.koelkast_sinds is not None
     if not al_in:
         casus.koelkast_sinds = datetime.now(UTC)
-    casus.koelkast_reden = data.reden.strip()
+    casus.koelkast_reden = data.reden
     casus.koelkast_verwacht_terug = data.verwacht_terug
     await db.flush()
     await db.refresh(casus, attribute_names=["updated_at", "initiatief", "lead"])

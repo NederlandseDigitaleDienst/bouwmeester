@@ -10,7 +10,7 @@ from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from bouwmeester.schema.casus_fases import FASE_ID_PATROON
 from bouwmeester.schema.casus_soort import CasusSoortSummary, SoortEis
@@ -133,6 +133,12 @@ class CasusKoelkast(BaseModel):
 
     reden: str = Field(..., min_length=1, max_length=2000)
     verwacht_terug: date
+
+    @field_validator("reden", mode="before")
+    @classmethod
+    def _zonder_witruimte(cls, v: object) -> object:
+        # Alleen spaties is geen reden: eerst strippen, dan min_length.
+        return v.strip() if isinstance(v, str) else v
 
 
 class CasusTeamCreate(BaseModel):
