@@ -6,7 +6,7 @@ Alles wat hier als lijst staat is daarom op één plek te wijzigen.
 """
 
 import enum
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
@@ -123,6 +123,18 @@ class CasusUpdate(BaseModel):
     eind_eisen: list[SoortEis] | None = Field(None, max_length=300)
 
 
+class CasusKoelkast(BaseModel):
+    """Een casus in de koelkast zetten, of de reden en datum bijwerken.
+
+    Beide verplicht: wie iets in de koelkast zet, zegt waarom en wanneer het
+    er naar verwachting weer uit komt. De datum mag niet in het verleden
+    liggen; de route controleert dat tegen vandaag.
+    """
+
+    reden: str = Field(..., min_length=1, max_length=2000)
+    verwacht_terug: date
+
+
 class CasusTeamCreate(BaseModel):
     person_id: UUID
     rol: str = Field("teamlid", pattern="^(trekker|teamlid)$")
@@ -168,6 +180,10 @@ class CasusResponse(BaseModel):
     startvoorwaarden: dict[str, Any] = Field(default_factory=dict)
     # De eindeisen zoals het team ze naliep (momentopname), anders leeg.
     eind_eisen: list[dict[str, Any]] = Field(default_factory=list)
+    # In de koelkast als koelkast_sinds gezet is; de fase blijft staan.
+    koelkast_sinds: datetime | None = None
+    koelkast_reden: str | None = None
+    koelkast_verwacht_terug: date | None = None
     started_by_id: UUID | None = None
     trekker_naam: str | None = None
     team_count: int = 0

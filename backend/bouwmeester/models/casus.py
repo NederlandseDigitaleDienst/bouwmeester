@@ -9,10 +9,10 @@ Casussen bevatten de vertrouwelijkste informatie en zijn nooit publiek.
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import DateTime, ForeignKey, Text, func, text
+from sqlalchemy import Date, DateTime, ForeignKey, Text, func, text
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -70,6 +70,16 @@ class Casus(Base):
     # momentopname (schema.casus_soort.momentopname_eisen); leeg is nog niet
     # nagelopen, of de soorten hebben geen eindeisen.
     eind_eisen: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    # De koelkast: een casus die even stilligt. De fase blijft staan, zodat
+    # hij na de koelkast verder gaat waar hij was. In de koelkast is
+    # koelkast_sinds gezet; de reden en de verwachte terugkeer zijn dan
+    # verplicht (de route bewaakt dat), zodat iedereen ziet waarom hij stilligt
+    # en wanneer hij er weer uit komt.
+    koelkast_sinds: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    koelkast_reden: Mapped[str | None] = mapped_column(Text, nullable=True)
+    koelkast_verwacht_terug: Mapped[date | None] = mapped_column(Date, nullable=True)
     started_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("person.id", ondelete="SET NULL"),

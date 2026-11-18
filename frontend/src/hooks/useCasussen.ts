@@ -8,10 +8,12 @@ import {
   addCasusTeamlid,
   removeCasusTeamlid,
   getBacklog,
+  zetInKoelkast,
+  haalUitKoelkast,
 } from '@/api/casussen';
 import { useMutationWithError } from '@/hooks/useMutationWithError';
 import { queryKeys } from '@/hooks/queryKeys';
-import type { CasusStart, CasusUpdate } from '@/types';
+import type { CasusKoelkast, CasusStart, CasusUpdate } from '@/types';
 
 export function useCasussen(initiatiefId: string | undefined) {
   return useQuery({
@@ -50,6 +52,22 @@ export function useUpdateCasus() {
   return useMutationWithError({
     mutationFn: ({ id, data }: { id: string; data: CasusUpdate }) => updateCasus(id, data),
     errorMessage: 'Fout bij bijwerken casus',
+    invalidateKeys: [queryKeys.casussen.all],
+  });
+}
+
+export function useZetInKoelkast() {
+  return useMutationWithError({
+    mutationFn: ({ id, data }: { id: string; data: CasusKoelkast }) => zetInKoelkast(id, data),
+    errorMessage: 'Fout bij in de koelkast zetten',
+    invalidateKeys: [queryKeys.casussen.all],
+  });
+}
+
+export function useHaalUitKoelkast() {
+  return useMutationWithError({
+    mutationFn: (id: string) => haalUitKoelkast(id),
+    errorMessage: 'Fout bij uit de koelkast halen',
     invalidateKeys: [queryKeys.casussen.all],
   });
 }

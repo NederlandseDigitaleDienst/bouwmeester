@@ -3,12 +3,15 @@ import { useNlddEvent } from '@/components/nldd/events';
 import type { Casus, Startvraag } from '@/types';
 import { CasusSoortTags } from './CasusSoorten';
 import { kaartjeLabels } from './startvragen';
+import { formatDateShort, isOverdue } from '@/utils/dates';
 
 interface CasusCardProps {
   casus: Casus;
   onClick: () => void;
   /** De startvragen van het initiatief: wie "op het kaartje" staat, komt als tag. */
   vragen?: Startvraag[];
+  /** In de koelkast: de fase waar de casus in stond, om te tonen. */
+  faseNaam?: string;
 }
 
 /**
@@ -16,7 +19,7 @@ interface CasusCardProps {
  * actie, wel trekker, de soorten, de antwoorden op de startvragen die op het
  * kaartje horen (instellingen), en hoeveel issues af zijn.
  */
-export function CasusCard({ casus, onClick, vragen = [] }: CasusCardProps) {
+export function CasusCard({ casus, onClick, vragen = [], faseNaam }: CasusCardProps) {
   const ref = useRef<HTMLElement>(null);
   const handleClick = useCallback(() => onClick(), [onClick]);
   useNlddEvent(ref, 'click', handleClick);
@@ -34,6 +37,7 @@ export function CasusCard({ casus, onClick, vragen = [] }: CasusCardProps) {
             {casus.organization}
           </nldd-text>
         )}
+        {casus.koelkast_sinds && <KoelkastRegel casus={casus} faseNaam={faseNaam} />}
         {(labels.length > 0 || (casus.soorten?.length ?? 0) > 0) && (
           <nldd-container layout="wrap" gap="4">
             {/* Eerst de soorten (tags uit de instellingen), dan de startvoorwaarden. */}
@@ -60,5 +64,34 @@ export function CasusCard({ casus, onClick, vragen = [] }: CasusCardProps) {
         </nldd-container>
       </nldd-container>
     </nldd-card>
+  );
+}
+
+/**
+ * Waarom de casus in de koelkast staat en wanneer hij er naar verwachting
+ * uit komt. Is die datum voorbij, dan zegt het kaartje dat: tijd om te
+ * kijken of hij eruit kan of een nieuwe datum krijgt.
+ */
+function KoelkastRegel({ casus, faseNaam }: { casus: Casus; faseNaam?: string }) {
+  const terug = casus.koelkast_verwacht_terug;
+  const verlopen = !!terug && isOverdue(terug);
+  return (
+    <nldd-container gap="4">
+      {casus.koelkast_reden && (
+        <nldd-text size="xs" className="line-clamp-2">
+          {casus.koelkast_reden}
+        </nldd-text>
+      )}
+      <nldd-container layout="wrap" gap="4" vertical-alignment="center">
+        {terug && (
+          <nldd-tag
+            text={verlopen ? `Terug verwacht ${formatDateShort(terug)}, voorbij` : `Terug verwacht ${formatDateShort(terug)}`}
+            color={verlopen ? 'warning' : 'neutral'}
+            size="sm"
+          />
+        )}
+        {faseNaam && <nldd-tag text={`Fase: ${faseNaam}`} color="neutral" size="sm" />}
+      </nldd-container>
+    </nldd-container>
   );
 }

@@ -9,7 +9,9 @@ import { NlddIconButton } from '@/components/nldd/NlddIconButton';
 import { MattermostChannelsSection } from '@/components/mattermost/MattermostChannelsSection';
 import { CasusKanaalberichten } from '@/components/mattermost/CasusKanaalberichten';
 import { useLeadDetail } from '@/contexts/LeadDetailContext';
-import { useRemoveCasusTeamlid, useUpdateCasus } from '@/hooks/useCasussen';
+import { useHaalUitKoelkast, useRemoveCasusTeamlid, useUpdateCasus } from '@/hooks/useCasussen';
+import { formatDateLong, isOverdue } from '@/utils/dates';
+import { KoelkastModal } from './KoelkastModal';
 import { CASUS_TYPE_LABELS, CASUSTEAM_ROL_LABELS } from '@/types';
 import { useCasusFases } from '@/hooks/useCasusFases';
 import { useInitiatief } from '@/hooks/useInitiatieven';
@@ -59,6 +61,8 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
     initiatief?.access_level === 'eigenaar' ||
     initiatief?.access_level === 'contributor' ||
     casus.team.some((lid) => lid.rol === 'trekker' && lid.person_id === currentPerson?.id);
+  const uitKoelkast = useHaalUitKoelkast();
+  const [koelkast, setKoelkast] = useState(false);
 
   return (
     <nldd-container gap="16">
@@ -93,6 +97,33 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
           </nldd-text>
         )}
       </nldd-container>
+
+      {/* De koelkast: los van de fase, die blijft staan. */}
+      {casus.koelkast_sinds ? (
+        <nldd-box background="tinted">
+          <nldd-container gap="6" padding="12">
+            <nldd-text size="sm" weight="bold">
+              In de koelkast sinds {formatDateLong(casus.koelkast_sinds)}
+            </nldd-text>
+            {casus.koelkast_reden && <nldd-text size="sm">{casus.koelkast_reden}</nldd-text>}
+            {casus.koelkast_verwacht_terug && (
+              <nldd-text size="sm" color="secondary">
+                Terug verwacht: {formatDateLong(casus.koelkast_verwacht_terug)}
+                {isOverdue(casus.koelkast_verwacht_terug) ? '. Die datum is voorbij: kan hij eruit, of krijgt hij een nieuwe datum?' : ''}
+              </nldd-text>
+            )}
+            <nldd-container layout="row" gap="8">
+              <NlddButton variant="secondary" size="sm" text="Uit de koelkast" loading={uitKoelkast.isPending} onClick={() => uitKoelkast.mutate(casus.id)} />
+              <NlddButton variant="neutral-transparent" size="sm" startIcon="pencil" text="Reden of datum aanpassen" onClick={() => setKoelkast(true)} />
+            </nldd-container>
+          </nldd-container>
+        </nldd-box>
+      ) : (
+        <div>
+          <NlddButton variant="neutral-transparent" size="sm" startIcon="pause" text="In de koelkast zetten" onClick={() => setKoelkast(true)} />
+        </div>
+      )}
+      <KoelkastModal casus={koelkast ? casus : null} onClose={() => setKoelkast(false)} />
 
       {casus.description && <RichTextDisplay content={casus.description} />}
 

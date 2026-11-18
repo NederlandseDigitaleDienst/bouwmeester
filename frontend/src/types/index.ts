@@ -2062,6 +2062,12 @@ export interface Casus {
   startvoorwaarden: Partial<Startvoorwaarden>;
   /** De eindeisen zoals het team ze naliep in de laatste fase; leeg is nog niet. */
   eind_eisen?: SoortEis[];
+  /** In de koelkast als dit gezet is; de fase blijft staan. */
+  koelkast_sinds?: string | null;
+  /** Waarom de casus in de koelkast staat. */
+  koelkast_reden?: string | null;
+  /** Wanneer we verwachten dat hij er weer uit komt, YYYY-MM-DD. */
+  koelkast_verwacht_terug?: string | null;
   started_by_id?: string | null;
   trekker_naam?: string | null;
   team_count: number;
@@ -2096,6 +2102,12 @@ export interface CasusStart {
   teamlid_ids?: string[];
   /** Casussoorten van het initiatief. */
   soort_ids?: string[];
+}
+
+/** Een casus in de koelkast zetten: waarom, en wanneer hij er naar verwachting uit komt. */
+export interface CasusKoelkast {
+  reden: string;
+  verwacht_terug: string;
 }
 
 export interface CasusUpdate {
