@@ -3,7 +3,7 @@
 Een lead is een contact of organisatie met informatie die door de trechter
 loopt. Een casus is wat daarna begint: eigen fases, eigen team en
 issues (onderzoeksvragen en ander werk) met taken. Eén lead levert hooguit één casus
-op; de lead blijft daarna als geschiedenis staan, alleen-lezen.
+op; de lead blijft daarna staan en bewerkbaar, maar wel in zijn kolom.
 
 Casussen bevatten de vertrouwelijkste informatie en zijn nooit publiek.
 """

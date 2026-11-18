@@ -164,8 +164,9 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
   const [showAddContact, setShowAddContact] = useState(false);
   const [showStartCasus, setShowStartCasus] = useState(false);
   const navigate = useNavigate();
-  // Na "Casus starten" is de lead geschiedenis: lezen mag, wijzigen niet.
-  // De backend weigert mutaties met een 409; hier verdwijnen de knoppen.
+  // Na "Casus starten" gaat het werk verder op de casus. De lead blijft
+  // bewerkbaar, maar blijft in zijn kolom en is niet te verwijderen zolang
+  // de casus bestaat (de backend weigert dat ook).
   const casusGestart = !!lead?.casus_id;
   // Alleen bij een initiatief dat met casussen werkt (de schakelaar in de
   // instellingen); de backend weigert het anders ook.
@@ -344,7 +345,10 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
             actions={
               <nldd-container layout="row" gap="8">
                 {casusGestart ? (
-                  <NlddButton variant="primary" size="sm" endIcon="arrow-right" onClick={gaNaarCasus} disabled={!lead?.initiatief_id} text="Naar de casus" />
+                  <>
+                    <NlddButton variant="primary" size="sm" endIcon="arrow-right" onClick={gaNaarCasus} disabled={!lead?.initiatief_id} text="Naar de casus" />
+                    <NlddButton variant="secondary" size="sm" startIcon="pencil" onClick={startEditing} disabled={!lead} text="Bewerken" />
+                  </>
                 ) : (
                   <>
                     {kanCasusStarten && (
@@ -374,6 +378,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
             <CreatableSelect
               label="Stage"
               value={editStage}
+              disabled={casusGestart}
               onChange={(v) => setEditStage(v as LeadStage)}
               options={LEAD_STAGE_ORDER.map((s) => ({
                 value: s,
@@ -407,6 +412,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
           <CreatableSelect
             label="Initiatief"
             value={editInitiatiefId}
+            disabled={casusGestart}
             onChange={setEditInitiatiefId}
             options={[
               { value: '', label: 'Geen initiatief' },
@@ -514,7 +520,8 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
             <nldd-container layout="row" gap="8" vertical-alignment="center">
               <Badge color="groen">Casus gestart</Badge>
               <nldd-text size="sm" color="secondary">
-                Uit deze lead is een casus gestart. De lead is alleen-lezen; het werk gaat verder op de casus.
+                Uit deze lead is een casus gestart; het werk gaat verder op de casus. De lead kun je nog aanpassen, maar
+                hij blijft in deze kolom en bij dit initiatief.
               </nldd-text>
             </nldd-container>
           )}

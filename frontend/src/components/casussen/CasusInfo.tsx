@@ -214,7 +214,7 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
         <nldd-container layout="row" gap="8" vertical-alignment="center">
           <nldd-text size="sm">
             Gestart vanuit lead {casus.lead?.title ?? ''}
-            {casus.organization ? ` (${casus.organization})` : ''}. De lead is alleen-lezen.
+            {casus.organization ? ` (${casus.organization})` : ''}.
           </nldd-text>
           <NlddButton variant="neutral-transparent" size="sm" endIcon="arrow-right" onClick={() => openLeadDetail(casus.lead_id)} text="Open lead" />
         </nldd-container>

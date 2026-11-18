@@ -1,8 +1,8 @@
-"""Casus: start vanuit een lead, lead daarna alleen-lezen, casusteam.
+"""Casus: start vanuit een lead, lead blijft bewerkbaar maar in zijn kolom, casusteam.
 
 Dekt de veiligheidsregels: starten alleen vanuit de startkolom en alleen
-voor zichtbare leads, geen tweede casus, geen mutaties op de lead erna
-(ook niet samenvoegen of iets weghalen), en trekker/teamlid alleen uit wie
+voor zichtbare leads, geen tweede casus, de lead erna niet naar een andere
+kolom of een ander initiatief en niet samenvoegen, en trekker/teamlid alleen uit wie
 het initiatief kan zien. Rechten: zien volgt het initiatief; starten,
 wijzigen en het team beheren vraagt bijdrager of eigenaar (of de trekker,
 behalve bij starten); verwijderen alleen de eigenaar.
@@ -250,30 +250,47 @@ async def test_start_with_trekker_requires_membership(
 
 
 # ---------------------------------------------------------------------------
-# Lead alleen-lezen na de start
+# Lead na de start: bewerkbaar, maar in zijn kolom
 # ---------------------------------------------------------------------------
 
 
-async def test_lead_is_read_only_after_start(client, lead_gewonnen, sample_person):
+async def test_lead_blijft_bewerkbaar_na_start(client, lead_gewonnen, sample_person):
+    """Uit de lead is een casus gestart; de lead zelf kun je nog aanpassen
+    (gegevens, notities, contacten, nodes), maar hij blijft in zijn kolom
+    en verwijderen kan pas als de casus weg is."""
     assert (await _start(client, lead_gewonnen)).status_code == 201
     lid = lead_gewonnen.id
+    stage = (await client.get(f"/api/leads/{lid}")).json()["stage"]
 
-    assert (await client.get(f"/api/leads/{lid}")).status_code == 200
-    assert (
-        await client.put(f"/api/leads/{lid}", json={"title": "x"})
-    ).status_code == 409
+    resp = await client.put(f"/api/leads/{lid}", json={"title": "Aangepast"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["title"] == "Aangepast"
+    assert resp.json()["casus_id"] is not None
+    # Dezelfde kolom meesturen mag; een andere niet.
+    resp = await client.put(f"/api/leads/{lid}", json={"stage": stage, "title": "Weer"})
+    assert resp.status_code == 200, resp.text
+    resp = await client.put(f"/api/leads/{lid}", json={"stage": "koelkast"})
+    assert resp.status_code == 409
+    assert "blijft in zijn kolom" in resp.json()["detail"]
+    # Ook het initiatief blijft dat van de casus.
+    resp = await client.put(f"/api/leads/{lid}", json={"initiatief_id": None})
+    assert resp.status_code == 409
+    resp = await client.put(
+        f"/api/leads/{lid}", json={"initiatief_id": str(lead_gewonnen.initiatief_id)}
+    )
+    assert resp.status_code == 200, resp.text
     assert (
         await client.post(f"/api/leads/{lid}/move", json={"stage": "koelkast"})
     ).status_code == 409
-    assert (
-        await client.post(f"/api/leads/{lid}/activities", json={"content": "n"})
-    ).status_code == 409
-    assert (
-        await client.post(
-            f"/api/leads/{lid}/contacts",
-            json={"person_id": str(sample_person.id), "rol": "contactpersoon"},
-        )
-    ).status_code == 409
+    assert (await client.get(f"/api/leads/{lid}")).json()["stage"] == stage
+
+    resp = await client.post(f"/api/leads/{lid}/activities", json={"content": "n"})
+    assert resp.status_code == 201, resp.text
+    resp = await client.post(
+        f"/api/leads/{lid}/contacts",
+        json={"person_id": str(sample_person.id), "rol": "contactpersoon"},
+    )
+    assert resp.status_code == 201, resp.text
     resp = await client.delete(f"/api/leads/{lid}")
     assert resp.status_code == 409
     assert "verwijder eerst de casus" in resp.json()["detail"]
@@ -607,9 +624,11 @@ async def test_initiatief_weg_dan_ook_de_casusteams(
     assert await teamrijen() == 0
 
 
-async def test_lead_met_casus_niet_samenvoegen_of_iets_weghalen(
+async def test_lead_met_casus_niet_samenvoegen_wel_contact_weghalen(
     client, db_session, initiatief, lead_gewonnen, sample_person
 ):
+    """Samenvoegen zou de lead van de casus wijzigen of weghalen: geweigerd.
+    Een contact weghalen is gewoon aanpassen: dat mag."""
     andere = await _nieuwe_lead(db_session, initiatief, "Dubbel")
     resp = await client.post(
         f"/api/leads/{lead_gewonnen.id}/contacts",
@@ -625,7 +644,7 @@ async def test_lead_met_casus_niet_samenvoegen_of_iets_weghalen(
         )
         assert resp.status_code == 409, resp.text
     resp = await client.delete(f"/api/leads/{lead_gewonnen.id}/contacts/{contact_id}")
-    assert resp.status_code == 409
+    assert resp.status_code == 204, resp.text
 
 
 # ---------------------------------------------------------------------------
@@ -777,9 +796,8 @@ async def test_dezelfde_rol_twee_keer_is_409(
     assert len(resp.json()["team"]) == 1
 
 
-async def test_chat_wijzigt_geen_lead_met_casus(
-    client, db_session, initiatief, lead_gewonnen
-):
+async def test_chat_en_lead_met_casus(client, db_session, initiatief, lead_gewonnen):
+    """Ook via de chat: aanpassen en notities mogen, verplaatsen niet."""
     from bouwmeester.services.chat_service import _execute_write_tool
 
     lid = await _met_rol(db_session, initiatief, "Chatter", "contributor")
@@ -787,24 +805,30 @@ async def test_chat_wijzigt_geen_lead_met_casus(
     lead_id = str(lead_gewonnen.id)
     for tool, args in [
         ("update_lead", {"lead_id": lead_id, "title": "Via de chat"}),
-        ("move_lead", {"lead_id": lead_id, "stage": "koelkast"}),
         ("add_lead_activity", {"lead_id": lead_id, "content": "Notitie"}),
     ]:
         result = await _execute_write_tool(tool, args, db_session, person_id=lid.id)
-        assert result["success"] is False, (tool, result)
-        assert "alleen-lezen" in result["summary"], (tool, result)
+        assert result["success"] is True, (tool, result)
+    result = await _execute_write_tool(
+        "move_lead",
+        {"lead_id": lead_id, "stage": "koelkast"},
+        db_session,
+        person_id=lid.id,
+    )
+    assert result["success"] is False, result
+    assert "blijft in zijn kolom" in result["summary"], result
     resp = await client.get(f"/api/leads/{lead_id}")
-    assert resp.json()["title"] == "Zorgtoeslag"
+    assert resp.json()["title"] == "Via de chat"
 
 
 # ---------------------------------------------------------------------------
-# Ronde 3 van de review: oude lezers en de alleen-lezen-regel op elke route
+# Ronde 3 van de review: oude lezers en wat een lead met casus nog mag
 # ---------------------------------------------------------------------------
 
 
-async def test_lead_met_casus_geen_updates_en_geen_kanaal(client, lead_gewonnen):
-    """Ook de updates van een lead en een Mattermost-kanaal vallen onder
-    alleen-lezen: de lead is geschiedenis, het werk gaat verder op de casus."""
+async def test_lead_met_casus_updates_wel_kanaal_niet(client, lead_gewonnen):
+    """De updates van een lead blijven bewerkbaar na de start van een casus.
+    Een nieuw Mattermost-kanaal niet: het kanaal is meegegaan naar de casus."""
     lid = lead_gewonnen.id
     resp = await client.post(f"/api/leads/{lid}/updates", json={"titel": "Voor"})
     assert resp.status_code == 201, resp.text
@@ -813,7 +837,7 @@ async def test_lead_met_casus_geen_updates_en_geen_kanaal(client, lead_gewonnen)
 
     assert (await client.get(f"/api/leads/{lid}/updates")).status_code == 200
     resp = await client.post(f"/api/leads/{lid}/updates", json={"titel": "Na"})
-    assert resp.status_code == 409, resp.text
+    assert resp.status_code == 201, resp.text
     for methode, pad in [
         ("put", f"/api/leads/{lid}/updates/{post_id}"),
         ("post", f"/api/leads/{lid}/updates/{post_id}/publish"),
@@ -822,7 +846,7 @@ async def test_lead_met_casus_geen_updates_en_geen_kanaal(client, lead_gewonnen)
     ]:
         kwargs = {"json": {"titel": "Anders"}} if methode == "put" else {}
         resp = await getattr(client, methode)(pad, **kwargs)
-        assert resp.status_code == 409, (pad, resp.text)
+        assert resp.status_code in (200, 204), (pad, resp.text)
     resp = await client.post(
         f"/api/leads/{lid}/mattermost-channels",
         json={

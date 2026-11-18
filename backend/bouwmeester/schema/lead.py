@@ -270,7 +270,8 @@ class LeadResponse(BaseModel):
     public_summary: str | None = None
     attachment_count: int = 0
     contact_names: list[str] = Field(default_factory=list)
-    # Gevuld als uit deze lead een casus is gestart; de lead is dan alleen-lezen.
+    # Gevuld als uit deze lead een casus is gestart; de lead blijft dan in zijn
+    # kolom, de rest blijft bewerkbaar.
     casus_id: UUID | None = None
     created_at: datetime
     updated_at: datetime | None = None
