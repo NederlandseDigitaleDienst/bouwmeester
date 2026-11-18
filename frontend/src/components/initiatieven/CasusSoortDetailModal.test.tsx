@@ -37,19 +37,19 @@ const knop = (tekst: string) => knoppen(tekst)[0];
 describe('CasusSoortDetailModal', () => {
   beforeEach(() => updateCasusSoort.mockReset().mockResolvedValue({ ...SOORT }));
 
-  it('toont de bestaande eisen en slaat een nieuwe eindeis op', async () => {
+  it('toont de bestaande eisen en slaat een nieuwe deliverable op', async () => {
     const onClose = vi.fn();
     renderWithProviders(
       <ToastProvider>
         <CasusSoortDetailModal soort={SOORT} initiatiefId="i1" onClose={onClose} />
       </ToastProvider>,
     );
-    expect(document.querySelector('nldd-text-field[accessible-label="Starteis 1"]')).toBeTruthy();
-    const nieuw = document.querySelector('nldd-text-field[accessible-label="Nieuwe eindeis"]')!;
+    expect(document.querySelector('nldd-text-field[accessible-label="Voorwaarde 1"]')).toBeTruthy();
+    const nieuw = document.querySelector('nldd-text-field[accessible-label="Nieuwe deliverable"]')!;
     await act(async () => {
       nieuw.dispatchEvent(new CustomEvent('input', { detail: { value: 'Demo gegeven' } }));
     });
-    // Twee lijsten, twee knoppen Toevoegen: de tweede hoort bij de eindeisen.
+    // Twee lijsten, twee knoppen Toevoegen: de tweede hoort bij de deliverables.
     await act(async () => {
       knoppen('Toevoegen')[1].dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
@@ -57,12 +57,28 @@ describe('CasusSoortDetailModal', () => {
       knop('Opslaan').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     expect(updateCasusSoort).toHaveBeenCalledWith('i1', 's1', {
+      naam: 'Beproeven',
+      kleur: 'groen',
       uitleg: 'We proberen het uit bij een partner.',
       hoe_ver: null,
       start_eisen: ['Partner gevonden'],
       eind_eisen: ['Demo gegeven'],
     });
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('vraagt de aanroeper om te verwijderen', async () => {
+    const onVerwijder = vi.fn();
+    renderWithProviders(
+      <ToastProvider>
+        <CasusSoortDetailModal soort={SOORT} initiatiefId="i1" onClose={vi.fn()} onVerwijder={onVerwijder} />
+      </ToastProvider>,
+    );
+    await act(async () => {
+      knop('Soort verwijderen').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(onVerwijder).toHaveBeenCalledWith(SOORT);
+    expect(updateCasusSoort).not.toHaveBeenCalled();
   });
 
   it('toont niets zonder soort', () => {

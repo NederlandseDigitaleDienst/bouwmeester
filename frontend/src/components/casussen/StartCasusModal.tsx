@@ -9,12 +9,13 @@ import { Input } from '@/components/common/Input';
 import { orUndef } from '@/components/nldd/events';
 import { useInitiatief, useInitiatiefPersonen } from '@/hooks/useInitiatieven';
 import { useStartCasus } from '@/hooks/useCasussen';
-import { CASUSTYPE_ID, VASTE_VRAAG, isBeantwoord, type Waarde } from './startvragen';
+import { CASUSTYPE_ID, VASTE_VRAAG, antwoordTekst, isBeantwoord, type Waarde } from './startvragen';
 import { CASUS_TYPE_LABELS } from '@/types';
 import type { AcceptatieCriterium, CasusDetail, Lead, StartAntwoord, Startvoorwaarden, Startvraag } from '@/types';
 import { CasusSoortenKiezer } from './CasusSoorten';
 import { EisenNalopen, Vinkje } from './EisenNalopen';
-import { heeftEisen, naarSoortEisen, zetEis, type EisWaarden } from './eisen';
+import { heeftEisen, naarSoortEisen, sleutel, zetEis, type EisWaarden } from './eisen';
+import { InstellingenBlok } from '@/components/initiatieven/InstellingenBlok';
 import { useCasusSoorten } from '@/hooks/useCasusSoorten';
 
 /**
@@ -23,12 +24,26 @@ import { useCasusSoorten } from '@/hooks/useCasusSoorten';
  * vaste vraag (intern of satelliet) bewaart 'intern' of 'satelliet', de
  * andere de tekst van de keuze zelf.
  */
-function StartvraagVeld({ vraag: v, waarde, onChange }: { vraag: Startvraag; waarde: Waarde; onChange: (w: Waarde) => void }) {
+function StartvraagVeld({
+  vraag: v,
+  waarde,
+  onChange,
+  zonderLabel = false,
+}: {
+  vraag: Startvraag;
+  waarde: Waarde;
+  onChange: (w: Waarde) => void;
+  /** De vraag staat al in de kop van het blok: dan alleen als toegankelijke naam. */
+  zonderLabel?: boolean;
+}) {
+  const label = zonderLabel ? undefined : v.vraag;
+  const naam = zonderLabel ? { 'aria-label': v.vraag } : {};
   if (v.id === CASUSTYPE_ID) {
     return (
       <Select
         required
-        label={v.vraag}
+        label={label}
+        {...naam}
         options={[{ value: '', label: 'Kies...' }, ...Object.entries(CASUS_TYPE_LABELS).map(([value, label]) => ({ value, label }))]}
         value={typeof waarde === 'string' ? waarde : ''}
         onChange={(e) => onChange(e.target.value || undefined)}
@@ -37,25 +52,38 @@ function StartvraagVeld({ vraag: v, waarde, onChange }: { vraag: Startvraag; waa
   }
   if (v.antwoordtype === 'meer_keuzes') {
     const gekozen = Array.isArray(waarde) ? waarde : [];
-    return (
-      <nldd-form-field label={v.vraag} supporting-label={v.verplicht ? 'Meer antwoorden kan, minstens één.' : 'Meer antwoorden kan.'} optional={orUndef(!v.verplicht)}>
-        <nldd-container gap="4">
-          {v.opties.map((o) => (
-            <Vinkje
-              key={o}
-              label={o}
-              checked={gekozen.includes(o)}
-              onChange={(aan) => onChange(aan ? [...gekozen, o] : gekozen.filter((x) => x !== o))}
-            />
-          ))}
+    const uitleg = v.verplicht ? 'Meer antwoorden kan, minstens één.' : 'Meer antwoorden kan.';
+    const vinkjes = (
+      <nldd-container gap="4" {...(zonderLabel ? { role: 'group', 'aria-label': v.vraag } : {})}>
+        {v.opties.map((o) => (
+          <Vinkje
+            key={o}
+            label={o}
+            checked={gekozen.includes(o)}
+            onChange={(aan) => onChange(aan ? [...gekozen, o] : gekozen.filter((x) => x !== o))}
+          />
+        ))}
+      </nldd-container>
+    );
+    if (zonderLabel) {
+      return (
+        <nldd-container gap="8">
+          <nldd-text size="xs" color="secondary">{uitleg}</nldd-text>
+          {vinkjes}
         </nldd-container>
+      );
+    }
+    return (
+      <nldd-form-field label={v.vraag} supporting-label={uitleg} optional={orUndef(!v.verplicht)}>
+        {vinkjes}
       </nldd-form-field>
     );
   }
   if (v.antwoordtype === 'vrij') {
     return (
       <Input
-        label={v.vraag}
+        label={label}
+        {...naam}
         type="text"
         required={v.verplicht}
         value={typeof waarde === 'string' ? waarde : ''}
@@ -72,7 +100,8 @@ function StartvraagVeld({ vraag: v, waarde, onChange }: { vraag: Startvraag; waa
   return (
     <Select
       required={v.verplicht}
-      label={v.vraag}
+      label={label}
+      {...naam}
       options={[{ value: '', label: 'Kies...' }, ...opties]}
       value={huidig}
       onChange={(e) => {
@@ -81,6 +110,20 @@ function StartvraagVeld({ vraag: v, waarde, onChange }: { vraag: Startvraag; waa
       }}
     />
   );
+}
+
+/**
+ * Wat er in de kop van het blok van een vraag staat: het antwoord, kort, of
+ * dat hij nog open is (en verplicht).
+ */
+function antwoordSamenvatting(v: Startvraag, waarde: Waarde): string {
+  if (!isBeantwoord(waarde)) return v.verplicht ? 'Nog niet beantwoord, verplicht' : 'Niet beantwoord';
+  if (v.id === CASUSTYPE_ID && typeof waarde === 'string') {
+    return CASUS_TYPE_LABELS[waarde as keyof typeof CASUS_TYPE_LABELS] ?? waarde;
+  }
+  if (Array.isArray(waarde)) return waarde.length === 1 ? waarde[0] : `${waarde.length} gekozen`;
+  const tekst = antwoordTekst(waarde);
+  return tekst.length > 40 ? `${tekst.slice(0, 40)}...` : tekst;
 }
 
 interface Props {
@@ -239,53 +282,83 @@ export function StartCasusModal({ lead: vasteLead, onClose, onStarted, kiesUit, 
         {!vragenGeladen ? (
           <nldd-text size="sm" color="secondary">Laden...</nldd-text>
         ) : (
+          // Elke vraag een eigen blok om open en dicht te klappen, met het
+          // antwoord in de kop: zo is het venster een overzicht.
           vragen.map((v) => (
-            <StartvraagVeld key={v.id} vraag={v} waarde={waarden[v.id]} onChange={(w) => setWaarden((a) => ({ ...a, [v.id]: w }))} />
+            <InstellingenBlok
+              key={v.id}
+              icon={v.id === CASUSTYPE_ID ? 'check-mark-circle' : 'question-mark-circle'}
+              titel={v.vraag}
+              samenvatting={antwoordSamenvatting(v, waarden[v.id])}
+            >
+              <StartvraagVeld zonderLabel vraag={v} waarde={waarden[v.id]} onChange={(w) => setWaarden((a) => ({ ...a, [v.id]: w }))} />
+            </InstellingenBlok>
           ))
         )}
+        {/* De eisen klappen in, met de telling in de kop: het venster blijft
+            kort, en je opent de lijst die je wilt nalopen. */}
         {satelliet && criteriaLijst.length > 0 && (
-          <nldd-container gap="12">
-            <nldd-container gap="2">
-              <nldd-text size="sm" weight="bold">Acceptatiecriteria voor een satellietcasus</nldd-text>
+          <InstellingenBlok
+            icon="check-list"
+            titel="Acceptatiecriteria voor een satellietcasus"
+            samenvatting={`${criteriaLijst.filter((c) => criteria[c]?.akkoord).length} van ${criteriaLijst.length} aangevinkt`}
+          >
+            <nldd-container gap="12">
               <nldd-text size="xs" color="secondary">Vink aan waaraan de casus voldoet, en licht toe waar dat helpt.</nldd-text>
+              {criteriaLijst.map((c) => (
+                <nldd-container key={c} gap="4">
+                  <Vinkje label={c} checked={!!criteria[c]?.akkoord} onChange={(akkoord) => zetCriterium(c, { akkoord })} />
+                  <Input
+                    type="text"
+                    value={criteria[c]?.opmerking ?? ''}
+                    onChange={(e) => zetCriterium(c, { opmerking: e.target.value })}
+                    aria-label={`Uitleg bij ${c}`}
+                    placeholder="Uitleg of opmerking"
+                    maxLength={2000}
+                  />
+                </nldd-container>
+              ))}
             </nldd-container>
-            {criteriaLijst.map((c) => (
-              <nldd-container key={c} gap="4">
-                <Vinkje label={c} checked={!!criteria[c]?.akkoord} onChange={(akkoord) => zetCriterium(c, { akkoord })} />
-                <Input
-                  type="text"
-                  value={criteria[c]?.opmerking ?? ''}
-                  onChange={(e) => zetCriterium(c, { opmerking: e.target.value })}
-                  aria-label={`Uitleg bij ${c}`}
-                  placeholder="Uitleg of opmerking"
-                  maxLength={2000}
-                />
-              </nldd-container>
-            ))}
-          </nldd-container>
+          </InstellingenBlok>
         )}
-        <RichTextFormField label="Toelichting" value={toelichting} onChange={setToelichting} rows={3} placeholder="Waarom deze keuzes?" />
         {alleSoorten.length > 0 && (
-          <nldd-form-field label="Soort casus">
+          <InstellingenBlok
+            icon="tag"
+            titel="Soort casus"
+            samenvatting={gekozenSoorten.length ? gekozenSoorten.map((s) => s.naam).join(', ') : 'Nog geen soort gekozen'}
+          >
             <CasusSoortenKiezer soorten={alleSoorten} gekozen={soortIds} onChange={setSoortIds} />
-          </nldd-form-field>
+          </InstellingenBlok>
         )}
         {heeftEisen(gekozenSoorten, 'start_eisen') && (
-          <nldd-container gap="12">
+          <nldd-container gap="8">
             <nldd-container gap="2">
-              <nldd-text size="sm" weight="bold">Starteisen van de gekozen soorten</nldd-text>
+              <nldd-text size="sm" weight="bold">Voorwaarden om te starten van de gekozen soorten</nldd-text>
               <nldd-text size="xs" color="secondary">
                 Vink aan wat klopt, en licht toe waar dat helpt. Starten kan ook als niet alles klopt.
               </nldd-text>
             </nldd-container>
-            <EisenNalopen
-              soorten={gekozenSoorten}
-              lijst="start_eisen"
-              waarden={startEisen}
-              onChange={(k, deel) => setStartEisen((w) => zetEis(w, k, deel))}
-            />
+            {/* Per soort een eigen blok om open te klappen. */}
+            {gekozenSoorten
+              .filter((soort) => (soort.start_eisen ?? []).length > 0)
+              .map((soort) => {
+                const eisen = soort.start_eisen ?? [];
+                const af = eisen.filter((eis) => startEisen[sleutel(soort.id, eis)]?.akkoord).length;
+                return (
+                  <InstellingenBlok key={soort.id} icon="tag" titel={soort.naam} samenvatting={`${af} van ${eisen.length} aangevinkt`}>
+                    <EisenNalopen
+                      soorten={[soort]}
+                      lijst="start_eisen"
+                      waarden={startEisen}
+                      onChange={(k, deel) => setStartEisen((w) => zetEis(w, k, deel))}
+                    />
+                  </InstellingenBlok>
+                );
+              })}
           </nldd-container>
         )}
+        {/* Na de blokken de vrije velden. */}
+        <RichTextFormField label="Toelichting" value={toelichting} onChange={setToelichting} rows={3} placeholder="Waarom deze keuzes?" />
         <CreatableSelect
           label="Trekker"
           value={trekkerId}

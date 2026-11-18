@@ -208,7 +208,7 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
           </nldd-container>
         )}
         {/* De starteisen van de soorten zoals het team ze bij de start naliep. */}
-        {sv.start_eisen && sv.start_eisen.length > 0 && <EisenMomentopname titel="Starteisen" eisen={sv.start_eisen} />}
+        {sv.start_eisen && sv.start_eisen.length > 0 && <EisenMomentopname titel="Voorwaarden om te starten" eisen={sv.start_eisen} />}
         {sv.toelichting && (
           <nldd-container gap="4">
             <nldd-text size="xs" weight="medium" color="secondary">Toelichting</nldd-text>
@@ -222,7 +222,7 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
           fase kwam. */}
       {eindEisen.length > 0 && (
         <DetailSection
-          title="Eindeisen"
+          title="Deliverables"
           icon={<Icon name="check-mark-circle" size="sm" />}
           count={eindEisen.filter((e) => e.akkoord).length}
           separated
