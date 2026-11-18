@@ -44,11 +44,27 @@ export function InitiatiefInstellingen({ initiatief }: { initiatief: InitiatiefD
     aantalCriteria ? `${aantalCriteria} ${aantalCriteria === 1 ? 'criterium' : 'criteria'}` : 'nog geen criteria'
   } voor satellietcasussen`;
 
+  // De eigenaar ziet ook dicht of casussen aan staan: de schakelaar zit in
+  // Algemeen, want hij bepaalt welke tabs en blokken het initiatief heeft.
+  const algemeenSamenvatting = isEigenaar
+    ? `${initiatief.naam} · casussen ${initiatief.casussen_enabled ? 'aan' : 'uit'}`
+    : initiatief.naam;
+
   return (
     <nldd-container gap="12">
       {canEdit && (
-        <InstellingenBlok icon="pencil" titel="Algemeen" samenvatting={initiatief.naam}>
-          <GeneralSettings initiatief={initiatief} />
+        <InstellingenBlok icon="pencil" titel="Algemeen" samenvatting={algemeenSamenvatting}>
+          <nldd-container gap="16">
+            <GeneralSettings initiatief={initiatief} />
+            {/* Los van Opslaan: de schakelaar slaat meteen op. Alleen de
+                eigenaar; de backend weigert iemand anders. */}
+            {isEigenaar && (
+              <>
+                <nldd-divider />
+                <CasussenSchakelaar initiatief={initiatief} />
+              </>
+            )}
+          </nldd-container>
         </InstellingenBlok>
       )}
       {isEigenaar && (
@@ -59,13 +75,6 @@ export function InitiatiefInstellingen({ initiatief }: { initiatief: InitiatiefD
             samenvatting={`Publieke pagina ${initiatief.public_page_enabled ? 'aan' : 'uit'} · funnel-velden ${initiatief.funnel_enabled ? 'aan' : 'uit'}`}
           >
             <FeatureSettings initiatief={initiatief} />
-          </InstellingenBlok>
-          <InstellingenBlok
-            icon="sparkles"
-            titel="Casussen"
-            samenvatting={initiatief.casussen_enabled ? 'aan' : 'uit'}
-          >
-            <CasussenSchakelaar initiatief={initiatief} />
           </InstellingenBlok>
           {initiatief.casussen_enabled && (
             <>
@@ -103,7 +112,7 @@ export function InitiatiefInstellingen({ initiatief }: { initiatief: InitiatiefD
               </InstellingenBlok>
             </>
           )}
-          <InstellingenBlok icon="columns-3" titel="Funnel-kolommen">
+          <InstellingenBlok icon="columns-3" titel="Leads Funnel">
             <ColumnsManager initiatiefId={initiatief.id} />
           </InstellingenBlok>
         </>
@@ -239,8 +248,10 @@ function CasusStartenSettings({ initiatief }: { initiatief: InitiatiefDetail }) 
 }
 
 /**
- * De schakelaar voor casussen. Aan: de tabs Casussen en Backlog en "Casus starten" op een
- * lead in de startkolom. Uit verbergt alleen; bestaande casussen blijven.
+ * De schakelaar voor casussen, in het blok Algemeen. Aan: de tabs RegelReis,
+ * Backlog en RegelRitme, de casusblokken in de instellingen en "Casus
+ * starten" op een lead in de startkolom. Uit verbergt alleen; bestaande
+ * casussen blijven.
  */
 function CasussenSchakelaar({ initiatief }: { initiatief: InitiatiefDetail }) {
   const settingsMutation = useUpdateInitiatiefSettings();

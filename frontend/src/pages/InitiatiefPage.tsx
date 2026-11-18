@@ -36,7 +36,7 @@ const TAB_LABELS: Record<InitiatiefTab, string> = {
  * A viewer changes nothing, so has no settings tab. Casussen and Backlog only
  * when the initiatief works with casussen (a switch in the settings, off by
  * default). RegelRitme explains how the team works with casussen, so it comes
- * with the same switch and sits with the reference tabs, just before the
+ * with the same switch and sits right after the people, before signals and
  * settings.
  */
 function visibleTabs(initiatief: InitiatiefDetail): InitiatiefTab[] {
@@ -44,8 +44,9 @@ function visibleTabs(initiatief: InitiatiefDetail): InitiatiefTab[] {
     initiatief.access_level === 'eigenaar' || initiatief.access_level === 'contributor';
   const tabs: InitiatiefTab[] = ['leads'];
   if (initiatief.casussen_enabled) tabs.push('casussen', 'backlog');
-  tabs.push('updates', 'mensen', 'signalen');
+  tabs.push('updates', 'mensen');
   if (initiatief.casussen_enabled) tabs.push('regelritme');
+  tabs.push('signalen');
   if (canEdit) tabs.push('instellingen');
   return tabs;
 }
