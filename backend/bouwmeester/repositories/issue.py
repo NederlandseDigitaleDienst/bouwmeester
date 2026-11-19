@@ -95,6 +95,7 @@ class IssueRepository(BaseRepository[Issue]):
             return None
         for key, value in data.model_dump(exclude_unset=True).items():
             setattr(issue, key, value)
+        trek_in_als_niet_af(issue)
         await self.session.flush()
         await self.session.refresh(issue)
         await self.session.refresh(issue, attribute_names=["assignee"])
@@ -261,4 +262,21 @@ class IssueRepository(BaseRepository[Issue]):
             return
         if issue.status != nieuw:
             issue.status = nieuw
+            trek_in_als_niet_af(issue)
             await self.session.flush()
+
+
+def trek_in_als_niet_af(issue: Issue) -> bool:
+    """Een vrijgegeven vraag die niet meer af is, gaat terug naar binnen.
+
+    Heropend, door een taak weer open gezet, of geen onderzoeksvraag meer:
+    dan klopt "beantwoord" niet meer. De publieke tekst blijft bewaard; wie
+    de vraag opnieuw afrondt, geeft hem bewust opnieuw vrij. Geeft True als
+    de vraag nu werd ingetrokken.
+    """
+    if issue.published_at is None:
+        return False
+    if issue.status == "done" and issue.is_onderzoeksvraag:
+        return False
+    issue.published_at = None
+    return True

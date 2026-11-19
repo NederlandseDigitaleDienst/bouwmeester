@@ -10,10 +10,12 @@ import {
   getBacklog,
   zetInKoelkast,
   haalUitKoelkast,
+  publishCasus,
+  unpublishCasus,
 } from '@/api/casussen';
 import { useMutationWithError } from '@/hooks/useMutationWithError';
 import { queryKeys } from '@/hooks/queryKeys';
-import type { CasusKoelkast, CasusStart, CasusUpdate } from '@/types';
+import type { CasusKoelkast, CasusPubliek, CasusStart, CasusUpdate } from '@/types';
 
 export function useCasussen(initiatiefId: string | undefined) {
   return useQuery({
@@ -48,11 +50,31 @@ export function useStartCasus() {
   });
 }
 
+// Een casus die naar buiten gaat, terugkomt of van fase wisselt, verandert
+// ook wat de tab Updates en de publieke pagina tonen.
+const BUITEN_KEYS = [['klaar-om-te-delen'], ['initiatief-updates']];
+
 export function useUpdateCasus() {
   return useMutationWithError({
     mutationFn: ({ id, data }: { id: string; data: CasusUpdate }) => updateCasus(id, data),
     errorMessage: 'Fout bij bijwerken casus',
-    invalidateKeys: [queryKeys.casussen.all],
+    invalidateKeys: [queryKeys.casussen.all, ...BUITEN_KEYS],
+  });
+}
+
+export function usePublishCasus() {
+  return useMutationWithError({
+    mutationFn: ({ id, data }: { id: string; data: CasusPubliek }) => publishCasus(id, data),
+    errorMessage: 'Fout bij vrijgeven casus',
+    invalidateKeys: [queryKeys.casussen.all, ...BUITEN_KEYS],
+  });
+}
+
+export function useUnpublishCasus() {
+  return useMutationWithError({
+    mutationFn: ({ id }: { id: string }) => unpublishCasus(id),
+    errorMessage: 'Fout bij intrekken casus',
+    invalidateKeys: [queryKeys.casussen.all, ...BUITEN_KEYS],
   });
 }
 

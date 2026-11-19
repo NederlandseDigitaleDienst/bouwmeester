@@ -20,6 +20,7 @@ from bouwmeester.core.authority import (
     require_can_change_casus,
     require_can_delete_casus,
     require_can_manage_casus_team,
+    require_can_publish_issue,
     require_can_start_casus,
 )
 from bouwmeester.core.database import get_db
@@ -48,6 +49,7 @@ from bouwmeester.schema.casus import (
     DEFAULT_DOD,
     CasusDetailResponse,
     CasusKoelkast,
+    CasusPubliek,
     CasusResponse,
     CasusStart,
     CasusTeamCreate,
@@ -68,6 +70,11 @@ from bouwmeester.schema.task import (
 )
 from bouwmeester.services import casus_kanaal_service as kanaal
 from bouwmeester.services.activity_service import log_activity
+from bouwmeester.services.publieke_casussen import (
+    is_afgerond,
+    laatste_fase,
+    trek_casus_in_als_niet_af,
+)
 
 router = APIRouter(prefix="/casussen", tags=["casussen"])
 
@@ -378,6 +385,11 @@ async def update_casus(
     if eind_eisen is not None:
         details["eind_eisen_akkoord"] = sum(e["akkoord"] for e in eind_eisen)
         details["eind_eisen_totaal"] = len(eind_eisen)
+    if trek_casus_in_als_niet_af(casus, laatste_fase(casus.initiatief)):
+        # Uit de laatste fase: niet meer afgerond, dus ook niet meer buiten.
+        await db.flush()
+        await db.refresh(casus, attribute_names=["updated_at"])
+        details["niet_meer_vrijgegeven"] = True
     if old_fase != casus.fase:
         details["old_fase"], details["new_fase"] = old_fase, casus.fase
         await kanaal.meld(
@@ -460,6 +472,75 @@ async def haal_uit_koelkast(
         await db.refresh(casus, attribute_names=["updated_at", "initiatief", "lead"])
         await log_activity(
             db, current_user, None, "casus.koelkast_uit", details=details
+        )
+    return await _detail(CasusRepository(db), casus)
+
+
+@router.put("/{casus_id}/publiek", response_model=CasusDetailResponse)
+async def publish_casus(
+    casus_id: UUID,
+    data: CasusPubliek,
+    current_user: OptionalUser,
+    db: AsyncSession = Depends(get_db),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
+) -> CasusDetailResponse:
+    """Geef een afgeronde casus vrij voor buiten, of pas de tekst aan.
+
+    Alleen de tekst die hier staat gaat naar buiten (een naam, wat het
+    opleverde, de lessen); de casus zelf blijft binnen. Vrijgeven vraagt een
+    bijdrager of eigenaar van het initiatief, net als een update publiceren.
+    """
+    casus = await _get_casus(db, casus_id, init_ctx)
+    await require_can_publish_issue(db, perm_ctx, current_user, casus)
+    if not is_afgerond(casus, laatste_fase(casus.initiatief)):
+        raise HTTPException(
+            status_code=400,
+            detail="Rond de casus eerst af, dan kan hij naar buiten",
+        )
+    casus.public_title = data.public_title
+    casus.public_resultaat = data.public_resultaat
+    casus.public_lessen = data.public_lessen or None
+    eerste_keer = casus.published_at is None
+    if eerste_keer:
+        casus.published_at = datetime.now(UTC)
+    await db.flush()
+    await db.refresh(casus, attribute_names=["updated_at", "initiatief", "lead"])
+    await log_activity(
+        db,
+        current_user,
+        None,
+        "casus.published" if eerste_keer else "casus.public_text_updated",
+        details={
+            "casus_id": str(casus.id),
+            "title": casus.title,
+            "public_title": casus.public_title,
+        },
+    )
+    return await _detail(CasusRepository(db), casus)
+
+
+@router.delete("/{casus_id}/publiek", response_model=CasusDetailResponse)
+async def unpublish_casus(
+    casus_id: UUID,
+    current_user: OptionalUser,
+    db: AsyncSession = Depends(get_db),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
+) -> CasusDetailResponse:
+    """Trek een vrijgegeven casus in. De tekst blijft bewaard, binnen."""
+    casus = await _get_casus(db, casus_id, init_ctx)
+    await require_can_change_casus(db, perm_ctx, current_user, casus)
+    if casus.published_at is not None:
+        casus.published_at = None
+        await db.flush()
+        await db.refresh(casus, attribute_names=["updated_at", "initiatief", "lead"])
+        await log_activity(
+            db,
+            current_user,
+            None,
+            "casus.unpublished",
+            details={"casus_id": str(casus.id), "title": casus.title},
         )
     return await _detail(CasusRepository(db), casus)
 

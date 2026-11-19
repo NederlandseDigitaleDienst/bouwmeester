@@ -45,7 +45,8 @@ export function DodModal({ issue, mode, onClose }: Props) {
   const dodItems = geladenItems ?? [];
   const [checked, setChecked] = useState<Set<string>>(new Set());
 
-  // Bij afronden: het antwoord, interne versie, voor het team.
+  // Bij afronden: het antwoord, interne versie. De externe versie volgt
+  // daarna in het vraagpaneel (Naar buiten).
   const [antwoord, setAntwoord] = useState(issue?.antwoord ?? '');
   useEffect(() => {
     setChecked(new Set(issue?.dod_checked ?? []));

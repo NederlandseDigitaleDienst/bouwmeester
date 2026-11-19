@@ -5,7 +5,10 @@ loopt. Een casus is wat daarna begint: eigen fases, eigen team en
 issues (onderzoeksvragen en ander werk) met taken. Eén lead levert hooguit één casus
 op; de lead blijft daarna als geschiedenis staan, alleen-lezen.
 
-Casussen bevatten de vertrouwelijkste informatie en zijn nooit publiek.
+Casussen bevatten de vertrouwelijkste informatie en zijn nooit publiek. Van
+een afgeronde casus gaat alleen een tekst naar buiten die iemand daarvoor
+schreef en vrijgaf (public_title, public_resultaat, public_lessen); zie
+services/publieke_casussen.py.
 """
 
 import uuid
@@ -80,6 +83,18 @@ class Casus(Base):
     )
     koelkast_reden: Mapped[str | None] = mapped_column(Text, nullable=True)
     koelkast_verwacht_terug: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Wat het team leerde, vastgelegd bij het afronden. Blijft binnen.
+    lessen: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Naar buiten: een afgeronde casus in gewone taal (een naam, wat het
+    # opleverde, en de lessen voor buiten). Alleen deze teksten gaan ooit naar
+    # buiten, als iemand ze vrijgeeft (published_at); de rest van de casus
+    # blijft binnen. Uit de laatste fase gehaald is niet meer vrijgegeven.
+    public_title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    public_resultaat: Mapped[str | None] = mapped_column(Text, nullable=True)
+    public_lessen: Mapped[str | None] = mapped_column(Text, nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
     started_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("person.id", ondelete="SET NULL"),

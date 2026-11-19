@@ -1,19 +1,39 @@
 """Public (unauthenticated) endpoints for an initiatief community page."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from bouwmeester.core.database import get_db
+from bouwmeester.core.storage import blob_download
 from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.models.initiatief_update import InitiatiefUpdatePost
+from bouwmeester.models.issue import Issue
 from bouwmeester.models.lead import Lead
 from bouwmeester.models.lead_column import LeadColumn
 from bouwmeester.models.lead_update import LeadUpdatePost
-from bouwmeester.schema.initiatief_update import InitiatiefUpdatePostPublicResponse
+from bouwmeester.schema.initiatief_update import (
+    InitiatiefUpdatePostPublicResponse,
+    PubliekeCasusBuiten,
+    PubliekeVraagBuiten,
+)
 from bouwmeester.schema.lead_update import LeadUpdatePostPublicResponse
+from bouwmeester.services.publieke_casussen import (
+    als_casus_buiten,
+    is_casus_buiten_bij,
+    laatste_fase,
+    vrijgegeven_casussen,
+)
+from bouwmeester.services.publieke_vragen import (
+    als_vraag_buiten,
+    is_buiten_bij,
+    publiek_verslag_bestand,
+    vrijgegeven_vragen,
+)
 
 router = APIRouter(prefix="/public/initiatieven", tags=["public-initiatief"])
 
@@ -33,6 +53,12 @@ class PublicInitiatiefResponse(BaseModel):
     kleur: str | None = None
     updates: list[InitiatiefUpdatePostPublicResponse] = []
     casussen: list[PublicCasus] = []
+    # Beantwoorde onderzoeksvragen: alleen de vrijgegeven publieke tekst,
+    # nooit de casus waar ze bij horen.
+    beantwoorde_vragen: list[PubliekeVraagBuiten] = []
+    # Afgeronde casussen met hun lessen: alleen de tekst die het team voor
+    # buiten schreef en vrijgaf.
+    afgeronde_casussen: list[PubliekeCasusBuiten] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -64,11 +90,21 @@ async def get_public_initiatief(
         .options(
             selectinload(Initiatief.updates).selectinload(
                 InitiatiefUpdatePost.published_by
-            )
+            ),
+            selectinload(Initiatief.updates)
+            .selectinload(InitiatiefUpdatePost.vragen)
+            .selectinload(Issue.casus),
+            selectinload(Initiatief.updates)
+            .selectinload(InitiatiefUpdatePost.vragen)
+            .selectinload(Issue.verslag),
+            selectinload(Initiatief.updates).selectinload(
+                InitiatiefUpdatePost.casussen
+            ),
         )
     )
     initiatief = detail.scalar_one()
 
+    laatste = laatste_fase(initiatief)
     published_updates = sorted(
         (u for u in initiatief.updates if u.published_at is not None),
         key=lambda u: u.published_at,
@@ -130,8 +166,51 @@ async def get_public_initiatief(
                 body=u.body,
                 published_at=u.published_at,
                 published_by_naam=(u.published_by.naam if u.published_by else None),
+                vragen=[
+                    als_vraag_buiten(v)
+                    for v in u.vragen
+                    if is_buiten_bij(v, initiatief.id)
+                ],
+                casussen=[
+                    als_casus_buiten(c)
+                    for c in u.casussen
+                    if is_casus_buiten_bij(c, initiatief.id, laatste)
+                ],
             )
             for u in published_updates
         ],
         casussen=casussen,
+        beantwoorde_vragen=[
+            als_vraag_buiten(v) for v in await vrijgegeven_vragen(db, initiatief.id)
+        ],
+        afgeronde_casussen=[
+            als_casus_buiten(c) for c in await vrijgegeven_casussen(db, initiatief)
+        ],
     )
+
+
+@router.get("/by-slug/{slug}/verslagen/{verslag_id}")
+async def download_publiek_verslag(
+    slug: str,
+    verslag_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Een onderzoeksverslag van de publieke pagina, als download.
+
+    Alleen als de pagina aan staat, iemand akkoord gaf voor het verslag en
+    de vraag zelf naar buiten mag. In alle andere gevallen dezelfde 404,
+    zoals bij de pagina zelf. Altijd als bijlage, nooit in de browser
+    geopend (nosniff zet de middleware).
+    """
+    lookup = await db.execute(select(Initiatief).where(Initiatief.slug == slug))
+    initiatief = lookup.scalar_one_or_none()
+    if initiatief is None or not initiatief.public_page_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Pagina niet gevonden"
+        )
+    verslag = await publiek_verslag_bestand(db, initiatief.id, verslag_id)
+    if verslag is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Verslag niet gevonden"
+        )
+    return await blob_download(verslag.pad, verslag.bestandsnaam, verslag.content_type)

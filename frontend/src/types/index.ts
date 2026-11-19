@@ -305,6 +305,15 @@ export interface BacklogTask {
   created_at: string;
 }
 
+/**
+ * Wat de blokken Naar buiten en Onderzoeksverslag van een vraag nodig hebben.
+ * Een BacklogIssue voldoet, en het overzicht in de tab Updates ook.
+ */
+export type VraagVoorBuiten = Pick<
+  BacklogIssue,
+  'id' | 'casus_id' | 'initiatief_id' | 'is_onderzoeksvraag' | 'status' | 'public_title' | 'public_answer' | 'published_at'
+>;
+
 /** Eén issue in de backlog van een initiatief, met zijn casus en taken. */
 export interface BacklogIssue {
   id: string;
@@ -321,8 +330,12 @@ export interface BacklogIssue {
   sort_order: number;
   /** Afgevinkte DoD-eisen bij het afronden. */
   dod_checked: string[];
-  /** Het antwoord, interne versie: voor het team. */
+  /** Het antwoord, interne versie: voor het team. De externe versie is public_title en public_answer. */
   antwoord?: string | null;
+  /** Naar buiten: de publieke vraag, het antwoord, en wanneer vrijgegeven. */
+  public_title?: string | null;
+  public_answer?: string | null;
+  published_at?: string | null;
   tasks: BacklogTask[];
   created_at: string;
 }
@@ -2074,6 +2087,13 @@ export interface Casus {
   koelkast_reden?: string | null;
   /** Wanneer we verwachten dat hij er weer uit komt, YYYY-MM-DD. */
   koelkast_verwacht_terug?: string | null;
+  /** Wat het team leerde, vastgelegd bij het afronden. Blijft binnen. */
+  lessen?: string | null;
+  /** Naar buiten: de tekst voor buiten en wanneer vrijgegeven (leeg is binnen). */
+  public_title?: string | null;
+  public_resultaat?: string | null;
+  public_lessen?: string | null;
+  published_at?: string | null;
   started_by_id?: string | null;
   trekker_naam?: string | null;
   team_count: number;
@@ -2124,6 +2144,15 @@ export interface CasusUpdate {
   startvoorwaarden?: Startvoorwaarden;
   /** De eindeisen zoals het team ze naliep, meestal samen met de laatste fase. */
   eind_eisen?: SoortEis[];
+  /** Wat het team leerde; blijft binnen. */
+  lessen?: string | null;
+}
+
+/** Een afgeronde casus vrijgeven voor buiten. */
+export interface CasusPubliek {
+  public_title: string;
+  public_resultaat: string;
+  public_lessen?: string | null;
 }
 
 export interface LeadCreate {
@@ -2294,6 +2323,85 @@ export interface InitiatiefSettingsUpdate {
   wensen?: Wens[];
 }
 
+/** Het onderzoeksverslag bij een onderzoeksvraag, zoals leden het zien. */
+export interface Onderzoeksverslag {
+  id: string;
+  bestandsnaam: string;
+  content_type: string;
+  bestandsgrootte: number;
+  uploaded_by_naam: string | null;
+  created_at: string;
+  updated_at: string | null;
+  /** Akkoord om naar buiten te gaan; leeg is binnen. */
+  openbaar_op: string | null;
+  openbaar_door_naam: string | null;
+}
+
+/** Een openbaar verslag zoals het buiten staat: alleen wat nodig is om het te downloaden. */
+export interface PubliekVerslag {
+  id: string;
+  bestandsnaam: string;
+  content_type: string;
+  bestandsgrootte: number;
+}
+
+/** Een vrijgegeven onderzoeksvraag zoals hij naar buiten gaat: alleen de publieke tekst. */
+export interface PubliekeVraag {
+  id: string;
+  vraag: string;
+  antwoord: string;
+  published_at: string;
+  /** Het onderzoeksverslag, als het openbaar is. */
+  verslag?: PubliekVerslag | null;
+}
+
+/** Voor de tab Updates: stond de vraag al in een gepubliceerde update? */
+export interface VrijgegevenVraag extends PubliekeVraag {
+  in_gepubliceerde_update: boolean;
+}
+
+/** Een vrijgegeven, afgeronde casus zoals hij naar buiten gaat. */
+export interface PubliekeCasus {
+  id: string;
+  titel: string;
+  resultaat: string;
+  lessen: string | null;
+  published_at: string;
+}
+
+/** Tab Updates: een afgeronde onderzoeksvraag, binnen en buiten. Alleen voor leden. */
+export interface KlaarVraag {
+  id: string;
+  /** Leeg bij een vraag zonder casus. */
+  casus_id: string | null;
+  casus_titel: string | null;
+  titel: string;
+  public_title: string | null;
+  public_answer: string | null;
+  published_at: string | null;
+  in_gepubliceerde_update: boolean;
+  verslag_openbaar: boolean;
+}
+
+/** Tab Updates: een afgeronde casus met zijn lessen en de tekst voor buiten. */
+export interface KlaarCasus {
+  id: string;
+  titel: string;
+  lessen: string | null;
+  public_title: string | null;
+  public_resultaat: string | null;
+  public_lessen: string | null;
+  published_at: string | null;
+  in_gepubliceerde_update: boolean;
+  afgerond_op: string | null;
+}
+
+/** Waar een update op voortbouwt. */
+export interface KlaarOmTeDelen {
+  vragen: KlaarVraag[];
+  casussen: KlaarCasus[];
+}
+
 export interface InitiatiefUpdatePost {
   id: string;
   initiatief_id: string;
@@ -2302,6 +2410,10 @@ export interface InitiatiefUpdatePost {
   published_at: string | null;
   published_by_id: string | null;
   published_by_naam: string | null;
+  /** De beantwoorde onderzoeksvragen die de update meeneemt. */
+  vragen: PubliekeVraag[];
+  /** De afgeronde casussen die de update meeneemt. */
+  casussen: PubliekeCasus[];
   created_at: string;
   updated_at: string | null;
 }
@@ -2310,11 +2422,33 @@ export interface InitiatiefUpdatePostCreate {
   titel: string;
   body?: string | null;
   publish?: boolean;
+  vraag_ids?: string[];
+  casus_ids?: string[];
 }
 
 export interface InitiatiefUpdatePostEdit {
   titel?: string;
   body?: string | null;
+  /** Vervangt de hele lijst; weglaten laat hem staan. */
+  vraag_ids?: string[];
+  casus_ids?: string[];
+}
+
+/** Een beantwoorde vraag op de publieke pagina. */
+export interface PublicVraag {
+  vraag: string;
+  antwoord: string;
+  published_at: string;
+  /** Het onderzoeksverslag, als het openbaar is. */
+  verslag?: PubliekVerslag | null;
+}
+
+/** Een afgeronde casus op de publieke pagina. */
+export interface PublicAfgerondeCasus {
+  titel: string;
+  resultaat: string;
+  lessen: string | null;
+  published_at: string;
 }
 
 export interface PublicInitiatiefUpdate {
@@ -2322,6 +2456,8 @@ export interface PublicInitiatiefUpdate {
   body: string | null;
   published_at: string;
   published_by_naam: string | null;
+  vragen: PublicVraag[];
+  casussen?: PublicAfgerondeCasus[];
 }
 
 export interface LeadUpdatePost {
@@ -2389,6 +2525,8 @@ export interface PublicInitiatief {
   kleur: string | null;
   updates: PublicInitiatiefUpdate[];
   casussen: PublicCasus[];
+  beantwoorde_vragen: PublicVraag[];
+  afgeronde_casussen?: PublicAfgerondeCasus[];
 }
 
 export type EngagementType =
@@ -2718,12 +2856,22 @@ export interface Issue {
   sort_order: number;
   /** Afgevinkte DoD-eisen bij het afronden. */
   dod_checked: string[];
-  /** Het antwoord, interne versie: voor het team. */
+  /** Het antwoord, interne versie: voor het team. De externe versie is public_title en public_answer. */
   antwoord?: string | null;
   task_count: number;
   task_done_count: number;
+  /** Naar buiten: de publieke vraag, het antwoord, en wanneer vrijgegeven. */
+  public_title?: string | null;
+  public_answer?: string | null;
+  published_at?: string | null;
   created_at: string;
   updated_at?: string | null;
+}
+
+/** Een afgeronde onderzoeksvraag vrijgeven voor buiten. */
+export interface IssuePubliek {
+  public_title: string;
+  public_answer: string;
 }
 
 export interface IssueCreate {

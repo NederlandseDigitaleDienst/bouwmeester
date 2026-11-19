@@ -20,6 +20,8 @@ import {
   type IssueUpdate,
 } from '@/types';
 import { DodModal } from './DodModal';
+import { NaarBuiten } from './NaarBuiten';
+import { OnderzoeksverslagBlok } from './OnderzoeksverslagBlok';
 import { OnderzoeksvraagVinkje } from './OnderzoeksvraagVinkje';
 
 const STATUS_OPTIONS = Object.values(IssueStatus).map((value) => ({ value, label: ISSUE_STATUS_LABELS[value] }));
@@ -37,7 +39,9 @@ interface Props {
  * afgerond zet: alleen daarmee wordt een vraag af. Verhuizen naar een andere
  * casus of naar het initiatief zelf kan alleen binnen het initiatief; de
  * taken gaan mee. Een onderzoeksvraag heeft een intern antwoord, voor het
- * team. Verwijderen staat onderaan en vraagt om bevestiging.
+ * team, en een verslag als bestand (OnderzoeksverslagBlok); een afgeronde
+ * onderzoeksvraag kan met een publieke tekst naar buiten (NaarBuiten).
+ * Verwijderen staat onderaan en vraagt om bevestiging.
  */
 export function IssueDetailModal({ issue, onClose }: Props) {
   if (!issue) return null;
@@ -184,7 +188,8 @@ function Paneel({ issue, onClose }: { issue: BacklogIssue; onClose: () => void }
             onOpslaan={bewaarToelichting}
           />
 
-          {/* Het antwoord, interne versie: voor het team. */}
+          {/* Het antwoord in twee versies: intern voor het team, extern voor
+              buiten (de updates en de publieke pagina). */}
           {issue.is_onderzoeksvraag && (
             <TekstVeld
               label="Antwoord, interne versie"
@@ -194,6 +199,13 @@ function Paneel({ issue, onClose }: { issue: BacklogIssue; onClose: () => void }
               onOpslaan={bewaarAntwoord}
             />
           )}
+
+          {/* De externe versie: een afgeronde vraag gaat met een eigen tekst
+              naar buiten. */}
+          <NaarBuiten issue={issue} />
+
+          {/* Het verslag als bestand; naar buiten alleen na een akkoord. */}
+          {issue.is_onderzoeksvraag && <OnderzoeksverslagBlok issue={issue} />}
 
           {/* Onderaan, los van de rest: verwijderen is niet terug te draaien. */}
           <div>

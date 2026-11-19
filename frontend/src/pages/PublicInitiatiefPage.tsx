@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getPublicInitiatief } from '@/api/publicInitiatief';
+import { getPublicInitiatief, getPubliekVerslagUrl } from '@/api/publicInitiatief';
 import { ApiError } from '@/api/client';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { RichTextDisplay } from '@/components/common/RichTextDisplay';
@@ -8,9 +8,12 @@ import type {
   PublicCasus,
   PublicInitiatief,
   PublicInitiatiefUpdate,
+  PublicVraag,
+  PublicAfgerondeCasus,
 } from '@/types';
 
 import { initiatiefAccentVar, initiatiefIconColor } from '@/components/initiatieven/initiatiefColors';
+import { bestandsgrootte } from '@/utils/bestandsgrootte';
 
 type Status = 'loading' | 'ok' | 'not-found' | 'error';
 
@@ -143,6 +146,54 @@ export function PublicInitiatiefPage() {
             </section>
           )}
 
+          {(data.afgeronde_casussen ?? []).length > 0 && (
+            <section>
+              <nldd-container layout="row" gap="8" vertical-alignment="bottom" padding-bottom="24">
+                <nldd-title size={4}>
+                  <h2>Afgeronde casussen</h2>
+                </nldd-title>
+                <nldd-spacer size="flexible" direction="horizontal" />
+                <nldd-text size="sm" color="secondary">
+                  {data.afgeronde_casussen!.length} {data.afgeronde_casussen!.length === 1 ? 'casus' : 'casussen'}
+                </nldd-text>
+              </nldd-container>
+              <nldd-card>
+                <nldd-container padding="24" sm-padding-inline="32" gap="16">
+                  {data.afgeronde_casussen!.map((c, idx) => (
+                    <nldd-container key={idx} gap="16">
+                      {idx > 0 && <nldd-divider />}
+                      <AfgerondeCasus casus={c} />
+                    </nldd-container>
+                  ))}
+                </nldd-container>
+              </nldd-card>
+            </section>
+          )}
+
+          {data.beantwoorde_vragen.length > 0 && (
+            <section>
+              <nldd-container layout="row" gap="8" vertical-alignment="bottom" padding-bottom="24">
+                <nldd-title size={4}>
+                  <h2>Beantwoorde vragen</h2>
+                </nldd-title>
+                <nldd-spacer size="flexible" direction="horizontal" />
+                <nldd-text size="sm" color="secondary">
+                  {data.beantwoorde_vragen.length} {data.beantwoorde_vragen.length === 1 ? 'vraag' : 'vragen'}
+                </nldd-text>
+              </nldd-container>
+              <nldd-card>
+                <nldd-container padding="24" sm-padding-inline="32" gap="16">
+                  {data.beantwoorde_vragen.map((v, idx) => (
+                    <nldd-container key={idx} gap="16">
+                      {idx > 0 && <nldd-divider />}
+                      <BeantwoordeVraag vraag={v} slug={data.slug} />
+                    </nldd-container>
+                  ))}
+                </nldd-container>
+              </nldd-card>
+            </section>
+          )}
+
           <section>
             <nldd-container layout="row" gap="8" vertical-alignment="bottom" padding-bottom="24">
               <nldd-title size={4}>
@@ -161,7 +212,7 @@ export function PublicInitiatiefPage() {
             ) : (
               <nldd-container gap="32">
                 {data.updates.map((u, idx) => (
-                  <UpdateCard key={idx} update={u} accent={accent} />
+                  <UpdateCard key={idx} update={u} accent={accent} slug={data.slug} />
                 ))}
               </nldd-container>
             )}
@@ -187,9 +238,11 @@ export function PublicInitiatiefPage() {
 function UpdateCard({
   update,
   accent,
+  slug,
 }: {
   update: PublicInitiatiefUpdate;
   accent: string;
+  slug: string;
 }) {
   const date = new Date(update.published_at);
   const formattedDate = date.toLocaleDateString('nl-NL', {
@@ -233,9 +286,90 @@ function UpdateCard({
               <RichTextDisplay content={update.body} />
             </nldd-container>
           )}
+          {update.vragen.length > 0 && (
+            <nldd-container padding-top="16" gap="12">
+              <nldd-text size="sm" weight="medium" color="secondary">
+                Beantwoorde onderzoeksvragen
+              </nldd-text>
+              {update.vragen.map((v, idx) => (
+                <BeantwoordeVraag key={idx} vraag={v} slug={slug} kop={4} />
+              ))}
+            </nldd-container>
+          )}
+          {(update.casussen ?? []).length > 0 && (
+            <nldd-container padding-top="16" gap="12">
+              <nldd-text size="sm" weight="medium" color="secondary">
+                Afgeronde casussen
+              </nldd-text>
+              {update.casussen!.map((c, idx) => (
+                <AfgerondeCasus key={idx} casus={c} kop={4} />
+              ))}
+            </nldd-container>
+          )}
         </nldd-container>
       </div>
     </nldd-card>
+  );
+}
+
+/**
+ * Eén beantwoorde onderzoeksvraag: alleen de publieke vraag en het antwoord
+ * die het team vrijgaf, en het onderzoeksverslag als het openbaar is. In het
+ * overzicht een h3, onder een update een h4.
+ */
+/**
+ * Een afgeronde casus zoals het team hem voor buiten beschreef: een naam,
+ * wat het opleverde en eventueel de lessen. Niets van de casus zelf.
+ */
+function AfgerondeCasus({ casus, kop = 3 }: { casus: PublicAfgerondeCasus; kop?: 3 | 4 }) {
+  const Kop = kop === 3 ? 'h3' : 'h4';
+  return (
+    <nldd-container gap="4">
+      <nldd-title size={5}>
+        <Kop>{casus.titel}</Kop>
+      </nldd-title>
+      <RichTextDisplay content={casus.resultaat} />
+      {casus.lessen && (
+        <nldd-container gap="2" padding-top="4">
+          <nldd-text size="sm" weight="medium">
+            Wat we leerden
+          </nldd-text>
+          <RichTextDisplay content={casus.lessen} />
+        </nldd-container>
+      )}
+      <nldd-text size="xs" color="secondary">
+        Afgerond, gedeeld op{' '}
+        <time dateTime={casus.published_at}>
+          {new Date(casus.published_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}
+        </time>
+      </nldd-text>
+    </nldd-container>
+  );
+}
+
+function BeantwoordeVraag({ vraag, slug, kop = 3 }: { vraag: PublicVraag; slug: string; kop?: 3 | 4 }) {
+  const Kop = kop === 3 ? 'h3' : 'h4';
+  return (
+    <nldd-container gap="4">
+      <nldd-title size={5}>
+        <Kop>{vraag.vraag}</Kop>
+      </nldd-title>
+      <RichTextDisplay content={vraag.antwoord} />
+      {vraag.verslag && (
+        <nldd-link
+          href={getPubliekVerslagUrl(slug, vraag.verslag.id)}
+          size="sm"
+          start-icon="download"
+          text={`Onderzoeksverslag (${vraag.verslag.bestandsnaam}, ${bestandsgrootte(vraag.verslag.bestandsgrootte)})`}
+        />
+      )}
+      <nldd-text size="xs" color="secondary">
+        Beantwoord op{' '}
+        <time dateTime={vraag.published_at}>
+          {new Date(vraag.published_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}
+        </time>
+      </nldd-text>
+    </nldd-container>
   );
 }
 

@@ -19,6 +19,8 @@ import {
   publishInitiatiefUpdate,
   unpublishInitiatiefUpdate,
   deleteInitiatiefUpdate,
+  getVrijgegevenVragen,
+  getKlaarOmTeDelen,
 } from '@/api/initiatieven';
 import { queryKeys } from '@/hooks/queryKeys';
 import type {
@@ -205,6 +207,29 @@ export function useUpdateInitiatiefSettings() {
 const initiatiefUpdatesKey = (initiatiefId: string | undefined) =>
   ['initiatief-updates', initiatiefId] as const;
 
+const vrijgegevenVragenKey = (initiatiefId: string | undefined) =>
+  ['vrijgegeven-vragen', initiatiefId] as const;
+
+const klaarKey = (initiatiefId: string | undefined) => ['klaar-om-te-delen', initiatiefId] as const;
+
+/** Afgeronde onderzoeksvragen en casussen: waar een update op voortbouwt. */
+export function useKlaarOmTeDelen(initiatiefId: string | undefined) {
+  return useQuery({
+    queryKey: klaarKey(initiatiefId),
+    queryFn: () => getKlaarOmTeDelen(initiatiefId!),
+    enabled: !!initiatiefId,
+  });
+}
+
+/** De beantwoorde onderzoeksvragen die een update kan meenemen, nieuwste eerst. */
+export function useVrijgegevenVragen(initiatiefId: string | undefined) {
+  return useQuery({
+    queryKey: vrijgegevenVragenKey(initiatiefId),
+    queryFn: () => getVrijgegevenVragen(initiatiefId!),
+    enabled: !!initiatiefId,
+  });
+}
+
 export function useInitiatiefUpdates(initiatiefId: string | undefined) {
   return useQuery({
     queryKey: initiatiefUpdatesKey(initiatiefId),
@@ -225,6 +250,8 @@ export function useCreateInitiatiefUpdate() {
     }) => createInitiatiefUpdate(initiatiefId, data),
     onSuccess: (_data, { initiatiefId }) => {
       qc.invalidateQueries({ queryKey: initiatiefUpdatesKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: vrijgegevenVragenKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: klaarKey(initiatiefId) });
     },
   });
 }
@@ -243,6 +270,8 @@ export function useEditInitiatiefUpdate() {
     }) => editInitiatiefUpdate(initiatiefId, postId, data),
     onSuccess: (_data, { initiatiefId }) => {
       qc.invalidateQueries({ queryKey: initiatiefUpdatesKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: vrijgegevenVragenKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: klaarKey(initiatiefId) });
     },
   });
 }
@@ -259,6 +288,8 @@ export function usePublishInitiatiefUpdate() {
     }) => publishInitiatiefUpdate(initiatiefId, postId),
     onSuccess: (_data, { initiatiefId }) => {
       qc.invalidateQueries({ queryKey: initiatiefUpdatesKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: vrijgegevenVragenKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: klaarKey(initiatiefId) });
     },
   });
 }
@@ -275,6 +306,8 @@ export function useUnpublishInitiatiefUpdate() {
     }) => unpublishInitiatiefUpdate(initiatiefId, postId),
     onSuccess: (_data, { initiatiefId }) => {
       qc.invalidateQueries({ queryKey: initiatiefUpdatesKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: vrijgegevenVragenKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: klaarKey(initiatiefId) });
     },
   });
 }
@@ -291,6 +324,8 @@ export function useDeleteInitiatiefUpdate() {
     }) => deleteInitiatiefUpdate(initiatiefId, postId),
     onSuccess: (_data, { initiatiefId }) => {
       qc.invalidateQueries({ queryKey: initiatiefUpdatesKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: vrijgegevenVragenKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: klaarKey(initiatiefId) });
     },
   });
 }
