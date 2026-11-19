@@ -9,6 +9,7 @@ import { Input } from '@/components/common/Input';
 import { IssueAanmakenModal } from './IssueAanmakenModal';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Select } from '@/components/common/Select';
+import { ViewToggle, type ViewToggleOption } from '@/components/common/ViewToggle';
 import { NlddButton } from '@/components/nldd/NlddButton';
 import { NlddIconButton } from '@/components/nldd/NlddIconButton';
 import { useNlddEvent } from '@/components/nldd/events';
@@ -31,6 +32,7 @@ import { useTaakVerwijderen } from '@/hooks/useTaakVerwijderen';
 import { initiatiefPath } from '@/utils/initiatiefRoutes';
 import { IssueDetailModal } from './IssueDetailModal';
 import { DodModal } from './DodModal';
+import { WerkBord } from './WerkBord';
 import { allesAfNa } from '@/utils/issueVoortgang';
 import { faseNaam, useCasusFases } from '@/hooks/useCasusFases';
 
@@ -64,6 +66,28 @@ const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
   ...Object.entries(ISSUE_STATUS_LABELS).map(([value, label]) => ({ value: value as IssueStatus, label })),
 ];
 
+/**
+ * Lijst: per vraag een rij met een klein kanban eronder. Bord: één kanban
+ * met de vragen als kort kaartje en alle taken (WerkBord).
+ */
+type Weergave = 'lijst' | 'bord';
+const WEERGAVEN: ViewToggleOption<Weergave>[] = [
+  { value: 'lijst', label: 'Lijst', icon: 'list' },
+  { value: 'bord', label: 'Bord', icon: 'columns-3' },
+];
+const WEERGAVE_KEY = 'backlog-weergave';
+
+function bewaardeWeergave(): Weergave {
+  try {
+    return localStorage.getItem(WEERGAVE_KEY) === 'bord' ? 'bord' : 'lijst';
+  } catch {
+    return 'lijst';
+  }
+}
+
+/** Filterwaarde voor vragen zonder casus; geen geldig casus-id. */
+const ZONDER_CASUS = '__zonder_casus__';
+
 /** Filterwaarde voor taken zonder eigenaar; geen geldig persoons-id. */
 const GEEN_EIGENAAR = '__geen__';
 
@@ -82,7 +106,8 @@ const KOLOMMEN: { status: TaskStatus; label: string }[] = [
 
 /** Stabiele basisvolgorde, dezelfde als de casusweergave: casus, dan volgorde. */
 function baseCompare(a: BacklogIssue, b: BacklogIssue): number {
-  return a.casus.title.localeCompare(b.casus.title, 'nl') || a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at);
+  // Vragen zonder casus eerst.
+  return (a.casus?.title ?? '').localeCompare(b.casus?.title ?? '', 'nl') || a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at);
 }
 
 function compareBy(key: SortKey): (a: BacklogIssue, b: BacklogIssue) => number {
@@ -121,11 +146,21 @@ export function InitiatiefBacklog({
   const [detailId, setDetailId] = useState<string | null>(null);
   const [issueToevoegen, setIssueToevoegen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Lijst of bord; per browser onthouden.
+  const [weergave, setWeergaveState] = useState<Weergave>(bewaardeWeergave);
+  const setWeergave = (w: Weergave) => {
+    setWeergaveState(w);
+    try {
+      localStorage.setItem(WEERGAVE_KEY, w);
+    } catch {
+      // geen opslag: dan alleen voor nu
+    }
+  };
 
   // Met een vaste casus is de rest van de backlog er niet: ook de tellers en
   // de keuzes voor taakeigenaar gaan dan alleen over deze casus.
   const issues = useMemo(
-    () => (data?.issues ?? []).filter((i) => !vasteCasusId || i.casus.id === vasteCasusId),
+    () => (data?.issues ?? []).filter((i) => !vasteCasusId || i.casus_id === vasteCasusId),
     [data, vasteCasusId],
   );
   const losseTaken = useMemo(
@@ -140,10 +175,15 @@ export function InitiatiefBacklog({
 
   const casusOptions = useMemo(() => {
     const seen = new Map<string, string>();
-    for (const i of issues) seen.set(i.casus.id, i.casus.title);
+    let zonder = false;
+    for (const i of issues) {
+      if (i.casus) seen.set(i.casus.id, i.casus.title);
+      else zonder = true;
+    }
     for (const t of losseTaken) seen.set(t.casus.id, t.casus.title);
     return [
       { value: '', label: 'Alle casussen' },
+      ...(zonder ? [{ value: ZONDER_CASUS, label: 'Zonder casus' }] : []),
       ...[...seen].sort((a, b) => a[1].localeCompare(b[1], 'nl')).map(([value, label]) => ({ value, label })),
     ];
   }, [issues, losseTaken]);
@@ -173,7 +213,7 @@ export function InitiatiefBacklog({
     const out = issues
       .filter((i) => {
         if (statusFilter === 'lopend' ? i.status === IssueStatus.DONE : statusFilter !== 'alles' && i.status !== statusFilter) return false;
-        if (casusId && i.casus.id !== casusId) return false;
+        if (casusId && (i.casus_id ?? ZONDER_CASUS) !== casusId) return false;
         if (eigenaar && !i.tasks.some(vanEigenaar)) return false;
         return true;
       })
@@ -216,6 +256,7 @@ export function InitiatiefBacklog({
       {!vasteCasusId && (
         <Select compact label="Sorteer op" size="sm" width="150px" options={SORT_OPTIONS} value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} />
       )}
+      <ViewToggle value={weergave} onChange={setWeergave} options={WEERGAVEN} accessibleLabel="Weergave van het werk" />
     </>
   );
   // Een onderzoeksvraag mag hier ontstaan zonder taken eronder.
@@ -248,18 +289,26 @@ export function InitiatiefBacklog({
             <nldd-text size="xs" color="secondary">{rows.length} van {issues.length} onderzoeksvragen</nldd-text>
           </div>
           <nldd-spacer direction="horizontal" size="flexible" />
-          <NlddButton
-            variant="neutral-transparent"
-            size="sm"
-            startIcon={allOpen ? 'chevron-up' : 'chevron-down'}
-            onClick={() => setExpanded(allOpen ? new Set() : new Set(rows.map((r) => r.id)))}
-            text={allOpen ? 'Alles inklappen' : 'Alles uitklappen'}
-          />
+          {weergave === 'lijst' && (
+            <NlddButton
+              variant="neutral-transparent"
+              size="sm"
+              startIcon={allOpen ? 'chevron-up' : 'chevron-down'}
+              onClick={() => setExpanded(allOpen ? new Set() : new Set(rows.map((r) => r.id)))}
+              text={allOpen ? 'Alles inklappen' : 'Alles uitklappen'}
+            />
+          )}
           {filterPlek && toevoegen}
         </nldd-container>
       </nldd-container>
 
-      {rows.length === 0 ? (
+      {weergave === 'bord' ? (
+        rows.length === 0 && losseRows.length === 0 ? (
+          <EmptyState title="Geen werk in deze selectie" description="Pas de filters aan, of voeg een onderzoeksvraag toe." />
+        ) : (
+          <WerkBord vragen={rows} losseTaken={losseRows} takenPerVraag={takenPerIssue} onOpenVraag={setDetailId} />
+        )
+      ) : rows.length === 0 ? (
         <EmptyState
           title={issues.length === 0 ? 'Nog geen onderzoeksvragen' : 'Geen onderzoeksvragen in deze selectie'}
           description={issues.length === 0 ? 'Voeg er een toe met Onderzoeksvraag toevoegen.' : 'Pas de filters aan.'}
@@ -273,19 +322,19 @@ export function InitiatiefBacklog({
               alleTaken={takenPerIssue.get(issue.id) ?? issue.tasks}
               open={expanded.has(issue.id)}
               onToggle={() => toggle(issue.id)}
-              onOpenCasus={vasteCasusId ? undefined : () => openCasus(issue.casus.id)}
+              onOpenCasus={vasteCasusId || !issue.casus_id ? undefined : () => openCasus(issue.casus_id!)}
               onOpen={() => setDetailId(issue.id)}
             />
           ))}
         </nldd-container>
       )}
 
-      {losseRows.length > 0 && (
+      {weergave === 'lijst' && losseRows.length > 0 && (
         <LosseTaken taken={losseRows} issues={issues} />
       )}
 
       <IssueDetailModal issue={issues.find((i) => i.id === detailId) ?? null} onClose={() => setDetailId(null)} />
-      <IssueAanmakenModal open={issueToevoegen} onClose={() => setIssueToevoegen(false)} initiatiefId={initiatiefId} casusId={casusId || undefined} />
+      <IssueAanmakenModal open={issueToevoegen} onClose={() => setIssueToevoegen(false)} initiatiefId={initiatiefId} casusId={casusId && casusId !== ZONDER_CASUS ? casusId : undefined} />
     </nldd-container>
     </InitiatiefIdContext.Provider>
   );
@@ -322,7 +371,7 @@ function IssueRow({ issue, alleTaken, open, onToggle, onOpenCasus, onOpen }: Iss
   // Alleen wat af is telt: "1/4" zegt genoeg.
   const af = issue.tasks.filter((t) => t.status === TaskStatus.DONE).length;
   const totaal = issue.tasks.length;
-  const fase = faseNaam(useCasusFases(useContext(InitiatiefIdContext)), issue.casus.fase);
+  const fase = faseNaam(useCasusFases(useContext(InitiatiefIdContext)), issue.casus?.fase ?? '');
   const klaar = issue.status === IssueStatus.DONE;
 
   // Sleep je de laatste open taak naar Afgerond, dan volgt meteen de DoD.
@@ -385,9 +434,11 @@ function IssueRow({ issue, alleTaken, open, onToggle, onOpenCasus, onOpen }: Iss
               <Badge color={ISSUE_STATUS_COLORS[issue.status]}>{ISSUE_STATUS_LABELS[issue.status]}</Badge>
             </div>
             {/* De fase van de casus als tooltip: zo blijft de kolom rustig. */}
-            {onOpenCasus && (
+            {onOpenCasus && issue.casus && (
               <nldd-link ref={casusRef} size="xs" text={issue.casus.title} title={`Fase: ${fase}`} style={{ cursor: 'pointer' }} />
             )}
+            {/* Een vraag van het initiatief zelf: dat staat er dan. */}
+            {!issue.casus && <nldd-text size="xs" color="secondary">Zonder casus</nldd-text>}
           </div>
         </div>
         {/* Eén ingang voor alles wat je aan het issue zelf doet: de drie
@@ -552,14 +603,17 @@ function MiniKanban({
  *
  * Rechtermuisknop opent een menu om de taak te verwijderen, met bevestiging.
  */
-function TaakKaart({
+export function TaakKaart({
   task,
   onOpen,
   onContextMenu,
+  vraagTitel,
 }: {
   task: BacklogTask;
   onOpen: (waar: TaskDetailPlacement) => void;
   onContextMenu: (e: React.MouseEvent) => void;
+  /** Op het bord met alle taken: de vraag waar de taak onder hangt, kort. */
+  vraagTitel?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const open = () => {
@@ -593,6 +647,11 @@ function TaakKaart({
       <nldd-container gap="4">
         {/* Afgerond blijft gewoon leesbaar: de kolom zegt al dat het af is. */}
         <nldd-text size="sm">{task.title}</nldd-text>
+        {vraagTitel && (
+          <nldd-text size="xs" color="secondary" className="bord-vraagregel" title={vraagTitel}>
+            {`Vraag: ${vraagTitel}`}
+          </nldd-text>
+        )}
         <nldd-container layout="row" gap="6" vertical-alignment="center">
           {task.assignee?.is_agent ? (
             <nldd-icon icon="sparkles" size="16" color="paars" aria-hidden="true" />

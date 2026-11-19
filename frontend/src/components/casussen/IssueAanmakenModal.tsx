@@ -22,9 +22,10 @@ interface Props {
 /**
  * Een onderzoeksvraag aanmaken vanuit de backlog, zonder dat er al taken
  * onder hoeven. Onderzoeksvragen zijn leidend: wat je hier aanmaakt is er
- * een, tenzij je "Dit is geen onderzoeksvraag" aanvinkt. Het hoort altijd
- * bij een casus, dus die kies je hier; met maar één casus in het initiatief
- * staat die al klaar.
+ * een, tenzij je "Dit is geen onderzoeksvraag" aanvinkt. Een vraag hoort
+ * bij een casus of, zonder casus, bij het initiatief zelf. Zonder keuze is
+ * het een vraag van het initiatief; een voorgekozen casus (het filter in de
+ * backlog) staat al klaar.
  */
 export function IssueAanmakenModal({ open, ...props }: Props) {
   if (!open) return null;
@@ -44,21 +45,23 @@ function Formulier({ onClose, initiatiefId, casusId: voorgekozen }: Omit<Props, 
   const [toelichting, setToelichting] = useState('');
 
   const casusOptions = useMemo(
-    () =>
-      (casussen ?? [])
+    () => [
+      { value: '', label: 'Geen casus, vraag van het initiatief' },
+      ...(casussen ?? [])
         .filter((c) => c.initiatief_id === initiatiefId)
         .map((c) => ({ value: c.id, label: c.title }))
         .sort((a, b) => a.label.localeCompare(b.label, 'nl')),
+    ],
     [casussen, initiatiefId],
   );
-  const casusId = casusKeuze || (casusOptions.length === 1 ? casusOptions[0].value : '');
+  const casusId = casusKeuze;
 
   const opslaan = async () => {
     const t = titel.trim();
-    if (!t || !casusId) return;
+    if (!t) return;
     try {
       await create.mutateAsync({
-        casusId,
+        plek: { casus_id: casusId || null, initiatief_id: initiatiefId },
         data: {
           title: t,
           is_onderzoeksvraag: isVraag,
@@ -82,7 +85,7 @@ function Formulier({ onClose, initiatiefId, casusId: voorgekozen }: Omit<Props, 
       footer={
         <>
           <NlddButton variant="secondary" onClick={onClose} text="Annuleren" disabled={create.isPending} />
-          <NlddButton onClick={() => void opslaan()} loading={create.isPending} disabled={!titel.trim() || !casusId} text="Toevoegen" />
+          <NlddButton onClick={() => void opslaan()} loading={create.isPending} disabled={!titel.trim()} text="Toevoegen" />
         </>
       }
     >
@@ -102,9 +105,8 @@ function Formulier({ onClose, initiatiefId, casusId: voorgekozen }: Omit<Props, 
         <Select
           key={casussenGeladen ? 'geladen' : 'laden'}
           compact
-          required
           label="Casus"
-          placeholder={casussenGeladen ? 'Kies een casus' : 'Laden...'}
+          placeholder={casussenGeladen ? 'Geen casus' : 'Laden...'}
           options={casusOptions}
           value={casusId}
           disabled={!casussenGeladen}

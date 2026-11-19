@@ -1,18 +1,24 @@
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 
 import { Modal } from '@/components/common/Modal';
+import { RichTextFormField } from '@/components/common/RichTextFormField';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { NlddButton } from '@/components/nldd/NlddButton';
-import { useCasus } from '@/hooks/useCasussen';
+import { useDodItems } from '@/hooks/useDodItems';
+import { InitiatiefIdContext } from '@/hooks/useInitiatiefPersonOptions';
 import { useUpdateIssue } from '@/hooks/useIssues';
 import { IssueStatus } from '@/types';
+import { richTextToPlain } from '@/utils/richtext';
 
 /** Wat de DoD van een issue nodig heeft; een Issue en een BacklogIssue passen allebei. */
 export interface DodIssue {
   id: string;
-  casus_id: string;
+  /** Leeg bij een vraag zonder casus; dan telt initiatief_id. */
+  casus_id: string | null;
+  initiatief_id?: string | null;
   title: string;
   dod_checked: string[];
+  antwoord?: string | null;
 }
 
 interface Props {
@@ -26,19 +32,27 @@ interface Props {
  * De Definition of Done bij het afronden van een issue: de teamstandaard als
  * checklist. Het team beslist zelf of alles moet staan; de knop blijft
  * beschikbaar, maar de tekst zegt wat er nog open is. De lijst komt van de
- * casus (die van het initiatief, anders de standaardlijst). Afronden zet het
+ * casus (die van het initiatief, anders de standaardlijst); een vraag zonder
+ * casus neemt hem van het initiatief. Afronden zet het
  * issue op afgerond met de afgevinkte eisen: alleen zo wordt een issue af,
  * ook als alle taken eronder al klaar zijn.
  */
 export function DodModal({ issue, mode, onClose }: Props) {
-  const { data: casus } = useCasus(issue?.casus_id ?? null);
+  const initiatiefId = useContext(InitiatiefIdContext);
   const update = useUpdateIssue();
-  const dodItems = casus?.dod_items ?? [];
+  const geladenItems = useDodItems(issue?.casus_id, issue?.initiatief_id ?? initiatiefId);
+  const geladen = geladenItems !== undefined;
+  const dodItems = geladenItems ?? [];
   const [checked, setChecked] = useState<Set<string>>(new Set());
 
+  // Bij afronden: het antwoord, interne versie, voor het team.
+  const [antwoord, setAntwoord] = useState(issue?.antwoord ?? '');
   useEffect(() => {
     setChecked(new Set(issue?.dod_checked ?? []));
   }, [issue?.id, issue?.dod_checked]);
+  useEffect(() => {
+    setAntwoord(issue?.antwoord ?? '');
+  }, [issue?.id, issue?.antwoord]);
 
   const zet = (item: string, aan: boolean) =>
     setChecked((prev) => {
@@ -55,9 +69,13 @@ export function DodModal({ issue, mode, onClose }: Props) {
     if (!issue) return;
     try {
       await update.mutateAsync({
-        casusId: issue.casus_id,
+        plek: issue,
         issueId: issue.id,
-        data: { status: IssueStatus.DONE, dod_checked: dodItems.filter((i) => checked.has(i)) },
+        data: {
+          status: IssueStatus.DONE,
+          dod_checked: dodItems.filter((i) => checked.has(i)),
+          antwoord: richTextToPlain(antwoord).trim() ? antwoord : null,
+        },
       });
       onClose();
     } catch {
@@ -79,7 +97,7 @@ export function DodModal({ issue, mode, onClose }: Props) {
             <NlddButton
               onClick={() => void afronden()}
               loading={update.isPending}
-              disabled={!casus}
+              disabled={!geladen}
               text={open === 0 ? 'Afronden' : `Afronden met ${open} open`}
             />
           </>
@@ -96,7 +114,7 @@ export function DodModal({ issue, mode, onClose }: Props) {
           De Definition of Done is de teamstandaard: waar een issue aan moet voldoen voordat
           het af is. Aan te passen bij de instellingen van het initiatief.
         </nldd-text>
-        {!casus ? (
+        {!geladen ? (
           <nldd-text size="sm" color="secondary">Laden...</nldd-text>
         ) : (
           <nldd-container gap="8">
@@ -111,11 +129,21 @@ export function DodModal({ issue, mode, onClose }: Props) {
             ))}
           </nldd-container>
         )}
-        {mode === 'afronden' && casus && open > 0 && (
+        {mode === 'afronden' && geladen && open > 0 && (
           <nldd-text size="xs" color="secondary">
             Nog {open} van {dodItems.length} eisen niet afgevinkt. Afronden kan, maar dan staat dat
             zo op het issue.
           </nldd-text>
+        )}
+        {mode === 'afronden' && (
+          <RichTextFormField
+            hideOptional
+            label="Antwoord, interne versie"
+            value={antwoord}
+            onChange={setAntwoord}
+            rows={4}
+            placeholder="Wat is het antwoord? Voor het team, met namen en details als dat helpt."
+          />
         )}
       </nldd-container>
     </Modal>

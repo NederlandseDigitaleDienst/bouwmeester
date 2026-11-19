@@ -154,6 +154,18 @@ class TaskCasusSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class TaskIssueSummary(BaseModel):
+    """De vraag waar een taak onder hangt; bij een vraag zonder casus komt
+    het initiatief hiervandaan."""
+
+    id: UUID
+    title: str
+    casus_id: UUID | None = None
+    initiatief_id: UUID | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class BacklogTask(BaseModel):
     """Eén taak in de backlog, als kaartje op het mini-kanban van zijn issue."""
 
@@ -179,8 +191,10 @@ class BacklogIssue(BaseModel):
     """
 
     id: UUID
-    casus_id: UUID
-    casus: TaskCasusSummary
+    # Leeg: een vraag van het initiatief zonder casus.
+    casus_id: UUID | None = None
+    casus: TaskCasusSummary | None = None
+    initiatief_id: UUID | None = None
     title: str
     status: str
     is_onderzoeksvraag: bool = True
@@ -189,6 +203,8 @@ class BacklogIssue(BaseModel):
     toelichting: str | None = None
     sort_order: int = 0
     dod_checked: list[str] = []
+    # Het antwoord, interne versie.
+    antwoord: str | None = None
     tasks: list[BacklogTask] = []
     created_at: datetime
 
@@ -216,6 +232,7 @@ class TaskResponse(BaseModel):
     casus_id: UUID | None = None
     casus: TaskCasusSummary | None = None
     issue_id: UUID | None = None
+    issue: TaskIssueSummary | None = None
     assignee_id: UUID | None = None
     assignee: TaskAssigneeSummary | None = None
     organisatie_eenheid_id: UUID | None = None

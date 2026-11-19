@@ -28,6 +28,7 @@ from bouwmeester.core.permissions import (
     require_permission,
 )
 from bouwmeester.core.storage import delete_blob
+from bouwmeester.core.werkplek import InitiatiefWerk, Werkplek, werkplek_van_taak
 from bouwmeester.models.casus import Casus
 from bouwmeester.models.issue import Issue
 from bouwmeester.models.person import Person
@@ -60,13 +61,16 @@ router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 async def _resolve_casus_anchor(
     db: AsyncSession, data: TaskCreate | TaskUpdate, init_ctx: InitiatiefContext
-) -> Casus | None:
+) -> Werkplek | None:
     """Controleer casus_id en issue_id en vul casus_id aan.
 
     Een taak hangt onder een issue of los op de casus. Het issue moet van
     die casus zijn. De
     casus moet zichtbaar zijn: buiten een zichtbaar initiatief 404, ook via
     een issue, zodat het bestaan niet lekt. Geeft de casus terug.
+
+    Een vraag zonder casus: de taak hangt alleen aan de vraag (casus_id
+    leeg) en volgt het initiatief van de vraag. Geeft dan een InitiatiefWerk.
     """
     if data.issue_id is not None:
         issue = await db.get(Issue, data.issue_id)
@@ -76,6 +80,12 @@ async def _resolve_casus_anchor(
             raise HTTPException(
                 status_code=400, detail="Onderzoeksvraag hoort niet bij deze casus"
             )
+        if issue.casus_id is None:
+            require_initiatief_visible(
+                issue.initiatief_id, init_ctx, detail="Onderzoeksvraag niet gevonden"
+            )
+            data.casus_id = None
+            return InitiatiefWerk(initiatief_id=issue.initiatief_id)
         data.casus_id = issue.casus_id
     if data.casus_id is None:
         return None
@@ -91,11 +101,14 @@ async def _resolve_casus_anchor(
 async def _require_task_visible(
     db: AsyncSession, task, init_ctx: InitiatiefContext
 ) -> None:
-    """Een casustaak is zo zichtbaar als haar casus: anders 404, geen 403."""
-    if task.casus_id is None:
+    """Een casustaak is zo zichtbaar als haar casus: anders 404, geen 403.
+
+    Een taak onder een vraag zonder casus: zo zichtbaar als het initiatief.
+    """
+    if task.casus_id is None and task.issue_id is None:
         return
-    casus = await db.get(Casus, task.casus_id)
-    initiatief_id = casus.initiatief_id if casus else None
+    plek = await werkplek_van_taak(db, task)
+    initiatief_id = plek.initiatief_id if plek else None
     require_initiatief_visible(initiatief_id, init_ctx, detail="Task not found")
 
 
@@ -138,7 +151,7 @@ def _geen_subtaak_in_casus(parent: Task, casus_taak: bool) -> None:
     stap die erbij hoort, is een eigen taak onder die vraag. Subtaken
     blijven er voor taken aan een node.
     """
-    if parent.casus_id is not None or casus_taak:
+    if parent.casus_id is not None or parent.issue_id is not None or casus_taak:
         raise HTTPException(
             status_code=400, detail="Een taak in een casus heeft geen subtaken"
         )
@@ -525,7 +538,7 @@ async def update_task(
     old_task = require_found(await repo.get(id), "Task")
     await _require_task_visible(db, old_task, init_ctx)
     await check_resource_org_scope(db, "task", id, org_ctx)
-    oude_casus = await db.get(Casus, old_task.casus_id) if old_task.casus_id else None
+    oude_casus = await werkplek_van_taak(db, old_task)
     await _require_task_rights(
         db, perm_ctx, current_user, oude_casus, "task:update", task=old_task, data=data
     )
@@ -538,7 +551,9 @@ async def update_task(
         getattr(data, "casus_id", None) is not None
         or getattr(data, "issue_id", None) is not None
     )
-    in_casus_na = old_task.casus_id is not None or naar_casus
+    in_casus_na = (
+        old_task.casus_id is not None or old_task.issue_id is not None or naar_casus
+    )
     nieuwe_parent = "parent_id" in data.model_fields_set and data.parent_id
     if nieuwe_parent:
         parent = await _require_parent_visible(db, data.parent_id, org_ctx, init_ctx)
@@ -550,10 +565,8 @@ async def update_task(
     anker_velden = {"issue_id", "casus_id"}
     if anker_velden & data.model_fields_set:
         casus = await _resolve_casus_anchor(db, data, init_ctx)
-    elif old_task.casus_id is not None:
-        casus = await db.get(Casus, old_task.casus_id)
     else:
-        casus = None
+        casus = oude_casus
     if oude_casus is not None and casus is None:
         raise HTTPException(
             status_code=400,
@@ -580,7 +593,7 @@ async def update_task(
         # moet bij die casus horen. Anders staat de taak in de backlog van de
         # oude casus, en telt ze mee voor een vraag die ze niet meer ziet.
         oud_issue = await db.get(Issue, old_task.issue_id)
-        if oud_issue is not None and oud_issue.casus_id != casus.id:
+        if oud_issue is not None and oud_issue.casus_id != casus.id and casus.id:
             raise HTTPException(
                 status_code=400,
                 detail="Deze taak hangt onder een onderzoeksvraag van een andere "
@@ -710,7 +723,7 @@ async def delete_task(
     task = require_found(await repo.get(id), "Task")
     await _require_task_visible(db, task, init_ctx)
     await check_resource_org_scope(db, "task", id, org_ctx)
-    casus = await db.get(Casus, task.casus_id) if task.casus_id else None
+    casus = await werkplek_van_taak(db, task)
     await _require_task_rights(db, perm_ctx, current_user, casus, "task:delete")
     task_title = task.title
     task_node_id = task.node_id

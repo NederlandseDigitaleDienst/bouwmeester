@@ -2,12 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { getIssues, createIssue, updateIssue, deleteIssue } from '@/api/issues';
 import { useMutationWithError } from '@/hooks/useMutationWithError';
 import { queryKeys } from '@/hooks/queryKeys';
+import type { VraagPlek } from '@/api/issues';
 import type { IssueCreate, IssueUpdate } from '@/types';
 
+/** De vragen van een casus. */
 export function useIssues(casusId: string | null) {
   return useQuery({
     queryKey: queryKeys.issues.forCasus(casusId),
-    queryFn: () => getIssues(casusId!),
+    queryFn: () => getIssues({ casus_id: casusId }),
     enabled: !!casusId,
   });
 }
@@ -19,7 +21,7 @@ const ISSUE_KEYS = [queryKeys.issues.all, queryKeys.tasks.lists(), queryKeys.cas
 
 export function useCreateIssue() {
   return useMutationWithError({
-    mutationFn: ({ casusId, data }: { casusId: string; data: IssueCreate }) => createIssue(casusId, data),
+    mutationFn: ({ plek, data }: { plek: VraagPlek; data: IssueCreate }) => createIssue(plek, data),
     errorMessage: 'Fout bij aanmaken onderzoeksvraag',
     invalidateKeys: ISSUE_KEYS,
   });
@@ -27,8 +29,8 @@ export function useCreateIssue() {
 
 export function useUpdateIssue() {
   return useMutationWithError({
-    mutationFn: ({ casusId, issueId, data }: { casusId: string; issueId: string; data: IssueUpdate }) =>
-      updateIssue(casusId, issueId, data),
+    mutationFn: ({ plek, issueId, data }: { plek: VraagPlek; issueId: string; data: IssueUpdate }) =>
+      updateIssue(plek, issueId, data),
     errorMessage: 'Fout bij bijwerken onderzoeksvraag',
     invalidateKeys: ISSUE_KEYS,
   });
@@ -36,7 +38,7 @@ export function useUpdateIssue() {
 
 export function useDeleteIssue() {
   return useMutationWithError({
-    mutationFn: ({ casusId, issueId }: { casusId: string; issueId: string }) => deleteIssue(casusId, issueId),
+    mutationFn: ({ plek, issueId }: { plek: VraagPlek; issueId: string }) => deleteIssue(plek, issueId),
     errorMessage: 'Fout bij verwijderen onderzoeksvraag',
     // De taken eronder worden los; ISSUE_KEYS ververst die lijst al.
     invalidateKeys: ISSUE_KEYS,

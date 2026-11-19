@@ -6,7 +6,8 @@ import { Modal } from '@/components/common/Modal';
 import { Select } from '@/components/common/Select';
 import { NlddButton } from '@/components/nldd/NlddButton';
 import { NlddIconButton } from '@/components/nldd/NlddIconButton';
-import { useCasus, useCasussen } from '@/hooks/useCasussen';
+import { useCasussen } from '@/hooks/useCasussen';
+import { useDodItems } from '@/hooks/useDodItems';
 import { InitiatiefIdContext, useInitiatiefPersonOptions } from '@/hooks/useInitiatiefPersonOptions';
 import { useDeleteIssue, useUpdateIssue } from '@/hooks/useIssues';
 import {
@@ -34,8 +35,9 @@ interface Props {
  * het potloodje, keuzelijsten slaan meteen op, de toelichting met Opslaan.
  * Afronden loopt via de Definition of Done, ook als je de status op
  * afgerond zet: alleen daarmee wordt een vraag af. Verhuizen naar een andere
- * casus kan alleen binnen het initiatief; de taken gaan mee. Verwijderen
- * staat onderaan en vraagt om bevestiging.
+ * casus of naar het initiatief zelf kan alleen binnen het initiatief; de
+ * taken gaan mee. Een onderzoeksvraag heeft een intern antwoord, voor het
+ * team. Verwijderen staat onderaan en vraagt om bevestiging.
  */
 export function IssueDetailModal({ issue, onClose }: Props) {
   if (!issue) return null;
@@ -50,15 +52,22 @@ function Paneel({ issue, onClose }: { issue: BacklogIssue; onClose: () => void }
   const deleteIssue = useDeleteIssue();
   const personOptions = useInitiatiefPersonOptions(issue.assignee ?? null);
   const { data: casussen, isSuccess: casussenGeladen } = useCasussen(initiatiefId ?? undefined);
-  const { data: casus } = useCasus(issue.casus_id);
+  const dodItems = useDodItems(issue.casus_id, issue.initiatief_id ?? initiatiefId) ?? [];
   const [titelOpen, setTitelOpen] = useState(false);
   const [dod, setDod] = useState<'afronden' | 'bekijken' | null>(null);
   const [verwijderen, setVerwijderen] = useState(false);
 
-  const zet = (data: IssueUpdate) => update.mutate({ casusId: issue.casus_id, issueId: issue.id, data });
+  const zet = (data: IssueUpdate) => update.mutate({ plek: issue, issueId: issue.id, data });
+  const bewaarAntwoord = async (tekst: string | null) => {
+    try {
+      await update.mutateAsync({ plek: issue, issueId: issue.id, data: { antwoord: tekst } });
+    } catch {
+      // de melding is al getoond; de tekst blijft staan
+    }
+  };
   const bewaarToelichting = async (tekst: string | null) => {
     try {
-      await update.mutateAsync({ casusId: issue.casus_id, issueId: issue.id, data: { toelichting: tekst } });
+      await update.mutateAsync({ plek: issue, issueId: issue.id, data: { toelichting: tekst } });
     } catch {
       // de melding is al getoond; de tekst blijft staan
     }
@@ -66,18 +75,18 @@ function Paneel({ issue, onClose }: { issue: BacklogIssue; onClose: () => void }
 
   const klaar = issue.status === IssueStatus.DONE;
   const af = issue.tasks.filter((t) => t.status === TaskStatus.DONE).length;
-  const dodItems = casus?.dod_items ?? [];
   const dodAf = dodItems.filter((i) => issue.dod_checked.includes(i)).length;
 
-  // Alleen casussen van hetzelfde initiatief; de huidige staat er altijd in.
+  // Alleen casussen van hetzelfde initiatief, en bovenaan "geen casus": een
+  // vraag van het initiatief zelf. De huidige casus staat er altijd in.
   const casusOptions = useMemo(() => {
     const opties = (casussen ?? [])
       .filter((c) => initiatiefId && c.initiatief_id === initiatiefId)
       .map((c) => ({ value: c.id, label: c.title }))
       .sort((a, b) => a.label.localeCompare(b.label, 'nl'));
-    if (!opties.some((o) => o.value === issue.casus_id)) opties.unshift({ value: issue.casus_id, label: issue.casus.title });
-    return opties;
-  }, [casussen, initiatiefId, issue.casus_id, issue.casus.title]);
+    if (issue.casus && !opties.some((o) => o.value === issue.casus_id)) opties.unshift({ value: issue.casus.id, label: issue.casus.title });
+    return [{ value: '', label: 'Geen casus, vraag van het initiatief' }, ...opties];
+  }, [casussen, initiatiefId, issue.casus_id, issue.casus]);
 
   const zetStatus = (status: IssueStatus) => {
     if (status === issue.status) return;
@@ -159,11 +168,11 @@ function Paneel({ issue, onClose }: { issue: BacklogIssue; onClose: () => void }
                 size="sm"
                 aria-label="Casus"
                 options={casusOptions}
-                value={issue.casus_id}
+                value={issue.casus_id ?? ''}
                 disabled={!casussenGeladen}
-                onChange={(e) => e.target.value !== issue.casus_id && zet({ casus_id: e.target.value })}
+                onChange={(e) => e.target.value !== (issue.casus_id ?? '') && zet({ casus_id: e.target.value || null })}
               />
-              <nldd-text size="xs" color="secondary">Verhuis je de vraag naar een andere casus, dan gaan de taken mee.</nldd-text>
+              <nldd-text size="xs" color="secondary">Verhuis je de vraag naar een andere casus of naar het initiatief, dan gaan de taken mee.</nldd-text>
             </Eigenschap>
           </Eigenschappen>
 
@@ -174,6 +183,17 @@ function Paneel({ issue, onClose }: { issue: BacklogIssue; onClose: () => void }
             bezig={update.isPending}
             onOpslaan={bewaarToelichting}
           />
+
+          {/* Het antwoord, interne versie: voor het team. */}
+          {issue.is_onderzoeksvraag && (
+            <TekstVeld
+              label="Antwoord, interne versie"
+              placeholder="Wat is het antwoord? Voor het team, met namen en details als dat helpt. Blijft altijd binnen."
+              tekst={issue.antwoord ?? ''}
+              bezig={update.isPending}
+              onOpslaan={bewaarAntwoord}
+            />
+          )}
 
           {/* Onderaan, los van de rest: verwijderen is niet terug te draaien. */}
           <div>
@@ -187,7 +207,7 @@ function Paneel({ issue, onClose }: { issue: BacklogIssue; onClose: () => void }
         onClose={() => setVerwijderen(false)}
         onConfirm={async () => {
           try {
-            await deleteIssue.mutateAsync({ casusId: issue.casus_id, issueId: issue.id });
+            await deleteIssue.mutateAsync({ plek: issue, issueId: issue.id });
             setVerwijderen(false);
             onClose();
           } catch {

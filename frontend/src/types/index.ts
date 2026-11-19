@@ -274,6 +274,8 @@ export interface Task {
   casus_id?: string | null;
   casus?: TaskCasusSummary | null;
   issue_id?: string | null;
+  /** De vraag waar de taak onder hangt; bij een vraag zonder casus komt het initiatief hiervandaan. */
+  issue?: { id: string; title: string; casus_id: string | null; initiatief_id: string | null } | null;
   order?: number;
   work_type?: string;
   created_at: string;
@@ -306,8 +308,10 @@ export interface BacklogTask {
 /** Eén issue in de backlog van een initiatief, met zijn casus en taken. */
 export interface BacklogIssue {
   id: string;
-  casus_id: string;
-  casus: TaskCasusSummary;
+  /** Leeg: een vraag van het initiatief, zonder casus. */
+  casus_id: string | null;
+  casus: TaskCasusSummary | null;
+  initiatief_id?: string | null;
   title: string;
   status: IssueStatus;
   is_onderzoeksvraag: boolean;
@@ -317,6 +321,8 @@ export interface BacklogIssue {
   sort_order: number;
   /** Afgevinkte DoD-eisen bij het afronden. */
   dod_checked: string[];
+  /** Het antwoord, interne versie: voor het team. */
+  antwoord?: string | null;
   tasks: BacklogTask[];
   created_at: string;
 }
@@ -2699,7 +2705,9 @@ export const ISSUE_STATUS_COLORS: Record<IssueStatus, EntityColor> = {
 
 export interface Issue {
   id: string;
-  casus_id: string;
+  /** Leeg: een vraag van het initiatief, zonder casus. */
+  casus_id: string | null;
+  initiatief_id?: string | null;
   title: string;
   toelichting?: string | null;
   status: IssueStatus;
@@ -2710,6 +2718,8 @@ export interface Issue {
   sort_order: number;
   /** Afgevinkte DoD-eisen bij het afronden. */
   dod_checked: string[];
+  /** Het antwoord, interne versie: voor het team. */
+  antwoord?: string | null;
   task_count: number;
   task_done_count: number;
   created_at: string;
@@ -2730,9 +2740,11 @@ export interface IssueUpdate {
   status?: IssueStatus;
   is_onderzoeksvraag?: boolean;
   assignee_id?: string | null;
-  /** Verhuizen naar een andere casus van hetzelfde initiatief. */
-  casus_id?: string;
+  /** Verhuizen naar een andere casus van hetzelfde initiatief; null: uit de casus, naar het initiatief. */
+  casus_id?: string | null;
   dod_checked?: string[];
+  /** Het antwoord, interne versie; null wist het. */
+  antwoord?: string | null;
 }
 
 // Opmerkingen en bijlagen op een taak (het taakdetail).

@@ -88,14 +88,23 @@ describe('IssueDetailModal', () => {
     expect(document.querySelector('nldd-form-field[label="Toelichting"]')).toBeTruthy();
     await waitFor(() => expect([...select('Issue-eigenaar').options].some((o) => o.text === 'Lid Een')).toBe(true));
     await kies(select('Issue-eigenaar'), 'p1');
-    expect(updateIssue).toHaveBeenCalledWith('c1', 'is1', { assignee_id: 'p1' });
+    expect(updateIssue).toHaveBeenCalledWith(expect.objectContaining({ casus_id: 'c1' }), 'is1', { assignee_id: 'p1' });
   });
 
   it('biedt alleen casussen van hetzelfde initiatief en verhuist met casus_id', async () => {
     renderPaneel();
-    await waitFor(() => expect([...select('Casus').options].map((o) => o.text)).toEqual(['Subsidieregels', 'Zorgtoeslag']));
+    await waitFor(() =>
+      expect([...select('Casus').options].map((o) => o.text)).toEqual(['Geen casus, vraag van het initiatief', 'Subsidieregels', 'Zorgtoeslag']),
+    );
     await kies(select('Casus'), 'c2');
-    expect(updateIssue).toHaveBeenCalledWith('c1', 'is1', { casus_id: 'c2' });
+    expect(updateIssue).toHaveBeenCalledWith(expect.objectContaining({ casus_id: 'c1' }), 'is1', { casus_id: 'c2' });
+  });
+
+  it('haalt de vraag uit de casus naar het initiatief', async () => {
+    renderPaneel();
+    await waitFor(() => expect([...select('Casus').options].length).toBe(3));
+    await kies(select('Casus'), '');
+    expect(updateIssue).toHaveBeenCalledWith(expect.objectContaining({ casus_id: 'c1' }), 'is1', { casus_id: null });
   });
 
   it('het vinkje maakt er geen onderzoeksvraag van', async () => {
@@ -104,7 +113,7 @@ describe('IssueDetailModal', () => {
     await act(async () => {
       vinkje.dispatchEvent(new CustomEvent('change', { detail: { checked: true } }));
     });
-    expect(updateIssue).toHaveBeenCalledWith('c1', 'is1', { is_onderzoeksvraag: false });
+    expect(updateIssue).toHaveBeenCalledWith(expect.objectContaining({ casus_id: 'c1' }), 'is1', { is_onderzoeksvraag: false });
   });
 
   it('afgerond kiezen loopt via de DoD', async () => {
@@ -118,7 +127,7 @@ describe('IssueDetailModal', () => {
       eis.dispatchEvent(new CustomEvent('change', { detail: { checked: true } }));
     });
     await klik(knoppen('Afronden met 1 open')[0]);
-    expect(updateIssue).toHaveBeenCalledWith('c1', 'is1', { status: IssueStatus.DONE, dod_checked: ['Demo gegeven'] });
+    expect(updateIssue).toHaveBeenCalledWith(expect.objectContaining({ casus_id: 'c1' }), 'is1', { status: IssueStatus.DONE, dod_checked: ['Demo gegeven'], antwoord: null });
     // Het paneel blijft open; alleen de checklist gaat dicht.
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -133,7 +142,7 @@ describe('IssueDetailModal', () => {
     );
     const bevestig = knoppen('Verwijderen').find((b) => !b.hasAttribute('start-icon'))!;
     await klik(bevestig);
-    expect(deleteIssue).toHaveBeenCalledWith('c1', 'is1');
+    expect(deleteIssue).toHaveBeenCalledWith(expect.objectContaining({ casus_id: 'c1' }), 'is1');
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 });

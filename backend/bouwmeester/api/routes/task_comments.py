@@ -42,7 +42,7 @@ from bouwmeester.core.storage import (
     store_upload,
     validate_upload,
 )
-from bouwmeester.models.casus import Casus
+from bouwmeester.core.werkplek import werkplek_van_taak
 from bouwmeester.models.person import Person
 from bouwmeester.models.task import Task
 from bouwmeester.models.task_attachment import TaskAttachment
@@ -78,14 +78,17 @@ def _ziet_taak(db: AsyncSession, task: Task):
     """
 
     async def ziet(person_id: UUID) -> bool:
-        if task.casus_id is not None:
+        if task.casus_id is not None or task.issue_id is not None:
+            plek = await werkplek_van_taak(db, task)
+        else:
+            plek = None
+        if plek is not None:
             from bouwmeester.repositories.initiatief import InitiatiefRepository
 
-            casus = await db.get(Casus, task.casus_id)
-            if casus is None or casus.initiatief_id is None:
-                return casus is not None
+            if plek.initiatief_id is None:
+                return True
             return await InitiatiefRepository(db).is_member(
-                casus.initiatief_id, person_id
+                plek.initiatief_id, person_id
             )
         person = await db.get(Person, person_id)
         if person is None:
@@ -119,13 +122,15 @@ async def _get_visible_task(
     task = await db.get(Task, task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="Taak niet gevonden")
-    if task.casus_id is not None:
-        casus = await db.get(Casus, task.casus_id)
+    plek = await werkplek_van_taak(db, task)
+    if plek is not None:
         require_initiatief_visible(
-            casus.initiatief_id if casus else None,
-            init_ctx,
-            detail="Taak niet gevonden",
+            plek.initiatief_id, init_ctx, detail="Taak niet gevonden"
         )
+        return task
+    if task.casus_id is not None:
+        # Casus weg: zoals voorheen niet te zien.
+        require_initiatief_visible(None, init_ctx, detail="Taak niet gevonden")
         return task
     if not perm_ctx.has_permission("task:read"):
         raise HTTPException(status_code=403, detail="Onvoldoende rechten")

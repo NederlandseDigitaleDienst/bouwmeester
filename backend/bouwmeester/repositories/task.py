@@ -3,12 +3,13 @@
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import distinct, func, or_, select
+from sqlalchemy import and_, distinct, func, or_, select
 from sqlalchemy.orm import selectinload
 
 from bouwmeester.core.initiatief_context import InitiatiefContext
 from bouwmeester.core.org_context import OrgContext, apply_org_filter
 from bouwmeester.models.casus import Casus
+from bouwmeester.models.issue import Issue
 from bouwmeester.models.task import Task
 from bouwmeester.models.task_comment import TaskComment
 from bouwmeester.repositories.base import BaseRepository
@@ -34,22 +35,32 @@ def apply_casus_filter(stmt, init_ctx: InitiatiefContext | None):
     Een casustaak is zo vertrouwelijk als de casus. Elke lijst die taken
     teruggeeft, ook "mijn taken" en de inbox, laat casustaken buiten de
     zichtbare initiatieven weg. Wie uit een initiatief is gehaald, ziet dus
-    ook de taken die nog op zijn naam staan niet meer. Taken zonder casus
-    (aan een node) blijven zoals ze waren: daar geldt de org-scope.
+    ook de taken die nog op zijn naam staan niet meer. Een taak onder een
+    vraag zonder casus (casus_id leeg, issue_id gevuld) volgt het initiatief
+    van die vraag. Taken aan een node (geen casus, geen vraag) blijven zoals
+    ze waren: daar geldt de org-scope.
     Zonder context (interne aanroep) wordt niets gefilterd.
     """
     if init_ctx is None or init_ctx.is_admin:
         return stmt
     if not init_ctx.is_authenticated:
-        return stmt.where(Task.casus_id.is_(None))
+        return stmt.where(Task.casus_id.is_(None), Task.issue_id.is_(None))
+    zichtbaar = init_ctx.visible_initiatief_ids
     zichtbare_casussen = select(Casus.id).where(
         or_(
             Casus.initiatief_id.is_(None),
-            Casus.initiatief_id.in_(init_ctx.visible_initiatief_ids),
+            Casus.initiatief_id.in_(zichtbaar),
         )
     )
+    zichtbare_losse_vragen = select(Issue.id).where(
+        Issue.casus_id.is_(None), Issue.initiatief_id.in_(zichtbaar)
+    )
     return stmt.where(
-        or_(Task.casus_id.is_(None), Task.casus_id.in_(zichtbare_casussen))
+        or_(
+            and_(Task.casus_id.is_(None), Task.issue_id.is_(None)),
+            Task.casus_id.in_(zichtbare_casussen),
+            and_(Task.casus_id.is_(None), Task.issue_id.in_(zichtbare_losse_vragen)),
+        )
     )
 
 
@@ -63,11 +74,14 @@ def casus_filter_sql_clause(init_ctx: InitiatiefContext | None) -> tuple[str, di
     if init_ctx is None or init_ctx.is_admin:
         return "", {}
     if not init_ctx.is_authenticated:
-        return " AND casus_id IS NULL", {}
+        return " AND casus_id IS NULL AND issue_id IS NULL", {}
     clause = (
-        " AND (casus_id IS NULL OR casus_id IN ("
+        " AND ((casus_id IS NULL AND issue_id IS NULL) OR casus_id IN ("
         "SELECT id FROM casus WHERE initiatief_id IS NULL"
-        " OR initiatief_id = ANY(:visible_initiatief_ids)))"
+        " OR initiatief_id = ANY(:visible_initiatief_ids))"
+        " OR (casus_id IS NULL AND issue_id IN ("
+        "SELECT id FROM issue WHERE casus_id IS NULL"
+        " AND initiatief_id = ANY(:visible_initiatief_ids))))"
     )
     return clause, {
         "visible_initiatief_ids": [str(i) for i in init_ctx.visible_initiatief_ids]
@@ -121,6 +135,7 @@ class TaskRepository(BaseRepository[Task]):
                 "organisatie_eenheid",
                 "node",
                 "casus",
+                "issue",
                 "opdracht",
                 "subtasks",
             ],
@@ -143,6 +158,7 @@ class TaskRepository(BaseRepository[Task]):
                 "organisatie_eenheid",
                 "node",
                 "casus",
+                "issue",
                 "opdracht",
                 "subtasks",
             ],

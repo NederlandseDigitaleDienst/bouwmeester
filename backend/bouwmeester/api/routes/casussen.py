@@ -289,7 +289,8 @@ async def list_backlog(
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
     org_ctx: OrgContext = Depends(get_org_context),
 ) -> BacklogResponse:
-    """De backlog van een initiatief: alle issues van al zijn casussen.
+    """De backlog van een initiatief: alle issues van al zijn casussen, en
+    de vragen van het initiatief zonder casus.
 
     Omgekeerd aan de casusweergave: per issue de casus erbij en de taken
     eronder. Sorteren en filteren gebeurt in de

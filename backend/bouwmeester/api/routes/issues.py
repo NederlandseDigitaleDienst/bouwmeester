@@ -1,11 +1,24 @@
-"""API routes voor issues binnen een casus.
+"""API routes voor issues (onderzoeksvragen), in een casus of zonder casus.
 
-Zelfde toegangsregel als de casus: wie de casus ziet, mag de issues zien;
-wijzigen vraagt dezelfde rol als de casus (bijdrager, eigenaar of trekker).
-Bij verwijderen van een issue blijven de taken op de casus staan (issue_id
-wordt leeg).
+Een vraag hoort altijd bij een initiatief en meestal bij een casus. Dezelfde
+routes staan op twee plekken:
+
+- ``/casussen/{casus_id}/issues``: vragen van een casus. Zelfde toegangsregel
+  als de casus: wie de casus ziet, mag de vragen zien; wijzigen vraagt
+  dezelfde rol als de casus (bijdrager, eigenaar of trekker).
+- ``/initiatieven/{initiatief_id}/vragen``: vragen zonder casus. Wie het
+  initiatief ziet, ziet ze; wijzigen vraagt bijdrager of eigenaar.
+
+Bij verwijderen van een casusvraag blijven de taken op de casus staan
+(issue_id wordt leeg). Een vraag zonder casus met taken verwijder je niet:
+de taken hebben dan geen plek meer.
+
+Een vraag verhuist met ``casus_id`` naar een casus van hetzelfde initiatief,
+of met ``casus_id: null`` uit zijn casus naar het initiatief. De taken gaan
+mee.
 """
 
+from collections.abc import Awaitable, Callable
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -22,7 +35,9 @@ from bouwmeester.core.initiatief_context import (
     require_initiatief_visible,
 )
 from bouwmeester.core.permissions import PermissionContext, get_permission_context
+from bouwmeester.core.werkplek import InitiatiefWerk, Werkplek
 from bouwmeester.models.casus import Casus
+from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.repositories.issue import IssueRepository
 from bouwmeester.schema.issue import (
     IssueCreate,
@@ -32,8 +47,6 @@ from bouwmeester.schema.issue import (
 )
 from bouwmeester.services import casus_kanaal_service as kanaal
 from bouwmeester.services.activity_service import log_activity
-
-router = APIRouter(prefix="/casussen/{casus_id}/issues", tags=["issues"])
 
 
 async def _get_casus(
@@ -48,6 +61,50 @@ async def _get_casus(
     return casus
 
 
+async def casus_plek(
+    casus_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+) -> Werkplek:
+    """De plek uit het pad /casussen/{casus_id}/...: de casus."""
+    return await _get_casus(db, casus_id, init_ctx)
+
+
+async def initiatief_plek(
+    initiatief_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+) -> Werkplek:
+    """De plek uit het pad /initiatieven/{initiatief_id}/vragen/...."""
+    if await db.get(Initiatief, initiatief_id) is None:
+        raise HTTPException(status_code=404, detail="Initiatief niet gevonden")
+    require_initiatief_visible(
+        initiatief_id, init_ctx, detail="Initiatief niet gevonden"
+    )
+    return InitiatiefWerk(initiatief_id=initiatief_id)
+
+
+def _hoort_bij(issue, plek: Werkplek) -> bool:
+    if plek.id is not None:
+        return issue.casus_id == plek.id
+    return issue.casus_id is None and issue.initiatief_id == plek.initiatief_id
+
+
+async def issue_in_plek(repo: IssueRepository, plek: Werkplek, issue_id: UUID):
+    """De vraag, als hij op deze plek staat; anders 404."""
+    issue = await repo.get(issue_id)
+    if issue is None or not _hoort_bij(issue, plek):
+        raise HTTPException(status_code=404, detail="Onderzoeksvraag niet gevonden")
+    return issue
+
+
+def plek_details(plek: Werkplek) -> dict:
+    """Waar de vraag staat, voor het activiteitenlog."""
+    if plek.id is None:
+        return {"casus_id": None, "initiatief_id": str(plek.initiatief_id)}
+    return {"casus_id": str(plek.id), "casus_title": plek.title}
+
+
 async def _with_counts(repo: IssueRepository, issues) -> list[IssueResponse]:
     counts = await repo.counts([i.id for i in issues])
     out = []
@@ -58,156 +115,178 @@ async def _with_counts(repo: IssueRepository, issues) -> list[IssueResponse]:
     return out
 
 
-@router.get("", response_model=list[IssueResponse])
-async def list_issues(
-    casus_id: UUID,
-    current_user: OptionalUser,
-    db: AsyncSession = Depends(get_db),
-    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
-) -> list[IssueResponse]:
-    await _get_casus(db, casus_id, init_ctx)
-    repo = IssueRepository(db)
-    return await _with_counts(repo, await repo.list_for_casus(casus_id))
+PlekDep = Callable[..., Awaitable[Werkplek]]
 
 
-@router.post("", response_model=IssueResponse, status_code=status.HTTP_201_CREATED)
-async def create_issue(
-    casus_id: UUID,
-    data: IssueCreate,
-    current_user: OptionalUser,
-    db: AsyncSession = Depends(get_db),
-    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
-    perm_ctx: PermissionContext = Depends(get_permission_context),
-) -> IssueResponse:
-    casus = await _get_casus(db, casus_id, init_ctx)
-    await require_can_change_casus(db, perm_ctx, current_user, casus)
-    if data.assignee_id is not None:
-        await require_initiatief_member(db, casus.initiatief_id, data.assignee_id)
-    repo = IssueRepository(db)
-    issue = await repo.create_for_casus(casus_id, data)
-    await log_activity(
-        db,
-        current_user,
-        None,
-        "issue.created",
-        details={
-            "casus_id": str(casus_id),
-            "casus_title": casus.title,
-            "title": issue.title,
-        },
-    )
-    actor = current_user.naam if current_user else None
-    await kanaal.meld(db, casus.id, kanaal.bericht_issue_nieuw(casus, issue, actor))
-    return (await _with_counts(repo, [issue]))[0]
+def maak_router(prefix: str, plek_dep: PlekDep, *, met_volgorde: bool) -> APIRouter:
+    """De vraagroutes onder een prefix, met de plek uit `plek_dep`."""
+    router = APIRouter(prefix=prefix, tags=["issues"])
 
+    @router.get("", response_model=list[IssueResponse])
+    async def list_issues(
+        current_user: OptionalUser,
+        plek: Werkplek = Depends(plek_dep),
+        db: AsyncSession = Depends(get_db),
+    ) -> list[IssueResponse]:
+        repo = IssueRepository(db)
+        return await _with_counts(repo, await repo.list_for_plek(plek))
 
-@router.put("/reorder", response_model=list[IssueResponse])
-async def reorder_issues(
-    casus_id: UUID,
-    data: IssueReorder,
-    current_user: OptionalUser,
-    db: AsyncSession = Depends(get_db),
-    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
-    perm_ctx: PermissionContext = Depends(get_permission_context),
-) -> list[IssueResponse]:
-    casus = await _get_casus(db, casus_id, init_ctx)
-    await require_can_change_casus(db, perm_ctx, current_user, casus)
-    repo = IssueRepository(db)
-    try:
-        issues = await repo.reorder(casus_id, data.issue_ids)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    return await _with_counts(repo, issues)
+    @router.post("", response_model=IssueResponse, status_code=status.HTTP_201_CREATED)
+    async def create_issue(
+        data: IssueCreate,
+        current_user: OptionalUser,
+        plek: Werkplek = Depends(plek_dep),
+        db: AsyncSession = Depends(get_db),
+        perm_ctx: PermissionContext = Depends(get_permission_context),
+    ) -> IssueResponse:
+        await require_can_change_casus(db, perm_ctx, current_user, plek)
+        if data.assignee_id is not None:
+            await require_initiatief_member(db, plek.initiatief_id, data.assignee_id)
+        repo = IssueRepository(db)
+        issue = await repo.create_in_plek(plek, data)
+        await log_activity(
+            db,
+            current_user,
+            None,
+            "issue.created",
+            details={**plek_details(plek), "title": issue.title},
+        )
+        if plek.id is not None:
+            # Alleen een casus heeft een kanaal; een losse vraag niet.
+            actor = current_user.naam if current_user else None
+            await kanaal.meld(
+                db, plek.id, kanaal.bericht_issue_nieuw(plek, issue, actor)
+            )
+        return (await _with_counts(repo, [issue]))[0]
 
+    if met_volgorde:
 
-@router.put("/{issue_id}", response_model=IssueResponse)
-async def update_issue(
-    casus_id: UUID,
-    issue_id: UUID,
-    data: IssueUpdate,
-    current_user: OptionalUser,
-    db: AsyncSession = Depends(get_db),
-    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
-    perm_ctx: PermissionContext = Depends(get_permission_context),
-) -> IssueResponse:
-    """Werk een issue bij. Met `casus_id` verhuist het naar een andere casus.
+        @router.put("/reorder", response_model=list[IssueResponse])
+        async def reorder_issues(
+            data: IssueReorder,
+            current_user: OptionalUser,
+            plek: Werkplek = Depends(plek_dep),
+            db: AsyncSession = Depends(get_db),
+            perm_ctx: PermissionContext = Depends(get_permission_context),
+        ) -> list[IssueResponse]:
+            await require_can_change_casus(db, perm_ctx, current_user, plek)
+            repo = IssueRepository(db)
+            try:
+                issues = await repo.reorder(plek.id, data.issue_ids)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
+            return await _with_counts(repo, issues)
 
-    Verhuizen kan alleen naar een zichtbare casus van hetzelfde initiatief:
-    dan blijft de kring van wie het werk ziet dezelfde, en blijven eigenaar
-    en uitvoerders van de taken geldig. De taken gaan mee.
-    """
-    casus = await _get_casus(db, casus_id, init_ctx)
-    await require_can_change_casus(db, perm_ctx, current_user, casus)
-    repo = IssueRepository(db)
-    existing = require_found(await repo.get(issue_id), "Issue")
-    if existing.casus_id != casus_id:
-        raise HTTPException(status_code=404, detail="Onderzoeksvraag niet gevonden")
+    @router.put("/{issue_id}", response_model=IssueResponse)
+    async def update_issue(
+        issue_id: UUID,
+        data: IssueUpdate,
+        current_user: OptionalUser,
+        plek: Werkplek = Depends(plek_dep),
+        db: AsyncSession = Depends(get_db),
+        init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+        perm_ctx: PermissionContext = Depends(get_permission_context),
+    ) -> IssueResponse:
+        """Werk een vraag bij. Met `casus_id` verhuist hij.
 
-    nieuwe_casus: Casus | None = None
-    if data.casus_id is not None and data.casus_id != casus_id:
-        nieuwe_casus = await _get_casus(db, data.casus_id, init_ctx)
-        await require_can_change_casus(db, perm_ctx, current_user, nieuwe_casus)
-        if nieuwe_casus.initiatief_id != casus.initiatief_id:
+        Verhuizen kan alleen binnen hetzelfde initiatief: naar een zichtbare
+        casus, of met `casus_id: null` uit de casus naar het initiatief. Dan
+        blijft de kring van wie het werk ziet dezelfde, en blijven eigenaar
+        en uitvoerders van de taken geldig. De taken gaan mee.
+        """
+        await require_can_change_casus(db, perm_ctx, current_user, plek)
+        repo = IssueRepository(db)
+        existing = await issue_in_plek(repo, plek, issue_id)
+
+        verhuist = "casus_id" in data.model_fields_set and data.casus_id != plek.id
+        nieuwe_plek: Werkplek | None = None
+        if verhuist and data.casus_id is not None:
+            nieuwe_plek = await _get_casus(db, data.casus_id, init_ctx)
+            if nieuwe_plek.initiatief_id != existing.initiatief_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Een issue verhuist alleen naar een casus van hetzelfde "
+                        "initiatief"
+                    ),
+                )
+        elif verhuist:
+            if existing.initiatief_id is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Deze casus hoort bij geen initiatief; de vraag blijft erin",
+                )
+            nieuwe_plek = InitiatiefWerk(initiatief_id=existing.initiatief_id)
+        if nieuwe_plek is not None:
+            await require_can_change_casus(db, perm_ctx, current_user, nieuwe_plek)
+        if "assignee_id" in data.model_fields_set and data.assignee_id is not None:
+            await require_initiatief_member(
+                db, existing.initiatief_id, data.assignee_id
+            )
+
+        old_status = existing.status
+        if nieuwe_plek is not None:
+            await repo.move_to_casus(existing, nieuwe_plek.id)
+        velden = IssueUpdate(
+            **data.model_dump(exclude_unset=True, exclude={"casus_id"})
+        )
+        issue = require_found(await repo.update(issue_id, velden), "Issue")
+        hier = nieuwe_plek or plek
+        details: dict = {**plek_details(hier), "title": issue.title}
+        if nieuwe_plek is not None:
+            details["old_casus_id"] = str(plek.id) if plek.id else None
+            if plek.id is not None:
+                details["old_casus_title"] = plek.title
+        if old_status != issue.status:
+            details["old_status"], details["new_status"] = old_status, issue.status
+        await log_activity(db, current_user, None, "issue.updated", details=details)
+        resp = (await _with_counts(repo, [issue]))[0]
+        if hier.id is not None and old_status != "done" and issue.status == "done":
+            actor = current_user.naam if current_user else None
+            await kanaal.meld(
+                db,
+                hier.id,
+                kanaal.bericht_issue_afgerond(
+                    hier, issue, resp.task_done_count, resp.task_count, actor
+                ),
+            )
+        return resp
+
+    @router.delete("/{issue_id}", status_code=status.HTTP_204_NO_CONTENT)
+    async def delete_issue(
+        issue_id: UUID,
+        current_user: OptionalUser,
+        plek: Werkplek = Depends(plek_dep),
+        db: AsyncSession = Depends(get_db),
+        perm_ctx: PermissionContext = Depends(get_permission_context),
+    ) -> None:
+        """Verwijder een vraag. In een casus blijven de taken los op de casus;
+        zonder casus kan het alleen als er geen taken onder hangen."""
+        await require_can_change_casus(db, perm_ctx, current_user, plek)
+        repo = IssueRepository(db)
+        existing = await issue_in_plek(repo, plek, issue_id)
+        if plek.id is None and await repo.heeft_taken(existing.id):
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "Een issue verhuist alleen naar een casus van hetzelfde initiatief"
+                    "Er hangen nog taken onder deze vraag. Verwijder ze, of hang "
+                    "ze eerst onder een andere vraag"
                 ),
             )
-    if "assignee_id" in data.model_fields_set and data.assignee_id is not None:
-        await require_initiatief_member(db, casus.initiatief_id, data.assignee_id)
-
-    old_status = existing.status
-    if nieuwe_casus is not None:
-        await repo.move_to_casus(existing, nieuwe_casus.id)
-    velden = IssueUpdate(**data.model_dump(exclude_unset=True, exclude={"casus_id"}))
-    issue = require_found(await repo.update(issue_id, velden), "Issue")
-    details: dict = {
-        "casus_id": str(issue.casus_id),
-        "casus_title": (nieuwe_casus or casus).title,
-        "title": issue.title,
-    }
-    if nieuwe_casus is not None:
-        details["old_casus_id"], details["old_casus_title"] = str(casus_id), casus.title
-    if old_status != issue.status:
-        details["old_status"], details["new_status"] = old_status, issue.status
-    await log_activity(db, current_user, None, "issue.updated", details=details)
-    resp = (await _with_counts(repo, [issue]))[0]
-    if old_status != "done" and issue.status == "done":
-        hier = nieuwe_casus or casus
-        actor = current_user.naam if current_user else None
-        await kanaal.meld(
+        title = existing.title
+        require_deleted(await repo.delete(issue_id), "Issue")
+        await log_activity(
             db,
-            hier.id,
-            kanaal.bericht_issue_afgerond(
-                hier, issue, resp.task_done_count, resp.task_count, actor
-            ),
+            current_user,
+            None,
+            "issue.deleted",
+            details={**plek_details(plek), "title": title},
         )
-    return resp
+
+    return router
 
 
-@router.delete("/{issue_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_issue(
-    casus_id: UUID,
-    issue_id: UUID,
-    current_user: OptionalUser,
-    db: AsyncSession = Depends(get_db),
-    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
-    perm_ctx: PermissionContext = Depends(get_permission_context),
-) -> None:
-    """Verwijder een issue. De taken eronder blijven los op de casus."""
-    casus = await _get_casus(db, casus_id, init_ctx)
-    await require_can_change_casus(db, perm_ctx, current_user, casus)
-    repo = IssueRepository(db)
-    existing = await repo.get(issue_id)
-    if existing is None or existing.casus_id != casus_id:
-        raise HTTPException(status_code=404, detail="Onderzoeksvraag niet gevonden")
-    title = existing.title
-    require_deleted(await repo.delete(issue_id), "Issue")
-    await log_activity(
-        db,
-        current_user,
-        None,
-        "issue.deleted",
-        details={"casus_id": str(casus_id), "casus_title": casus.title, "title": title},
-    )
+router = maak_router("/casussen/{casus_id}/issues", casus_plek, met_volgorde=True)
+initiatief_router = maak_router(
+    "/initiatieven/{initiatief_id}/vragen", initiatief_plek, met_volgorde=False
+)

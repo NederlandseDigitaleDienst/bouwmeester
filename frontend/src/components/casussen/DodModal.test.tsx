@@ -57,6 +57,6 @@ describe('DodModal', () => {
     await act(async () => {
       knop().dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
-    expect(updateIssue).toHaveBeenCalledWith('c1', 'i1', { status: IssueStatus.DONE, dod_checked: ['Gedemonstreerd'] });
+    expect(updateIssue).toHaveBeenCalledWith(expect.objectContaining({ casus_id: 'c1' }), 'i1', { status: IssueStatus.DONE, dod_checked: ['Gedemonstreerd'], antwoord: null });
   });
 });

@@ -31,6 +31,7 @@ def _task_options():
         selectinload(Task.organisatie_eenheid),
         selectinload(Task.node),
         selectinload(Task.casus),
+        selectinload(Task.issue),
         selectinload(Task.opdracht),
         selectinload(Task.subtasks).selectinload(Task.assignee),
     ]
