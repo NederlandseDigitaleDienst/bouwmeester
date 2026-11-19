@@ -327,6 +327,32 @@ async def delete_initiatief(
             ResourcePermission.resource_id == id,
         )
     )
+    # Taken onder een vraag zonder casus hangen alleen aan die vraag. De vraag
+    # gaat via de cascade mee, en dan zou de taak zonder anker blijven
+    # (fk_task_issue zet issue_id leeg): die ruimen we eerst op, en hun
+    # bijlagebestanden na de commit.
+    from bouwmeester.models.issue import Issue
+    from bouwmeester.models.task import Task
+    from bouwmeester.models.task_attachment import TaskAttachment
+
+    losse_vraag_taken = select(Task.id).where(
+        Task.casus_id.is_(None),
+        Task.issue_id.in_(
+            select(Issue.id).where(Issue.casus_id.is_(None), Issue.initiatief_id == id)
+        ),
+    )
+    losse_bijlagen = list(
+        (
+            await db.execute(
+                select(TaskAttachment.pad).where(
+                    TaskAttachment.task_id.in_(losse_vraag_taken)
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    await db.execute(sa_delete(Task).where(Task.id.in_(losse_vraag_taken)))
     # De casussen gaan via de cascade mee; hun teams (resource_permission
     # zonder FK) ruimen we hier op, anders blijven er rollen op een casus
     # staan die niet meer bestaat.
@@ -369,7 +395,7 @@ async def delete_initiatief(
         .scalars()
         .all()
     )
-    bijlage_paden = await bijlage_paden_van_casussen(db, casus_ids)
+    bijlage_paden = await bijlage_paden_van_casussen(db, casus_ids) + losse_bijlagen
 
     require_deleted(await repo.delete(id), "Initiatief")
 
