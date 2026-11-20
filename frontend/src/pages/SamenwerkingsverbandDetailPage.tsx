@@ -93,7 +93,7 @@ export function SamenwerkingsverbandDetailPage() {
     return (
       <nldd-container padding="48" max-width="672px" horizontal-alignment="center">
         <nldd-text size="sm" color="secondary" horizontal-alignment="center">
-          Samenwerkingsverband niet gevonden.
+          <p>Samenwerkingsverband niet gevonden.</p>
         </nldd-text>
       </nldd-container>
     );
@@ -301,7 +301,7 @@ export function SamenwerkingsverbandDetailPage() {
               <nldd-container gap="4">
                 {/* h2: the app header's title bar already renders this
                     route's h1 ("Samenwerkingsverbanden"). */}
-                <nldd-title size={3}><h2>{swv.naam}</h2></nldd-title>
+                <nldd-title size="display-3"><h2>{swv.naam}</h2></nldd-title>
                 <nldd-container layout="wrap" gap="8" vertical-alignment="center">
                   <Badge color={SAMENWERKINGSVERBAND_TYPE_BADGE_COLORS[swv.type] ?? 'coolgray'}>
                     {SAMENWERKINGSVERBAND_TYPE_LABELS[swv.type] ?? swv.type}
@@ -309,13 +309,15 @@ export function SamenwerkingsverbandDetailPage() {
                   <div className="hug">
                     <Icon name="users" size="xs" />
                     <nldd-text size="xs" color="secondary">
-                      {swv.aantal_leden} {swv.aantal_leden === 1 ? 'lid' : 'leden'}
+                      <p>
+                        {swv.aantal_leden} {swv.aantal_leden === 1 ? 'lid' : 'leden'}
+                      </p>
                     </nldd-text>
                   </div>
                   {periode && (
                     <div className="hug">
                       <Icon name="calendar" size="xs" />
-                      <nldd-text size="xs" color="secondary">{periode}</nldd-text>
+                      <nldd-text size="xs" color="secondary"><p>{periode}</p></nldd-text>
                     </div>
                   )}
                 </nldd-container>
@@ -337,7 +339,7 @@ export function SamenwerkingsverbandDetailPage() {
                 button ends on the right. With only right-alignment both
                 were pushed right. */}
             <nldd-container width="fit-content" className="row-fill">
-              <nldd-title size={4}><h2>Leden</h2></nldd-title>
+              <nldd-title size="display-4"><h2>Leden</h2></nldd-title>
             </nldd-container>
             <NlddButton variant="neutral-transparent" size="sm" startIcon="plus" onClick={() => setShowAddLid(true)} text="Toevoegen" />
           </nldd-container>
@@ -393,7 +395,7 @@ export function SamenwerkingsverbandDetailPage() {
                 return (
                   <nldd-list-item key={lid.id}>
                     <nldd-container gap="12" width="full" padding-block="8">
-                      <nldd-text size="sm" weight="medium">{lid.person_naam}</nldd-text>
+                      <nldd-text size="sm" weight="medium"><p>{lid.person_naam}</p></nldd-text>
                       <nldd-container layout="grid" column-count={1} sm-column-count={3} gap="12">
                         <Input
                           label="Rol"

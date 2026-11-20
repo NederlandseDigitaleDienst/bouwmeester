@@ -49,7 +49,7 @@ export function CasusOverzicht({ casusId, initiatiefId, filterPlek }: Props) {
       >
         <nldd-container gap="8">
           <nldd-container layout="row" gap="12" vertical-alignment="center">
-            <nldd-title size={4} className="row-fill">
+            <nldd-title size="display-4" className="row-fill">
               <h3>{casus.title}</h3>
             </nldd-title>
             <NlddButton
@@ -69,8 +69,10 @@ export function CasusOverzicht({ casusId, initiatiefId, filterPlek }: Props) {
             )}
             <CasusSoortTags soorten={casus.soorten} />
             <nldd-text size="sm" color="secondary">
-              {casus.trekker_naam ? `Trekker: ${casus.trekker_naam}` : 'Nog geen trekker'}
-              {casus.team_count > 1 ? ` · ${casus.team_count - 1} teamleden` : ''}
+              <p>
+                {casus.trekker_naam ? `Trekker: ${casus.trekker_naam}` : 'Nog geen trekker'}
+                {casus.team_count > 1 ? ` · ${casus.team_count - 1} teamleden` : ''}
+              </p>
             </nldd-text>
           </nldd-container>
           {gegevensOpen && (

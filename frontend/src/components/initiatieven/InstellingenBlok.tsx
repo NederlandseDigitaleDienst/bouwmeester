@@ -44,10 +44,12 @@ export function InstellingenBlok({ icon, titel, samenvatting, defaultOpen = fals
         >
           <Icon name={open ? 'chevron-down' : 'chevron-right'} size="sm" />
           <Icon name={icon} size="sm" />
-          <nldd-text size="md" weight="medium">{titel}</nldd-text>
+          <nldd-text size="md" weight="medium"><span>{titel}</span></nldd-text>
           {samenvatting && (
             <nldd-text size="sm" color="secondary" style={{ marginLeft: 'auto' }}>
-              {samenvatting}
+              <span>
+                {samenvatting}
+              </span>
             </nldd-text>
           )}
         </button>

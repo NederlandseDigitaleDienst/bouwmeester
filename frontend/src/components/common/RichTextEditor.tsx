@@ -183,7 +183,7 @@ export function RichTextEditor({
   // The built-in @-mention writes `[text](user:id)` with the candidate's own id.
   // An organisation comes through the same list, so its token is rewritten to
   // the org scheme after insertion.
-  useNlddEvent(ref, 'nldd-text-editor-mention', (event) => {
+  useNlddEvent(ref, 'mention', (event) => {
     const detail = (event as CustomEvent<{ id: string; text: string; from: number; to: number }>)
       .detail;
     if (!detail?.id?.startsWith('org:')) return;
@@ -214,7 +214,7 @@ export function RichTextEditor({
   return (
     <nldd-text-editor
       ref={ref}
-      appearance={bare ? 'simple' : 'input-field'}
+      {...(bare ? { embedded: true } : {})}
       rows={rows}
       resize="auto"
       {...(placeholder ? { placeholder } : {})}

@@ -103,7 +103,9 @@ export function StartvragenEditor({ initiatief }: { initiatief: InitiatiefDetail
             <nldd-container gap="8">
               <nldd-container layout="row" gap="4" vertical-alignment="center">
                 <nldd-text size="sm" color="secondary" style={{ width: '20px', fontVariantNumeric: 'tabular-nums' }}>
-                  {i + 1}.
+                  <p>
+                    {i + 1}.
+                  </p>
                 </nldd-text>
                 <nldd-container className="row-fill">
                   <Input
@@ -148,7 +150,9 @@ export function StartvragenEditor({ initiatief }: { initiatief: InitiatiefDetail
               </nldd-container>
               {vast ? (
                 <nldd-text size="xs" color="secondary" style={{ paddingLeft: '24px' }}>
-                  Vaste vraag: hij bepaalt of de acceptatiecriteria volgen. Tekst en keuzes ({v.opties.join(' / ')}) liggen vast.
+                  <p>
+                    Vaste vraag: hij bepaalt of de acceptatiecriteria volgen. Tekst en keuzes ({v.opties.join(' / ')}) liggen vast.
+                  </p>
                 </nldd-text>
               ) : (
                 isKeuze(v.antwoordtype) && (
@@ -167,7 +171,9 @@ export function StartvragenEditor({ initiatief }: { initiatief: InitiatiefDetail
               )}
               {fout && (
                 <nldd-text size="xs" color="critical" style={{ paddingLeft: '24px' }}>
-                  {fout}
+                  <p>
+                    {fout}
+                  </p>
                 </nldd-text>
               )}
             </nldd-container>

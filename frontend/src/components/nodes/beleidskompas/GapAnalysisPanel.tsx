@@ -29,7 +29,7 @@ export function GapAnalysisPanel({ dossierId }: GapAnalysisPanelProps) {
   return (
     <nldd-container gap="12">
       <nldd-container layout="row" gap="8" vertical-alignment="center">
-        <nldd-title size={6}><h3>Voltooiheidsanalyse</h3></nldd-title>
+        <nldd-title size="display-6"><h3>Voltooiheidsanalyse</h3></nldd-title>
         <nldd-spacer size="flexible" />
         <AiActionButton
           label="Analyse voltooiheid"
@@ -38,7 +38,7 @@ export function GapAnalysisPanel({ dossierId }: GapAnalysisPanelProps) {
         />
       </nldd-container>
 
-      {error && <nldd-text size="xs" color="critical">{error}</nldd-text>}
+      {error && <nldd-text size="xs" color="critical"><p>{error}</p></nldd-text>}
 
       {result && (
         <nldd-container gap="12">
@@ -51,7 +51,9 @@ export function GapAnalysisPanel({ dossierId }: GapAnalysisPanelProps) {
               aria-hidden="true"
             />
             <nldd-text size="sm" weight="medium">
-              {result.completed_count}/{result.total_steps} stappen voltooid
+              <p>
+                {result.completed_count}/{result.total_steps} stappen voltooid
+              </p>
             </nldd-text>
           </nldd-container>
 
@@ -88,7 +90,7 @@ export function GapAnalysisPanel({ dossierId }: GapAnalysisPanelProps) {
             <nldd-container gap="4">
               <nldd-container layout="row" gap="6" vertical-alignment="center">
                 <nldd-icon icon="lightbulb" size="16" color="warning" aria-hidden="true" />
-                <nldd-text size="xs" color="secondary" weight="medium">Aanbevelingen</nldd-text>
+                <nldd-text size="xs" color="secondary" weight="medium"><p>Aanbevelingen</p></nldd-text>
               </nldd-container>
               <nldd-rich-text>
                 <ul>

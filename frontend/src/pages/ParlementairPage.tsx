@@ -81,7 +81,7 @@ function StatusTabBar({
   const ref = useRef<HTMLElement>(null);
   useNlddEvent(
     ref,
-    'tabchange',
+    'tab-change',
     useCallback(
       (event: Event) => {
         const item = (event as CustomEvent<{ item?: HTMLElement }>).detail?.item;

@@ -31,7 +31,7 @@ function ExpandedPersonTasks({ person }: { person: EenheidPersonTaskStats }) {
         {isLoading && <LoadingSpinner padding="16" />}
         {tasks && tasks.length === 0 && (
           <nldd-text size="sm" color="secondary">
-            Geen taken gevonden.
+            <p>Geen taken gevonden.</p>
           </nldd-text>
         )}
         {tasks && tasks.length > 0 && (

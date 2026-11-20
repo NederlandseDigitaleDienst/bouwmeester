@@ -119,7 +119,9 @@ export function InboxItemCard({ item, onOpenThread, onMarkRead }: InboxItemProps
           size and broke "19 sep., 14:22" over two lines in a narrow window. */}
       <nldd-cell vertical-alignment="top" width="fit-content" horizontal-alignment="right">
         <nldd-text size="xs" color="secondary" style={{ whiteSpace: 'nowrap' }}>
-          {formatDateTimeShort(item.created_at)}
+          <p>
+            {formatDateTimeShort(item.created_at)}
+          </p>
         </nldd-text>
       </nldd-cell>
       <nldd-spacer-cell size="8" />

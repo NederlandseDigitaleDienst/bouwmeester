@@ -291,19 +291,19 @@ export function OpdrachtDetailModal({ opdrachtId, open, onClose }: OpdrachtDetai
             {budget > 0 && (
               <nldd-container layout="wrap" gap="32" vertical-alignment="bottom">
                 <div className="hug hug-stack hug-gap-2">
-                  <nldd-text size="xs" weight="medium" color="secondary">Budget</nldd-text>
-                  <nldd-text size="lg" weight="bold">{formatCurrency(opdracht.budget)}</nldd-text>
+                  <nldd-text size="xs" weight="medium" color="secondary"><p>Budget</p></nldd-text>
+                  <nldd-text size="lg" weight="bold"><p>{formatCurrency(opdracht.budget)}</p></nldd-text>
                 </div>
                 {uitnutting !== null && (
                   <div className="hug hug-stack hug-gap-2">
-                    <nldd-text size="xs" weight="medium" color="secondary">Uitnutting</nldd-text>
-                    <nldd-text size="lg" weight="bold">{uitnutting.toFixed(1)}%</nldd-text>
+                    <nldd-text size="xs" weight="medium" color="secondary"><p>Uitnutting</p></nldd-text>
+                    <nldd-text size="lg" weight="bold"><p>{uitnutting.toFixed(1)}%</p></nldd-text>
                   </div>
                 )}
                 {gerealiseerd > 0 && (
                   <div className="hug hug-stack hug-gap-2">
-                    <nldd-text size="xs" weight="medium" color="secondary">Gerealiseerd</nldd-text>
-                    <nldd-text size="lg" weight="bold">{formatCurrency(opdracht.gerealiseerd)}</nldd-text>
+                    <nldd-text size="xs" weight="medium" color="secondary"><p>Gerealiseerd</p></nldd-text>
+                    <nldd-text size="lg" weight="bold"><p>{formatCurrency(opdracht.gerealiseerd)}</p></nldd-text>
                   </div>
                 )}
               </nldd-container>
@@ -315,7 +315,7 @@ export function OpdrachtDetailModal({ opdrachtId, open, onClose }: OpdrachtDetai
             {/* Details + Financieel grid */}
             <nldd-container layout="grid" gap="24">
               <nldd-container gap="12">
-                <nldd-title size={6}><h2>Details</h2></nldd-title>
+                <nldd-title size="display-6"><h2>Details</h2></nldd-title>
                 <DetailMetadataGrid
                   items={[
                     { label: 'Begrotingsjaar', value: opdracht.begrotingsjaar },
@@ -373,7 +373,7 @@ export function OpdrachtDetailModal({ opdrachtId, open, onClose }: OpdrachtDetai
               </nldd-container>
 
               <nldd-container gap="12">
-                <nldd-title size={6}><h2>Financieel</h2></nldd-title>
+                <nldd-title size="display-6"><h2>Financieel</h2></nldd-title>
                 <DetailMetadataGrid
                   items={[
                     {
@@ -598,7 +598,7 @@ export function OpdrachtDetailModal({ opdrachtId, open, onClose }: OpdrachtDetai
                     ? <nldd-icon icon="check-mark-circle" size="16" color="success" aria-hidden="true" />
                     : task.status === TaskStatus.IN_PROGRESS
                       ? <nldd-icon icon="clock" size="16" color="accent" aria-hidden="true" />
-                      : <nldd-icon icon="circle" size="16" color="" aria-hidden="true" />,
+                      : <nldd-icon icon="circle" size="16" aria-hidden="true" />,
                   secondaryText: task.assignee?.naam,
                   onClick: () => openTaskDetail(task.id, opdracht.titel),
                 }))}

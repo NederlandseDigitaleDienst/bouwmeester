@@ -122,10 +122,12 @@ export function ColumnsManager({ initiatiefId }: ColumnsManagerProps) {
   return (
     <nldd-container gap="12">
       <nldd-text size="xs" color="secondary">
-        Eigenaren beheren hier de funnel-kolommen voor dit initiatief. Slug
-        blijft vast na aanmaken zodat bestaande leads gekoppeld blijven.
-        "Actieve fase" telt mee voor de overdue-filter; "Publiek zichtbaar"
-        toont casuses op de publieke pagina.
+        <p>
+          Eigenaren beheren hier de funnel-kolommen voor dit initiatief. Slug
+          blijft vast na aanmaken zodat bestaande leads gekoppeld blijven.
+          "Actieve fase" telt mee voor de overdue-filter; "Publiek zichtbaar"
+          toont casuses op de publieke pagina.
+        </p>
       </nldd-text>
 
       <nldd-list appearance="box-tinted" dividers="always" accessible-label="Funnel-kolommen">
@@ -210,15 +212,19 @@ export function ColumnsManager({ initiatiefId }: ColumnsManagerProps) {
         {deletingColumn && (
           <nldd-container gap="12">
             <nldd-text size="sm">
-              Weet je zeker dat je <strong>{deletingColumn.name}</strong> wilt
-              verwijderen?
+              <p>
+                Weet je zeker dat je <strong>{deletingColumn.name}</strong> wilt
+                verwijderen?
+              </p>
             </nldd-text>
             {deletingColumn.lead_count > 0 ? (
               <nldd-container gap="4">
                 <nldd-text size="sm" color="secondary">
-                  Deze kolom bevat {deletingColumn.lead_count}{' '}
-                  {deletingColumn.lead_count === 1 ? 'lead' : 'leads'}. Kies een
-                  doel-kolom waar ze heen gaan:
+                  <p>
+                    Deze kolom bevat {deletingColumn.lead_count}{' '}
+                    {deletingColumn.lead_count === 1 ? 'lead' : 'leads'}. Kies een
+                    doel-kolom waar ze heen gaan:
+                  </p>
                 </nldd-text>
                 <Select
                   value={moveTarget}
@@ -230,7 +236,7 @@ export function ColumnsManager({ initiatiefId }: ColumnsManagerProps) {
               </nldd-container>
             ) : (
               <nldd-text size="sm" color="secondary">
-                De kolom is leeg en wordt direct verwijderd.
+                <p>De kolom is leeg en wordt direct verwijderd.</p>
               </nldd-text>
             )}
           </nldd-container>
@@ -323,7 +329,9 @@ function ColumnRow({
               </nldd-list-item-segment>
             )}
             <nldd-text size="xs" color="secondary" style={{ fontVariantNumeric: 'tabular-nums' }}>
-              {col.lead_count} {col.lead_count === 1 ? 'lead' : 'leads'}
+              <p>
+                {col.lead_count} {col.lead_count === 1 ? 'lead' : 'leads'}
+              </p>
             </nldd-text>
           </nldd-container>
 
@@ -429,7 +437,7 @@ function ToggleChip({ active, activeIcon, inactiveIcon, label, title, activeColo
 }
 
 function swatchIconColor(color: NlddTagColor): NlddIconColor {
-  return color === 'neutral' ? 'secondary-content' : (color as NlddIconColor);
+  return color === 'neutral' ? 'secondary' : (color as NlddIconColor);
 }
 
 /** A filled circle in the color: the swatch in both controls below. */

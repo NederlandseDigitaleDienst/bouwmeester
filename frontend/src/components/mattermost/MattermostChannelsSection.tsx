@@ -60,7 +60,7 @@ export function MattermostChannelsSection({ scope }: Props) {
           <nldd-container layout="row" gap="6" vertical-alignment="center">
             <Icon name="tag" size="sm" />
             <nldd-text size="xs" weight="bold" color="secondary">
-              Mattermost-kanalen
+              <p>Mattermost-kanalen</p>
             </nldd-text>
           </nldd-container>
         </nldd-container>
@@ -179,7 +179,9 @@ function ChannelRow({
                 zien welk van twee gelijknamige kanalen hier hangt. */}
             {link.team_name && (
               <nldd-text size="xs" color="secondary">
-                {link.team_name}
+                <p>
+                  {link.team_name}
+                </p>
               </nldd-text>
             )}
             {link.disabled_at && <nldd-tag color="critical" size="sm" text="uitgeschakeld" />}
@@ -278,8 +280,10 @@ function ChannelPickerModal({
     <Modal open={open} onClose={onClose} title="Kanaal koppelen">
       <nldd-container gap="12">
         <nldd-text size="xs" color="secondary">
-          Zoek een kanaal waar de Bouwmeester-bot al lid van is. Niet
-          gevonden? Voeg de bot eerst toe aan dat kanaal in Mattermost.
+          <p>
+            Zoek een kanaal waar de Bouwmeester-bot al lid van is. Niet
+            gevonden? Voeg de bot eerst toe aan dat kanaal in Mattermost.
+          </p>
         </nldd-text>
         <nldd-text-field
           ref={searchRef}

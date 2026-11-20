@@ -67,8 +67,10 @@ export function EenheidBeheerManager() {
   return (
     <nldd-container gap="16">
       <nldd-text size="sm" color="secondary">
-        Beheer initiatieven en modules per organisatie-eenheid. Klik op een eenheid om de details te
-        zien.
+        <p>
+          Beheer initiatieven en modules per organisatie-eenheid. Klik op een eenheid om de details te
+          zien.
+        </p>
       </nldd-text>
 
       <nldd-container max-width="448px">
@@ -205,7 +207,7 @@ function EenheidDetailPanel({ eenheidId }: { eenheidId: string }) {
       <nldd-container gap="12">
         <nldd-container layout="row" gap="6" vertical-alignment="center">
           <nldd-icon icon="lightbulb" size="16" />
-          <nldd-title size={6}><h3>Initiatieven</h3></nldd-title>
+          <nldd-title size="display-6"><h3>Initiatieven</h3></nldd-title>
         </nldd-container>
 
         {initiativeLoading && <LoadingSpinner padding="16" />}
@@ -229,7 +231,7 @@ function EenheidDetailPanel({ eenheidId }: { eenheidId: string }) {
         )}
 
         {!initiativeLoading && initiatieven && initiatieven.length === 0 && (
-          <nldd-text size="sm" color="secondary">Geen gekoppelde initiatieven.</nldd-text>
+          <nldd-text size="sm" color="secondary"><p>Geen gekoppelde initiatieven.</p></nldd-text>
         )}
 
         <nldd-container layout="row" gap="8" horizontal-alignment="left">
@@ -252,7 +254,7 @@ function EenheidDetailPanel({ eenheidId }: { eenheidId: string }) {
       <nldd-container gap="12">
         <nldd-container layout="row" gap="6" vertical-alignment="center">
           <nldd-icon icon="blocks-9" size="16" />
-          <nldd-title size={6}><h3>Modules</h3></nldd-title>
+          <nldd-title size="display-6"><h3>Modules</h3></nldd-title>
         </nldd-container>
 
         {modulesLoading && <LoadingSpinner padding="16" />}

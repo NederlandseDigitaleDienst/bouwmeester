@@ -78,12 +78,12 @@ export function WorkerHealthTable() {
   }
   if (error) {
     return (
-      <nldd-text size="sm" color="critical">Kon worker-status niet ophalen.</nldd-text>
+      <nldd-text size="sm" color="critical"><p>Kon worker-status niet ophalen.</p></nldd-text>
     );
   }
   if (!data || data.workers.length === 0) {
     return (
-      <nldd-text size="sm" color="secondary">Geen worker-data beschikbaar.</nldd-text>
+      <nldd-text size="sm" color="secondary"><p>Geen worker-data beschikbaar.</p></nldd-text>
     );
   }
 
@@ -92,10 +92,12 @@ export function WorkerHealthTable() {
   return (
     <nldd-container gap="12">
       <nldd-container gap="4">
-        <nldd-title size={4}><h3>Achtergrondprocessen</h3></nldd-title>
+        <nldd-title size="display-4"><h3>Achtergrondprocessen</h3></nldd-title>
         <nldd-text size="sm" color="secondary">
-          De worker draait naast de webserver en doet polling, sync en de Mattermost-websocket. Elke
-          loop schrijft hier een hartslag.
+          <p>
+            De worker draait naast de webserver en doet polling, sync en de Mattermost-websocket. Elke
+            loop schrijft hier een hartslag.
+          </p>
         </nldd-text>
       </nldd-container>
 
@@ -132,7 +134,9 @@ export function WorkerHealthTable() {
       </nldd-table>
 
       <nldd-text size="xs" color="secondary">
-        Server-tijd: {new Date(data.server_now).toLocaleString('nl-NL')}. Auto-refresh elke 15 sec.
+        <p>
+          Server-tijd: {new Date(data.server_now).toLocaleString('nl-NL')}. Auto-refresh elke 15 sec.
+        </p>
       </nldd-text>
     </nldd-container>
   );

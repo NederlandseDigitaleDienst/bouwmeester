@@ -90,7 +90,9 @@ export function TaskPersonalView({ tasks, onEditTask }: TaskPersonalViewProps) {
             <nldd-container layout="row" gap="8" vertical-alignment="center" padding-bottom="12">
               {group.icon}
               <nldd-text size="sm" weight="bold" {...(group.headerColor ? { color: group.headerColor } : {})}>
-                {group.label}
+                <p>
+                  {group.label}
+                </p>
               </nldd-text>
               <nldd-badge color="neutral" number={group.tasks.length} decorative />
             </nldd-container>
@@ -107,7 +109,7 @@ export function TaskPersonalView({ tasks, onEditTask }: TaskPersonalViewProps) {
       {groups.every((g) => g.tasks.length === 0) && (
         <nldd-container padding-block="16" horizontal-alignment="center">
           <nldd-text size="sm" color="secondary">
-            Geen taken gevonden.
+            <p>Geen taken gevonden.</p>
           </nldd-text>
         </nldd-container>
       )}

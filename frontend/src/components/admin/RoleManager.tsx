@@ -190,7 +190,7 @@ function PersonRolesPanel({
   return (
     <nldd-box>
       <nldd-container padding="12" gap="4">
-        <nldd-title size={6}><h3>Rollen</h3></nldd-title>
+        <nldd-title size="display-6"><h3>Rollen</h3></nldd-title>
       {/* Current assignments table */}
       {assignments && assignments.length > 0 ? (
         <nldd-table
@@ -226,7 +226,7 @@ function PersonRolesPanel({
           })}
         </nldd-table>
       ) : (
-        <nldd-text size="sm" color="secondary">Geen rollen.</nldd-text>
+        <nldd-text size="sm" color="secondary"><p>Geen rollen.</p></nldd-text>
       )}
 
       {/* Add role button / form — directly after roles. Nobody but a
@@ -487,7 +487,7 @@ function PersonResourcePermissionsSection({ personId }: { personId: string }) {
   return (
     <nldd-container gap="12">
       <nldd-divider />
-      <nldd-title size={6}><h3>Resource permissies</h3></nldd-title>
+      <nldd-title size="display-6"><h3>Resource permissies</h3></nldd-title>
       {hasPerms && (
         <nldd-table
           columns="minmax(120px,1fr) 140px 100px 48px"
@@ -513,7 +513,7 @@ function PersonResourcePermissionsSection({ personId }: { personId: string }) {
         </nldd-table>
       )}
       {!hasPerms && !showForm && (
-        <nldd-text size="sm" color="secondary">Geen resource permissies.</nldd-text>
+        <nldd-text size="sm" color="secondary"><p>Geen resource permissies.</p></nldd-text>
       )}
 
       {!canManageRp ? null : !showForm ? (
@@ -664,11 +664,13 @@ export function RoleManager() {
       <nldd-container layout="row" gap="8">
         <nldd-icon icon="shield" size="16" color="accent" />
         <nldd-text size="sm" color="secondary">
-          Beheer roltoewijzingen per persoon. Klik op een persoon om rollen te bekijken, toe te
-          wijzen of in te trekken.
-          {roles && roles.length > 0 && (
-            <> Beschikbare rollen: {roles.map((r) => r.naam).join(', ')}.</>
-          )}
+          <p>
+            Beheer roltoewijzingen per persoon. Klik op een persoon om rollen te bekijken, toe te
+            wijzen of in te trekken.
+            {roles && roles.length > 0 && (
+              <> Beschikbare rollen: {roles.map((r) => r.naam).join(', ')}.</>
+            )}
+          </p>
         </nldd-text>
       </nldd-container>
 
@@ -848,7 +850,7 @@ function PersonRow({
         {online ? (
           <nldd-tag text="Nu actief" color="success" size="sm" />
         ) : (
-          <nldd-text size="sm" color="secondary">{formatRelativeTime(lastSeenAt)}</nldd-text>
+          <nldd-text size="sm" color="secondary"><p>{formatRelativeTime(lastSeenAt)}</p></nldd-text>
         )}
       </nldd-text-cell>
       {isExpanded && (

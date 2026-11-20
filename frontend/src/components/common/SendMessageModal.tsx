@@ -61,7 +61,9 @@ export function SendMessageModal({ open, onClose, recipient }: SendMessageModalP
               buttons beside it below their own labels. */}
           <nldd-container width="fit-content" className="row-fill">
             <nldd-text size="xs" color="secondary">
-              {currentPerson ? `Van: ${currentPerson.naam}` : 'Selecteer eerst een persoon'}
+              <p>
+                {currentPerson ? `Van: ${currentPerson.naam}` : 'Selecteer eerst een persoon'}
+              </p>
             </nldd-text>
           </nldd-container>
           <nldd-container layout="row" gap="12">

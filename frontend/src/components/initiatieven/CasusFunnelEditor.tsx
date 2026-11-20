@@ -106,9 +106,11 @@ export function CasusFunnelEditor({ initiatief }: { initiatief: InitiatiefDetail
   return (
     <nldd-container gap="16">
       <nldd-text size="sm" color="secondary">
-        De fases waar een casus doorheen gaat. Het funnelbord op de tab Casussen volgt deze lijst; bij een casus
-        staat wat er in zijn fase gebeurt en wanneer hij door mag.
-        {isVoorstel ? ' Dit is het voorstel; pas het aan en sla op om er een eigen funnel van te maken.' : ''}
+        <p>
+          De fases waar een casus doorheen gaat. Het funnelbord op de tab Casussen volgt deze lijst; bij een casus
+          staat wat er in zijn fase gebeurt en wanneer hij door mag.
+          {isVoorstel ? ' Dit is het voorstel; pas het aan en sla op om er een eigen funnel van te maken.' : ''}
+        </p>
       </nldd-text>
 
       {fases.map((f, i) => (
@@ -130,7 +132,7 @@ export function CasusFunnelEditor({ initiatief }: { initiatief: InitiatiefDetail
         <NlddButton variant="secondary" size="sm" startIcon="plus" onClick={voegToe} disabled={fases.length >= MAX_FASES} text="Fase toevoegen" />
       </div>
 
-      {fout && <nldd-text size="sm" color="critical">{fout}</nldd-text>}
+      {fout && <nldd-text size="sm" color="critical"><p>{fout}</p></nldd-text>}
       <nldd-container layout="row" gap="8" horizontal-alignment="right">
         {!isVoorstel && (
           <NlddButton variant="neutral-transparent" size="sm" onClick={() => void bewaar([])} disabled={settings.isPending} text="Terug naar het voorstel" />
@@ -161,7 +163,9 @@ function FaseBlok({ fase, nummer, eerste, laatste, enige, onZet, onOmhoog, onOml
       <nldd-container gap="8">
         <nldd-container layout="row" gap="8" vertical-alignment="center">
           <nldd-text size="sm" color="secondary" style={{ width: '20px', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
-            {nummer}.
+            <p>
+              {nummer}.
+            </p>
           </nldd-text>
           <nldd-container className="row-fill">
             <Input

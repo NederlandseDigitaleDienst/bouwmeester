@@ -1,6 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal, flushSync } from 'react-dom';
-import type { NLDDMoveEventDetail } from '@nldd/design-system/task-board';
+import type { NLDDMoveEventDetail } from '@nldd/design-system/kanban';
 import { useNavigate } from 'react-router-dom';
 
 import { Badge } from '@/components/common/Badge';
@@ -245,7 +245,7 @@ export function InitiatiefBacklog({
           <div className="hug hug-gap-8">
             <Badge color="oranje">{openIssues.length} open onderzoeksvragen</Badge>
             <Badge color="lintblauw">{openTaken} open taken</Badge>
-            <nldd-text size="xs" color="secondary">{rows.length} van {issues.length} onderzoeksvragen</nldd-text>
+            <nldd-text size="xs" color="secondary"><p>{rows.length} van {issues.length} onderzoeksvragen</p></nldd-text>
           </div>
           <nldd-spacer direction="horizontal" size="flexible" />
           <NlddButton
@@ -351,15 +351,19 @@ function IssueRow({ issue, alleTaken, open, onToggle, onOpenCasus, onOpen }: Iss
             <div className="hug">
               <Icon name="person" size="sm" />
               <nldd-text size="xs" color={issue.assignee ? 'content' : 'secondary'}>
-                {issue.assignee?.naam ?? 'Geen trekker'}
+                <p>
+                  {issue.assignee?.naam ?? 'Geen trekker'}
+                </p>
               </nldd-text>
             </div>
             {/* Kort: "1/9" is 1 van 9 taken af, met een smalle balk erbij. */}
             <div className="hug hug-gap-8" title={`${af} van ${totaal} taken af`}>
               <Icon name="check-list" size="sm" />
               <nldd-text size="xs" color="secondary" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {af}/{totaal}
-                <span className="visually-hidden"> taken af</span>
+                <p>
+                  {af}/{totaal}
+                  <span className="visually-hidden"> taken af</span>
+                </p>
               </nldd-text>
               {totaal > 0 && (
                 <nldd-progress-bar
@@ -375,7 +379,9 @@ function IssueRow({ issue, alleTaken, open, onToggle, onOpenCasus, onOpen }: Iss
             </div>
           </div>
           <nldd-text size="md" weight="medium" className="issue-rij-titel" style={klaar ? { opacity: 0.7 } : undefined}>
-            {issue.title}
+            <p>
+              {issue.title}
+            </p>
           </nldd-text>
           {/* Rechts, tegen de rand: wat het is en de status naast elkaar, de
               casus eronder. */}
@@ -411,7 +417,7 @@ function IssueRow({ issue, alleTaken, open, onToggle, onOpenCasus, onOpen }: Iss
 }
 
 /**
- * Het takenbord onder een uitgeklapte onderzoeksvraag: `nldd-task-board` met
+ * Het takenbord onder een uitgeklapte onderzoeksvraag: `nldd-kanban` met
  * drie kolommen, de taakstatussen Te doen, In uitvoering en Afgerond.
  * Geannuleerd ("Ingetrokken" in het design system) krijgt geen kolom.
  *
@@ -458,7 +464,7 @@ function MiniKanban({
     });
   }, [issue.tasks]);
 
-  useNlddEvent(bordRef, 'nldd-move', (event) => {
+  useNlddEvent(bordRef, 'move', (event) => {
     const { item, toColumn } = (event as CustomEvent<NLDDMoveEventDetail>).detail;
     const id = item.dataset.taakId;
     const task = issue.tasks.find((t) => t.id === id);
@@ -501,9 +507,9 @@ function MiniKanban({
 
   return (
     <div style={{ borderTop: '1px solid var(--primitives-color-neutral-200)', padding: '8px' }}>
-      <nldd-task-board ref={bordRef} accessible-label={`Taken bij ${issue.title}`}>
+      <nldd-kanban ref={bordRef} accessible-label={`Taken bij ${issue.title}`}>
         {KOLOMMEN.map((kolom) => (
-          <nldd-task-board-column key={kolom.status} value={kolom.status} text={kolom.label}>
+          <nldd-kanban-column key={kolom.status} value={kolom.status} text={kolom.label}>
             {issue.tasks
               .filter((t) => statusVan(t) === kolom.status)
               .map((t) => (
@@ -532,9 +538,9 @@ function MiniKanban({
                 <NlddIconButton icon="plus" accessibleLabel="Taak toevoegen" size="sm" variant="neutral-transparent" onClick={() => void voegToe()} />
               </nldd-container>
             )}
-          </nldd-task-board-column>
+          </nldd-kanban-column>
         ))}
-      </nldd-task-board>
+      </nldd-kanban>
       {verwijderen.element}
     </div>
   );
@@ -592,15 +598,15 @@ function TaakKaart({
     >
       <nldd-container gap="4">
         {/* Afgerond blijft gewoon leesbaar: de kolom zegt al dat het af is. */}
-        <nldd-text size="sm">{task.title}</nldd-text>
+        <nldd-text size="sm"><p>{task.title}</p></nldd-text>
         <nldd-container layout="row" gap="6" vertical-alignment="center">
           {task.assignee?.is_agent ? (
             <nldd-icon icon="sparkles" size="16" color="paars" aria-hidden="true" />
           ) : (
             <nldd-icon icon="person" size="16" aria-hidden="true" />
           )}
-          <nldd-text size="xs" color="secondary">{task.assignee?.naam ?? 'Niet toegewezen'}</nldd-text>
-          {task.due_date && <nldd-text size="xs" color="secondary">· {task.due_date}</nldd-text>}
+          <nldd-text size="xs" color="secondary"><p>{task.assignee?.naam ?? 'Niet toegewezen'}</p></nldd-text>
+          {task.due_date && <nldd-text size="xs" color="secondary"><p>· {task.due_date}</p></nldd-text>}
           <nldd-spacer direction="horizontal" size="flexible" />
           <OpmerkingenTeller aantal={task.comment_count} />
         </nldd-container>
@@ -620,8 +626,10 @@ function OpmerkingenTeller({ aantal }: { aantal: number }) {
     <div className="hug hug-gap-2" title={tekst}>
       <nldd-icon icon="message-rectangle-text" size="16" aria-hidden="true" />
       <nldd-text size="xs" color="secondary" style={{ fontVariantNumeric: 'tabular-nums' }}>
-        {aantal}
-        <span className="visually-hidden"> {aantal === 1 ? 'opmerking' : 'opmerkingen'}</span>
+        <p>
+          {aantal}
+          <span className="visually-hidden"> {aantal === 1 ? 'opmerking' : 'opmerkingen'}</span>
+        </p>
       </nldd-text>
     </div>
   );
@@ -636,9 +644,9 @@ function LosseTaken({ taken, issues }: { taken: BacklogLosseTaak[]; issues: Back
   const verwijderen = useTaakVerwijderen();
   return (
     <nldd-container gap="8">
-      <nldd-title size={6}><h3>Taken zonder onderzoeksvraag ({taken.length})</h3></nldd-title>
+      <nldd-title size="display-6"><h3>Taken zonder onderzoeksvraag ({taken.length})</h3></nldd-title>
       <nldd-text size="xs" color="secondary">
-        Liever niet: een taak hoort onder een issue. Hang ze hier onder een issue van dezelfde casus.
+        <p>Liever niet: een taak hoort onder een issue. Hang ze hier onder een issue van dezelfde casus.</p>
       </nldd-text>
       {taken.map((t) => {
         const kandidaten = issues.filter((i) => i.casus_id === t.casus_id);
@@ -646,9 +654,11 @@ function LosseTaken({ taken, issues }: { taken: BacklogLosseTaak[]; issues: Back
           <div key={t.id} onContextMenu={(e) => verwijderen.openMenu(e, t)}>
           <nldd-container layout="row" gap="8" vertical-alignment="center">
             <nldd-container gap="2" className="row-fill">
-              <nldd-text size="sm">{t.title}</nldd-text>
+              <nldd-text size="sm"><p>{t.title}</p></nldd-text>
               <nldd-text size="xs" color="secondary">
-                {t.casus.title}
+                <p>
+                  {t.casus.title}
+                </p>
               </nldd-text>
             </nldd-container>
             <OpmerkingenTeller aantal={t.comment_count} />

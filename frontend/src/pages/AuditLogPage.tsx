@@ -197,7 +197,7 @@ function DetailCell({
         isClickable ? (
           <NlddActionText text={String(subject)} onClick={handleClick} />
         ) : (
-          <nldd-text weight="medium">{String(subject)}</nldd-text>
+          <nldd-text weight="medium"><p>{String(subject)}</p></nldd-text>
         )
       )}
       {chips.length > 0 && (
@@ -212,7 +212,7 @@ function DetailCell({
           ))}
         </nldd-container>
       )}
-      {!subject && chips.length === 0 && <nldd-text color="secondary">—</nldd-text>}
+      {!subject && chips.length === 0 && <nldd-text color="secondary"><p>—</p></nldd-text>}
     </nldd-container>
   );
 }
@@ -295,16 +295,22 @@ export function AuditLogPage() {
                 <nldd-container gap="6">
                   <nldd-container layout="row" gap="8" horizontal-alignment="left">
                     <nldd-text size="xs" color="secondary">
-                      {formatDate(item.created_at)}
+                      <p>
+                        {formatDate(item.created_at)}
+                      </p>
                     </nldd-text>
                     {item.actor_naam && (
                       <nldd-text size="xs" weight="medium">
-                        {item.actor_naam}
+                        <p>
+                          {item.actor_naam}
+                        </p>
                       </nldd-text>
                     )}
                   </nldd-container>
                   <nldd-text size="sm" weight="medium">
-                    {EVENT_TYPE_LABELS[item.event_type] || item.event_type}
+                    <p>
+                      {EVENT_TYPE_LABELS[item.event_type] || item.event_type}
+                    </p>
                   </nldd-text>
                   <DetailCell item={item} onOpenNode={openNodeDetail} onOpenTask={openTaskDetail} />
                 </nldd-container>
@@ -336,7 +342,9 @@ export function AuditLogPage() {
       {totalPages > 1 && (
         <nldd-container gap="8">
           <nldd-text size="sm" color="secondary">
-            {data?.total ?? 0} resultaten — pagina {page + 1} van {totalPages}
+            <p>
+              {data?.total ?? 0} resultaten — pagina {page + 1} van {totalPages}
+            </p>
           </nldd-text>
           <nldd-pagination ref={paginationRef} current={page + 1} total={totalPages} />
         </nldd-container>

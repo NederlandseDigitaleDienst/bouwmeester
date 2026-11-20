@@ -51,7 +51,7 @@ export function EdgeList({ nodeId, nodeType }: EdgeListProps) {
   return (
     <nldd-container gap="16">
       <nldd-container layout="row" gap="8" vertical-alignment="center" horizontal-alignment="left">
-        <nldd-title size={6}><h3>Verbindingen ({edges.length})</h3></nldd-title>
+        <nldd-title size="display-6"><h3>Verbindingen ({edges.length})</h3></nldd-title>
         <nldd-spacer direction="horizontal" size="flexible" />
         <NlddButton
           variant="secondary"

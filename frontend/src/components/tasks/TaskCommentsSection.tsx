@@ -91,8 +91,8 @@ export function TaskCommentsSection({ taskId }: { taskId: string }) {
                 </div>
                 <nldd-container gap="2" width="full">
                   <nldd-container layout="row" gap="8" vertical-alignment="center">
-                    <nldd-text size="xs" weight="medium">{c.author_naam ?? 'Onbekend'}</nldd-text>
-                    <nldd-text size="xs" color="secondary">{timeAgo(c.created_at)}</nldd-text>
+                    <nldd-text size="xs" weight="medium"><p>{c.author_naam ?? 'Onbekend'}</p></nldd-text>
+                    <nldd-text size="xs" color="secondary"><p>{timeAgo(c.created_at)}</p></nldd-text>
                     {magWeg && (
                       <NlddIconButton
                         icon="trash"
@@ -105,7 +105,9 @@ export function TaskCommentsSection({ taskId }: { taskId: string }) {
                     )}
                   </nldd-container>
                   <nldd-text size="sm">
-                    <RichTextDisplay content={c.content} fallback="" />
+                    <p>
+                      <RichTextDisplay content={c.content} fallback="" />
+                    </p>
                   </nldd-text>
                 </nldd-container>
               </div>

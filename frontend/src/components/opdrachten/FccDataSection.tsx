@@ -105,10 +105,10 @@ export function FccDataSection({
         {(budgetTotaal != null || gerealiseerTotaal != null) && (
           <nldd-container layout="row" gap="16">
             {budgetTotaal != null && (
-              <nldd-text size="xs" color="secondary">Budget totaal: {formatCurrency(budgetTotaal)}</nldd-text>
+              <nldd-text size="xs" color="secondary"><p>Budget totaal: {formatCurrency(budgetTotaal)}</p></nldd-text>
             )}
             {gerealiseerTotaal != null && (
-              <nldd-text size="xs" color="secondary">Gerealiseerd totaal: {formatCurrency(gerealiseerTotaal)}</nldd-text>
+              <nldd-text size="xs" color="secondary"><p>Gerealiseerd totaal: {formatCurrency(gerealiseerTotaal)}</p></nldd-text>
             )}
           </nldd-container>
         )}

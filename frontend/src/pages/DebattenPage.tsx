@@ -65,7 +65,7 @@ function KanaalLink({ kanaal, onderwerp }: { kanaal: DebatKanaal; onderwerp: str
       title={naam}
     />
   ) : (
-    <nldd-text size="sm" color="secondary">{naam}</nldd-text>
+    <nldd-text size="sm" color="secondary"><p>{naam}</p></nldd-text>
   );
 }
 
@@ -249,7 +249,7 @@ function GevolgdSection({ search }: { search: string }) {
 
   return (
     <nldd-container gap="8">
-      <nldd-title size={6}><h2>Eerder gevolgd</h2></nldd-title>
+      <nldd-title size="display-6"><h2>Eerder gevolgd</h2></nldd-title>
       {debatten.length > 0 ? (
         <nldd-list appearance="box-tinted" dividers="always" accessible-label="Debatten die eerder gevolgd zijn">
           {debatten.map((debat) => (
@@ -258,7 +258,7 @@ function GevolgdSection({ search }: { search: string }) {
         </nldd-list>
       ) : (
         <nldd-text size="sm" color="secondary">
-          Geen eerder gevolgd debat tot nu toe past bij deze zoekterm.
+          <p>Geen eerder gevolgd debat tot nu toe past bij deze zoekterm.</p>
         </nldd-text>
       )}
       {hasNextPage && (
@@ -434,20 +434,24 @@ export function DebattenPage() {
 
       {melding && (
         <nldd-text size="sm" color="secondary">
-          {melding} Kanalen opzetten kan hier nu niet; de agenda hieronder klopt wel.
+          <p>
+            {melding} Kanalen opzetten kan hier nu niet; de agenda hieronder klopt wel.
+          </p>
         </nldd-text>
       )}
 
       {kiesEerst && (
         <nldd-text size="sm" color="secondary">
-          Kies hierboven eerst het Mattermost-team waar het kanaal in moet komen. Daarna
-          verschijnt per vergadering de knop om een kanaal op te zetten.
+          <p>
+            Kies hierboven eerst het Mattermost-team waar het kanaal in moet komen. Daarna
+            verschijnt per vergadering de knop om een kanaal op te zetten.
+          </p>
         </nldd-text>
       )}
 
       {nu.length > 0 && (
         <nldd-container gap="8">
-          <nldd-title size={6}><h2>Nu bezig</h2></nldd-title>
+          <nldd-title size="display-6"><h2>Nu bezig</h2></nldd-title>
           <nldd-list appearance="box-tinted" dividers="always" accessible-label="Debatten die nu bezig zijn">
             {nu.map(renderRow)}
           </nldd-list>
@@ -466,7 +470,7 @@ export function DebattenPage() {
       ) : (
         dagen.map((dag) => (
           <nldd-container key={dag.key} gap="8">
-            <nldd-title size={6}><h2>{dag.label}</h2></nldd-title>
+            <nldd-title size="display-6"><h2>{dag.label}</h2></nldd-title>
             <nldd-list appearance="box-tinted" dividers="always" accessible-label={`Debatten op ${dag.label}`}>
               {dag.debatten.map(renderRow)}
             </nldd-list>

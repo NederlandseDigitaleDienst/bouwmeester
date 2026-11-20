@@ -138,7 +138,9 @@ export function AccessRequestManager() {
                   color="secondary"
                   title={req.deny_reason}
                 >
-                  {req.deny_reason.length > 20 ? `${req.deny_reason.slice(0, 20)}...` : req.deny_reason}
+                  <p>
+                    {req.deny_reason.length > 20 ? `${req.deny_reason.slice(0, 20)}...` : req.deny_reason}
+                  </p>
                 </nldd-text>
               )}
             </nldd-text-cell>

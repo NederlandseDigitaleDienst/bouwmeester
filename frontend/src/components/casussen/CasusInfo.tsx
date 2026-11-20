@@ -72,10 +72,12 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
           }}
         />
         {/* Wat er in deze fase gebeurt en wanneer de casus door mag. */}
-        {huidige?.omschrijving && <nldd-text size="sm" color="secondary">{huidige.omschrijving}</nldd-text>}
+        {huidige?.omschrijving && <nldd-text size="sm" color="secondary"><p>{huidige.omschrijving}</p></nldd-text>}
         {huidige?.door_als && (
           <nldd-text size="sm" color="secondary">
-            <strong>{faseIndex === fases.length - 1 ? 'Klaar als' : 'Door als'}:</strong> {huidige.door_als}
+            <p>
+              <strong>{faseIndex === fases.length - 1 ? 'Klaar als' : 'Door als'}:</strong> {huidige.door_als}
+            </p>
           </nldd-text>
         )}
       </nldd-container>
@@ -126,7 +128,7 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
             ))}
           </nldd-list>
         ) : (
-          <nldd-text size="sm" color="secondary">Nog geen trekker of teamleden</nldd-text>
+          <nldd-text size="sm" color="secondary"><p>Nog geen trekker of teamleden</p></nldd-text>
         )}
         <CasusTeamModal casus={showTeam ? casus : null} onClose={() => setShowTeam(false)} />
       </DetailSection>
@@ -143,7 +145,7 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
         {/* De acceptatiecriteria zoals het team ze bij de start naliep. */}
         {sv.acceptatiecriteria && sv.acceptatiecriteria.length > 0 && (
           <nldd-container gap="6">
-            <nldd-text size="xs" weight="medium" color="secondary">Acceptatiecriteria</nldd-text>
+            <nldd-text size="xs" weight="medium" color="secondary"><p>Acceptatiecriteria</p></nldd-text>
             {sv.acceptatiecriteria.map((a) => (
               <div key={a.criterium} className="hug hug-top hug-gap-8">
                 {a.akkoord ? (
@@ -153,10 +155,12 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
                 )}
                 <nldd-container gap="2">
                   <nldd-text size="sm">
-                    {a.criterium}
-                    <span className="visually-hidden">{a.akkoord ? ' (voldaan)' : ' (niet voldaan)'}</span>
+                    <p>
+                      {a.criterium}
+                      <span className="visually-hidden">{a.akkoord ? ' (voldaan)' : ' (niet voldaan)'}</span>
+                    </p>
                   </nldd-text>
-                  {a.opmerking && <nldd-text size="xs" color="secondary">{a.opmerking}</nldd-text>}
+                  {a.opmerking && <nldd-text size="xs" color="secondary"><p>{a.opmerking}</p></nldd-text>}
                 </nldd-container>
               </div>
             ))}
@@ -166,11 +170,11 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
         {sv.start_eisen && sv.start_eisen.length > 0 && <EisenMomentopname titel="Starteisen" eisen={sv.start_eisen} />}
         {sv.toelichting && (
           <nldd-container gap="4">
-            <nldd-text size="xs" weight="medium" color="secondary">Toelichting</nldd-text>
+            <nldd-text size="xs" weight="medium" color="secondary"><p>Toelichting</p></nldd-text>
             <RichTextDisplay content={sv.toelichting} />
           </nldd-container>
         )}
-        <nldd-text size="xs" color="secondary">Een eerste, kleine set. Schakels en kwartaalfocus volgen.</nldd-text>
+        <nldd-text size="xs" color="secondary"><p>Een eerste, kleine set. Schakels en kwartaalfocus volgen.</p></nldd-text>
       </DetailSection>
 
       {/* De eindeisen zoals het team ze naliep toen de casus in de laatste
@@ -189,8 +193,10 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
       <DetailSection title="Herkomst" icon={<Icon name="inbox" size="sm" />} separated>
         <nldd-container layout="row" gap="8" vertical-alignment="center">
           <nldd-text size="sm">
-            Gestart vanuit lead {casus.lead?.title ?? ''}
-            {casus.organization ? ` (${casus.organization})` : ''}. De lead is alleen-lezen.
+            <p>
+              Gestart vanuit lead {casus.lead?.title ?? ''}
+              {casus.organization ? ` (${casus.organization})` : ''}. De lead is alleen-lezen.
+            </p>
           </nldd-text>
           <NlddButton variant="neutral-transparent" size="sm" endIcon="arrow-right" onClick={() => openLeadDetail(casus.lead_id)} text="Open lead" />
         </nldd-container>
@@ -202,8 +208,8 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
 function Rij({ label, value }: { label: string; value: string }) {
   return (
     <nldd-container layout="row" gap="8">
-      <nldd-text size="sm" color="secondary">{label}:</nldd-text>
-      <nldd-text size="sm" weight="medium">{value || 'Niet ingevuld'}</nldd-text>
+      <nldd-text size="sm" color="secondary"><p>{label}:</p></nldd-text>
+      <nldd-text size="sm" weight="medium"><p>{value || 'Niet ingevuld'}</p></nldd-text>
     </nldd-container>
   );
 }

@@ -162,7 +162,7 @@ function OpdrachtCard({ opdracht: o, onOpen }: { opdracht: Opdracht; onOpen: () 
     <nldd-card ref={ref} button accessible-label={o.titel}>
       <nldd-container padding="12" gap="8">
         <nldd-container layout="row" gap="8" vertical-alignment="top">
-          <nldd-text size="sm" weight="medium">{o.titel}</nldd-text>
+          <nldd-text size="sm" weight="medium"><p>{o.titel}</p></nldd-text>
           <nldd-spacer direction="horizontal" size="flexible" />
           <Badge color={OPDRACHT_STATUS_COLORS[o.status as OpdrachtStatus] || 'coolgray'}>
             {OPDRACHT_STATUS_LABELS[o.status as OpdrachtStatus] || o.status}
@@ -172,15 +172,15 @@ function OpdrachtCard({ opdracht: o, onOpen }: { opdracht: Opdracht; onOpen: () 
           <Badge color={OPDRACHT_TYPE_COLORS[o.type as OpdrachtType] || 'coolgray'}>
             {OPDRACHT_TYPE_LABELS[o.type as OpdrachtType] || o.type}
           </Badge>
-          <nldd-text size="xs" color="secondary">{o.begrotingsjaar}</nldd-text>
+          <nldd-text size="xs" color="secondary"><p>{o.begrotingsjaar}</p></nldd-text>
           {(o.opdrachtnemer?.afkorting || o.opdrachtnemer?.naam) && (
-            <nldd-text size="xs" color="secondary">· {o.opdrachtnemer.afkorting || o.opdrachtnemer.naam}</nldd-text>
+            <nldd-text size="xs" color="secondary"><p>· {o.opdrachtnemer.afkorting || o.opdrachtnemer.naam}</p></nldd-text>
           )}
         </nldd-container>
         <nldd-container layout="row" gap="8">
-          <nldd-text size="xs" color="secondary">Budget: {formatCurrency(o.budget)}</nldd-text>
+          <nldd-text size="xs" color="secondary"><p>Budget: {formatCurrency(o.budget)}</p></nldd-text>
           <nldd-spacer direction="horizontal" size="flexible" />
-          <nldd-text size="xs" color="secondary">Gerealiseerd: {formatCurrency(o.gerealiseerd)}</nldd-text>
+          <nldd-text size="xs" color="secondary"><p>Gerealiseerd: {formatCurrency(o.gerealiseerd)}</p></nldd-text>
         </nldd-container>
       </nldd-container>
     </nldd-card>
@@ -336,26 +336,26 @@ export function OpdrachtenPage() {
       <nldd-collection layout="grid" item-min-width="160px" gap="12">
         <nldd-card>
           <nldd-container padding="16" gap="4">
-            <nldd-text size="sm" color="secondary">Aantal opdrachten</nldd-text>
-            <nldd-text size="lg" weight="bold">{summary?.count ?? opdrachten.length}</nldd-text>
+            <nldd-text size="sm" color="secondary"><p>Aantal opdrachten</p></nldd-text>
+            <nldd-text size="lg" weight="bold"><p>{summary?.count ?? opdrachten.length}</p></nldd-text>
           </nldd-container>
         </nldd-card>
         <nldd-card>
           <nldd-container padding="16" gap="4">
-            <nldd-text size="sm" color="secondary">Totaal budget</nldd-text>
-            <nldd-text size="lg" weight="bold">{formatCurrencyCompact(totaalBudget)}</nldd-text>
+            <nldd-text size="sm" color="secondary"><p>Totaal budget</p></nldd-text>
+            <nldd-text size="lg" weight="bold"><p>{formatCurrencyCompact(totaalBudget)}</p></nldd-text>
           </nldd-container>
         </nldd-card>
         <nldd-card>
           <nldd-container padding="16" gap="4">
-            <nldd-text size="sm" color="secondary">Totaal gerealiseerd</nldd-text>
-            <nldd-text size="lg" weight="bold">{formatCurrencyCompact(totaalGerealiseerd)}</nldd-text>
+            <nldd-text size="sm" color="secondary"><p>Totaal gerealiseerd</p></nldd-text>
+            <nldd-text size="lg" weight="bold"><p>{formatCurrencyCompact(totaalGerealiseerd)}</p></nldd-text>
           </nldd-container>
         </nldd-card>
         <nldd-card>
           <nldd-container padding="16" gap="4">
-            <nldd-text size="sm" color="secondary">Uitnutting</nldd-text>
-            <nldd-text size="lg" weight="bold">{uitnutting.toFixed(1)}%</nldd-text>
+            <nldd-text size="sm" color="secondary"><p>Uitnutting</p></nldd-text>
+            <nldd-text size="lg" weight="bold"><p>{uitnutting.toFixed(1)}%</p></nldd-text>
           </nldd-container>
         </nldd-card>
       </nldd-collection>
@@ -497,7 +497,9 @@ export function OpdrachtenPage() {
         </div>
         {fccEnabled && lastSync?.last_synced_at && (
           <nldd-text size="xs" color="secondary">
-            Laatste FCC-import: {timeAgo(lastSync.last_synced_at)}
+            <p>
+              Laatste FCC-import: {timeAgo(lastSync.last_synced_at)}
+            </p>
           </nldd-text>
         )}
       </nldd-container>
@@ -528,10 +530,10 @@ export function OpdrachtenPage() {
               ))}
               <nldd-card>
                 <nldd-container padding="16" layout="row" gap="8">
-                  <nldd-text size="sm" weight="medium">Totaal ({filteredOpdrachten.length})</nldd-text>
+                  <nldd-text size="sm" weight="medium"><p>Totaal ({filteredOpdrachten.length})</p></nldd-text>
                   <nldd-spacer direction="horizontal" size="flexible" />
-                  <nldd-text size="sm" weight="medium">{formatCurrency(filteredBudget)}</nldd-text>
-                  <nldd-text size="sm" weight="medium">{formatCurrency(filteredGerealiseerd)}</nldd-text>
+                  <nldd-text size="sm" weight="medium"><p>{formatCurrency(filteredBudget)}</p></nldd-text>
+                  <nldd-text size="sm" weight="medium"><p>{formatCurrency(filteredGerealiseerd)}</p></nldd-text>
                 </nldd-container>
               </nldd-card>
             </>
@@ -579,10 +581,10 @@ export function OpdrachtenPage() {
         </nldd-table>
           {filteredOpdrachten.length > 0 && (
             <nldd-container layout="row" gap="24" padding-inline="8" padding-block="8">
-              <nldd-text size="sm" weight="medium">Totaal ({filteredOpdrachten.length} opdrachten)</nldd-text>
+              <nldd-text size="sm" weight="medium"><p>Totaal ({filteredOpdrachten.length} opdrachten)</p></nldd-text>
               <nldd-spacer direction="horizontal" size="flexible" />
-              <nldd-text size="sm" weight="medium">{formatCurrency(filteredBudget)}</nldd-text>
-              <nldd-text size="sm" weight="medium">{formatCurrency(filteredGerealiseerd)}</nldd-text>
+              <nldd-text size="sm" weight="medium"><p>{formatCurrency(filteredBudget)}</p></nldd-text>
+              <nldd-text size="sm" weight="medium"><p>{formatCurrency(filteredGerealiseerd)}</p></nldd-text>
             </nldd-container>
           )}
         </nldd-container>

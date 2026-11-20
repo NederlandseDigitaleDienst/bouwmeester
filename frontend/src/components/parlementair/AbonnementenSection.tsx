@@ -215,9 +215,11 @@ export function AbonnementenSection({ initiatiefId }: { initiatiefId: string }) 
             <nldd-container layout="row" gap="6" vertical-alignment="center">
               <Icon name="search" size="sm" />
               <nldd-text size="xs" weight="bold" color="secondary">
-                {abonnementen.length > 0
-                  ? `Zoektermen (${abonnementen.length})`
-                  : 'Zoektermen'}
+                <p>
+                  {abonnementen.length > 0
+                    ? `Zoektermen (${abonnementen.length})`
+                    : 'Zoektermen'}
+                </p>
               </nldd-text>
             </nldd-container>
           </nldd-container>
@@ -261,8 +263,10 @@ export function AbonnementenSection({ initiatiefId }: { initiatiefId: string }) 
 
         {abonnementen.length === 0 ? (
           <nldd-text size="xs" color="secondary">
-            Nog geen zoektermen. Voeg er een toe, bijvoorbeeld de naam van dit
-            initiatief zoals die in kamerstukken wordt geschreven.
+            <p>
+              Nog geen zoektermen. Voeg er een toe, bijvoorbeeld de naam van dit
+              initiatief zoals die in kamerstukken wordt geschreven.
+            </p>
           </nldd-text>
         ) : (
           <nldd-table
@@ -299,9 +303,11 @@ export function AbonnementenSection({ initiatiefId }: { initiatiefId: string }) 
         {/* Onder de tabel, want het legt uit wat je daar ziet. Eén alinea:
             vijf losse regels uitleg boven het invoerveld leest niemand. */}
         <nldd-text size="xs" color="secondary">
-          Er wordt in de volledige tekst van nieuwe kamerstukken gezocht, ook in
-          bijlagen en beslisnota&apos;s. Een term die niets oplevert is niet per
-          se fout; een term die vaak wordt weggeklikt is waarschijnlijk te breed.
+          <p>
+            Er wordt in de volledige tekst van nieuwe kamerstukken gezocht, ook in
+            bijlagen en beslisnota&apos;s. Een term die niets oplevert is niet per
+            se fout; een term die vaak wordt weggeklikt is waarschijnlijk te breed.
+          </p>
         </nldd-text>
 
         <Bezorging kanalen={kanalen} />
@@ -341,7 +347,9 @@ function Bezorging({ kanalen }: { kanalen: GekoppeldKanaal[] | null }) {
     .join(', ');
   return (
     <nldd-text size="xs" color="secondary">
-      Berichten gaan naar {kanalen.length === 1 ? 'kanaal' : 'de kanalen'} {namen}.
+      <p>
+        Berichten gaan naar {kanalen.length === 1 ? 'kanaal' : 'de kanalen'} {namen}.
+      </p>
     </nldd-text>
   );
 }
@@ -414,7 +422,7 @@ function SuggestieLijst({
               stil omdat het type te ruim is om hem te vangen. */}
           <nldd-container width="full" min-width="0">
             <nldd-text size="xs" weight="bold">
-              Voorgestelde zoektermen
+              <p>Voorgestelde zoektermen</p>
             </nldd-text>
           </nldd-container>
           {/* Geen `width="fit-content"`-wrapper: die klapt dicht zonder
@@ -428,20 +436,26 @@ function SuggestieLijst({
           />
         </nldd-container>
         <nldd-text size="xs" color="secondary">
-          De aantallen zijn gemeten bij de bron. &quot;Nieuw&quot; telt alleen
-          stukken die je huidige termen nog niet vinden; een term zonder
-          nieuwe treffers kan alsnog nuttig zijn als je een van je andere
-          termen later weghaalt.
+          <p>
+            De aantallen zijn gemeten bij de bron. &quot;Nieuw&quot; telt alleen
+            stukken die je huidige termen nog niet vinden; een term zonder
+            nieuwe treffers kan alsnog nuttig zijn als je een van je andere
+            termen later weghaalt.
+          </p>
         </nldd-text>
         {suggesties.map((s) => (
           <nldd-container key={s.term} layout="row" gap="8" vertical-alignment="center">
             <nldd-container gap="2">
               <nldd-container layout="row" gap="6" vertical-alignment="center">
                 <nldd-text size="xs" weight="bold">
-                  {s.term}
+                  <p>
+                    {s.term}
+                  </p>
                 </nldd-text>
                 <nldd-text size="xs" color="secondary">
-                  {s.treffers === 1 ? '1 treffer' : `${s.treffers} treffers`}
+                  <p>
+                    {s.treffers === 1 ? '1 treffer' : `${s.treffers} treffers`}
+                  </p>
                 </nldd-text>
                 {s.nieuwe_treffers > 0 ? (
                   <nldd-tag
@@ -451,12 +465,14 @@ function SuggestieLijst({
                   />
                 ) : (
                   <nldd-text size="xs" color="secondary">
-                    · geen nieuwe
+                    <p>· geen nieuwe</p>
                   </nldd-text>
                 )}
               </nldd-container>
               <nldd-text size="xs" color="secondary">
-                {s.reden}
+                <p>
+                  {s.reden}
+                </p>
               </nldd-text>
             </nldd-container>
             <nldd-button
@@ -534,7 +550,9 @@ function AbonnementRow({
       <nldd-cell>
         <nldd-container layout="row" gap="6" vertical-alignment="center">
           <nldd-text size="xs" color={abonnement.actief ? undefined : 'secondary'}>
-            {abonnement.term}
+            <p>
+              {abonnement.term}
+            </p>
           </nldd-text>
           {!abonnement.actief && <nldd-tag size="sm" color="neutral" text="uit" />}
         </nldd-container>

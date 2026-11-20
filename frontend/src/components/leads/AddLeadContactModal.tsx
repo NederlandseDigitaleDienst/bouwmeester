@@ -195,7 +195,7 @@ export function AddLeadContactModal({
       {mode === 'select' ? (
         <nldd-container gap="16">
           {hint && (
-            <nldd-text size="sm" color="secondary">{hint}</nldd-text>
+            <nldd-text size="sm" color="secondary"><p>{hint}</p></nldd-text>
           )}
           <CreatableSelect
             label="Persoon"

@@ -87,7 +87,9 @@ export function TaskBoard({ tasks, onEditTask }: TaskBoardProps) {
         >
           <nldd-container layout="row" gap="8" vertical-alignment="center" padding="16" padding-bottom="12">
             <nldd-text size="sm" weight="bold">
-              {TASK_STATUS_LABELS[status]}
+              <p>
+                {TASK_STATUS_LABELS[status]}
+              </p>
             </nldd-text>
             {/* Pushes the count badge to the far edge, the container-level
                 equivalent of nldd-spacer-cell in a row of cells. */}
@@ -114,7 +116,7 @@ export function TaskBoard({ tasks, onEditTask }: TaskBoardProps) {
               // inline style.
               <nldd-container layout="row" horizontal-alignment="center" vertical-alignment="center" style={{ minHeight: '100px' }}>
                 <nldd-text size="xs" color="secondary">
-                  Sleep taken hierheen
+                  <p>Sleep taken hierheen</p>
                 </nldd-text>
               </nldd-container>
             )}

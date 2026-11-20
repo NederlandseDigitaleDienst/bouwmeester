@@ -78,12 +78,12 @@ export function MattermostChannelOverviewTable() {
     return <LoadingSpinner size="sm" padding="16" />;
   }
   if (error) {
-    return <nldd-text size="sm" color="critical">Kon kanaaloverzicht niet ophalen.</nldd-text>;
+    return <nldd-text size="sm" color="critical"><p>Kon kanaaloverzicht niet ophalen.</p></nldd-text>;
   }
   if (!data || data.length === 0) {
     return (
       <nldd-container gap="8">
-        <nldd-title size={4}><h3>Mattermost-kanalen</h3></nldd-title>
+        <nldd-title size="display-4"><h3>Mattermost-kanalen</h3></nldd-title>
         <EmptyState
           icon="message-rectangle-text"
           title="Nog geen kanalen gekoppeld"
@@ -96,11 +96,13 @@ export function MattermostChannelOverviewTable() {
   return (
     <nldd-container gap="12">
       <nldd-container gap="4">
-        <nldd-title size={4}><h3>Mattermost-kanalen</h3></nldd-title>
+        <nldd-title size="display-4"><h3>Mattermost-kanalen</h3></nldd-title>
         <nldd-text size="sm" color="secondary">
-          Gekoppelde kanalen waar de bot meeleest. &quot;Laatste post&quot; is de meest recente
-          verwerkte post; ontbreekt deze, dan is er sinds de koppeling niets binnengekomen, of de
-          websocket loopt niet.
+          <p>
+            Gekoppelde kanalen waar de bot meeleest. &quot;Laatste post&quot; is de meest recente
+            verwerkte post; ontbreekt deze, dan is er sinds de koppeling niets binnengekomen, of de
+            websocket loopt niet.
+          </p>
         </nldd-text>
       </nldd-container>
       <nldd-table

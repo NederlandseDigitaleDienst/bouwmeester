@@ -103,14 +103,16 @@ function ManualMergePanel() {
     <Card>
       <nldd-container gap="12">
         <nldd-container gap="4">
-          <nldd-title size={4}><h3>Handmatig mergen</h3></nldd-title>
+          <nldd-title size="display-4"><h3>Handmatig mergen</h3></nldd-title>
           <nldd-text size="sm" color="secondary">
-            Twee eenheden samenvoegen die de scan niet vangt (bv. een
-            seed-DG naast een organogram-rij met net andere naam). Alle
-            plaatsingen, leads, opdrachten en sub-eenheden van de{' '}
-            <strong>bron</strong> verhuizen naar het <strong>doel</strong>;
-            de bron wordt verwijderd. Hou als doel de gesyncte rij aan
-            (officiële naam en TOOI-koppeling blijven dan staan).
+            <p>
+              Twee eenheden samenvoegen die de scan niet vangt (bv. een
+              seed-DG naast een organogram-rij met net andere naam). Alle
+              plaatsingen, leads, opdrachten en sub-eenheden van de{' '}
+              <strong>bron</strong> verhuizen naar het <strong>doel</strong>;
+              de bron wordt verwijderd. Hou als doel de gesyncte rij aan
+              (officiële naam en TOOI-koppeling blijven dan staan).
+            </p>
           </nldd-text>
         </nldd-container>
 
@@ -151,13 +153,15 @@ function ManualMergePanel() {
         </nldd-container>
 
         {sameRow && (
-          <nldd-text size="sm" color="critical">Bron en doel zijn dezelfde eenheid.</nldd-text>
+          <nldd-text size="sm" color="critical"><p>Bron en doel zijn dezelfde eenheid.</p></nldd-text>
         )}
 
         {targetIsSynthetic && (
           <nldd-text size="sm" color="critical">
-            Het doel is een synthetische groep, geen echte eenheid. Kies
-            een echte organisatie-eenheid als doel.
+            <p>
+              Het doel is een synthetische groep, geen echte eenheid. Kies
+              een echte organisatie-eenheid als doel.
+            </p>
           </nldd-text>
         )}
 
@@ -206,14 +210,16 @@ function ManualMergePanel() {
 
         {mergeMutation.isError && (
           <nldd-text size="sm" color="critical">
-            Merge mislukt:{' '}
-            {mergeMutation.error instanceof Error
-              ? mergeMutation.error.message
-              : 'onbekende fout'}
+            <p>
+              Merge mislukt:{' '}
+              {mergeMutation.error instanceof Error
+                ? mergeMutation.error.message
+                : 'onbekende fout'}
+            </p>
           </nldd-text>
         )}
         {mergeMutation.isSuccess && (
-          <nldd-text size="sm" color="success">Merge voltooid.</nldd-text>
+          <nldd-text size="sm" color="success"><p>Merge voltooid.</p></nldd-text>
         )}
       </nldd-container>
     </Card>
@@ -259,29 +265,35 @@ export function ReconciliationManager() {
   return (
     <nldd-container gap="16">
       <nldd-container gap="4">
-        <nldd-title size={3}><h2>Reconciliatie van handmatige rijen met TOOI-data</h2></nldd-title>
+        <nldd-title size="display-3"><h2>Reconciliatie van handmatige rijen met TOOI-data</h2></nldd-title>
         <nldd-text size="sm" color="secondary">
-          TOOI-sync detecteert organisaties die ook handmatig zijn
-          aangemaakt. Mergen voegt de handmatige rij samen met de TOOI-rij
-          (alle leads, opdrachten en plaatsingen verhuizen). Negeren laat
-          beide rijen bestaan.
+          <p>
+            TOOI-sync detecteert organisaties die ook handmatig zijn
+            aangemaakt. Mergen voegt de handmatige rij samen met de TOOI-rij
+            (alle leads, opdrachten en plaatsingen verhuizen). Negeren laat
+            beide rijen bestaan.
+          </p>
         </nldd-text>
       </nldd-container>
 
       <Card>
         <nldd-container layout="row" gap="12" horizontal-alignment="left" vertical-alignment="center">
           <nldd-text size="sm">
-            <strong>Scan op afkorting/naam-match:</strong> zoekt handmatige
-            rijen (vaak FCC-import) die alsnog matchen op een TOOI-rij.
-            Genereert open reconciliations.
-            {scanResult && (
-              <nldd-text size="sm" color="secondary">
-                {' '}Laatste run: {scanResult.scanned} gescand,
-                {' '}{scanResult.found_match} matches,
-                {' '}{scanResult.new_reconciliations} nieuw,
-                {' '}{scanResult.already_pending} al open.
-              </nldd-text>
-            )}
+            <p>
+              <strong>Scan op afkorting/naam-match:</strong> zoekt handmatige
+              rijen (vaak FCC-import) die alsnog matchen op een TOOI-rij.
+              Genereert open reconciliations.
+              {scanResult && (
+                <nldd-text size="sm" color="secondary">
+                  <p>
+                    {' '}Laatste run: {scanResult.scanned} gescand,
+                    {' '}{scanResult.found_match} matches,
+                    {' '}{scanResult.new_reconciliations} nieuw,
+                    {' '}{scanResult.already_pending} al open.
+                  </p>
+                </nldd-text>
+              )}
+            </p>
           </nldd-text>
           <NlddButton
             onClick={() => orphanScanMutation.mutate()}
@@ -328,34 +340,38 @@ export function ReconciliationManager() {
             <nldd-container layout="row" gap="12" vertical-alignment="center">
               <nldd-tag text={item.match_reden} size="sm" />
               <nldd-text size="xs" color="secondary">
-                {new Date(item.created_at).toLocaleDateString('nl-NL', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric',
-                })}
+                <p>
+                  {new Date(item.created_at).toLocaleDateString('nl-NL', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </p>
               </nldd-text>
             </nldd-container>
 
             <nldd-container layout="row" gap="16" vertical-alignment="center">
               {/* Handmatige rij */}
               <nldd-container width="fit-content" min-width="200px" padding="12" gap="4">
-                <nldd-text size="xs" color="warning" weight="medium">Handmatig</nldd-text>
-                <nldd-text size="sm" weight="medium">{item.handmatige_naam}</nldd-text>
+                <nldd-text size="xs" color="warning" weight="medium"><p>Handmatig</p></nldd-text>
+                <nldd-text size="sm" weight="medium"><p>{item.handmatige_naam}</p></nldd-text>
                 {item.handmatige_afkorting && (
-                  <nldd-text size="xs" color="secondary">{item.handmatige_afkorting}</nldd-text>
+                  <nldd-text size="xs" color="secondary"><p>{item.handmatige_afkorting}</p></nldd-text>
                 )}
               </nldd-container>
 
-              <nldd-icon icon="arrow-right" size="20" color="secondary-content" />
+              <nldd-icon icon="arrow-right" size="20" color="secondary" />
 
               {/* Kandidaat */}
               <nldd-container width="fit-content" min-width="200px" padding="12" gap="4">
                 <nldd-text size="xs" color="accent" weight="medium">
-                  {item.kandidaat_bron.toUpperCase()}
+                  <p>
+                    {item.kandidaat_bron.toUpperCase()}
+                  </p>
                 </nldd-text>
-                <nldd-text size="sm" weight="medium">{item.kandidaat_naam ?? '—'}</nldd-text>
+                <nldd-text size="sm" weight="medium"><p>{item.kandidaat_naam ?? '—'}</p></nldd-text>
                 {item.kandidaat_tooi_uri && (
-                  <nldd-text size="xs" color="secondary">{item.kandidaat_tooi_uri}</nldd-text>
+                  <nldd-text size="xs" color="secondary"><p>{item.kandidaat_tooi_uri}</p></nldd-text>
                 )}
               </nldd-container>
             </nldd-container>

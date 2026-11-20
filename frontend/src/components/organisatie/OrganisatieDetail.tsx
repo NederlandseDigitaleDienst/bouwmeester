@@ -177,9 +177,11 @@ function PersonGroupSection({ group, isRoot, onEditPerson, onDragStartPerson, on
               {formatOrganisatieType(group.eenheid.type)}
             </Badge>
             <nldd-text size="sm" weight="medium" className="truncate">
-              {group.eenheid.naam}
+              <span>
+                {group.eenheid.naam}
+              </span>
             </nldd-text>
-            <nldd-text size="xs" color="secondary">({totalCount})</nldd-text>
+            <nldd-text size="xs" color="secondary"><span>({totalCount})</span></nldd-text>
           </nldd-container>
         </button>
 
@@ -285,10 +287,12 @@ export function OrganisatieDetail({
           >
             {formatOrganisatieType(eenheid.type)}
           </Badge>
-          <nldd-title size={4}><h2>{eenheid.naam}</h2></nldd-title>
+          <nldd-title size="display-4"><h2>{eenheid.naam}</h2></nldd-title>
           {eenheid.manager && (
             <nldd-text size="sm" color="secondary">
-              {eenheid.manager.naam}{eenheid.manager.functie ? ` — ${formatFunctie(eenheid.manager.functie)}` : ''}
+              <p>
+                {eenheid.manager.naam}{eenheid.manager.functie ? ` — ${formatFunctie(eenheid.manager.functie)}` : ''}
+              </p>
             </nldd-text>
           )}
           {eenheid.beschrijving && (
@@ -372,14 +376,14 @@ export function OrganisatieDetail({
       <nldd-container gap="12">
         <nldd-container layout="row" gap="8" vertical-alignment="center">
           <Icon name="users" size="sm" />
-          <nldd-title size={6}>
+          <nldd-title size="display-6">
             <h3>Personen ({personenCount}){agentCount > 0 && ` · Agents (${agentCount})`}</h3>
           </nldd-title>
         </nldd-container>
 
         {!personenGroup || totalCount === 0 ? (
           <nldd-text size="sm" color="secondary">
-            Geen personen of agents gekoppeld aan deze eenheid.
+            <p>Geen personen of agents gekoppeld aan deze eenheid.</p>
           </nldd-text>
         ) : (
           <PersonGroupSection

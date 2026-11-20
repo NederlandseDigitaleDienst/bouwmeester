@@ -8,6 +8,7 @@ import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useLeadDetail } from '@/contexts/LeadDetailContext';
 import { chatAttachmentPreviewUrl, isImageContentType } from '@/api/chat';
 import type { ChatMessage } from '@/api/chat';
+import { surfaceContext } from '@/components/nldd/surface';
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;
@@ -96,7 +97,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
             // pre-wrap keeps the user's own line breaks. On a span inside,
             // not on the host, as in RichTextDisplay: on the host it also
             // renders the whitespace around the component's slot.
-            <nldd-text size="sm" color="inherit">
+            <nldd-text size="sm">
               <span className="whitespace-pre-wrap">{message.content}</span>
             </nldd-text>
           ) : message.content ? (
@@ -160,6 +161,7 @@ function Bubble({ isUser, children }: { isUser: boolean; children: ReactNode }) 
         borderRadius: 'var(--semantics-surfaces-corner-radius)',
         backgroundColor: 'var(--primitives-color-lintblauw-600)',
         color: 'var(--primitives-color-coolgray-0)',
+        ...surfaceContext('var(--primitives-color-coolgray-0)', 'var(--primitives-color-lintblauw-600)'),
       }}
     >
       {inner}

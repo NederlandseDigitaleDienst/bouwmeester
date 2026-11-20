@@ -66,7 +66,7 @@ export function DocsPage() {
 
   // The bar reports the activated nldd-tab-bar-item element, not a value; the
   // tab id travels alongside on a data attribute so it can be read back here.
-  useNlddEvent(tabBarRef, 'tabchange', (e) => {
+  useNlddEvent(tabBarRef, 'tab-change', (e) => {
     const detail = (e as CustomEvent<{ item?: HTMLElement }>).detail;
     const tabId = detail?.item?.dataset.tabId;
     if (tabId) handleTabChange(tabId);

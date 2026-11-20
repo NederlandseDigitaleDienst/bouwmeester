@@ -31,7 +31,7 @@ export function PersonAvatar({ person, size = '40' }: PersonAvatarProps) {
       <nldd-avatar
         name={person.naam}
         size={size}
-        {...(person.is_agent ? { icon: 'sparkles', color: 'inherit' } : {})}
+        {...(person.is_agent ? { icon: 'sparkles', color: 'content' } : {})}
       />
       {online && (
         // Same reason: the online dot is pinned to a corner of the avatar box,

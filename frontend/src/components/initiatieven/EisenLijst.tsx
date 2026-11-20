@@ -43,13 +43,15 @@ export function EisenLijst({ items, onChange, naam, placeholder, leeg, nieuwLabe
   return (
     <nldd-container gap="12">
       {items.length === 0 ? (
-        <nldd-text size="sm" color="secondary">{leeg}</nldd-text>
+        <nldd-text size="sm" color="secondary"><p>{leeg}</p></nldd-text>
       ) : (
         <nldd-container gap="6">
           {items.map((item, i) => (
             <nldd-container key={i} layout="row" gap="4" vertical-alignment="center">
               <nldd-text size="sm" color="secondary" style={{ width: '20px', fontVariantNumeric: 'tabular-nums' }}>
-                {i + 1}.
+                <p>
+                  {i + 1}.
+                </p>
               </nldd-text>
               <nldd-container className="row-fill">
                 <Input

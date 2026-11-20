@@ -118,7 +118,9 @@ export function NlddActionText({ text, onClick, size, className }: NlddActionTex
       onClick={onClick}
     >
       <nldd-text {...(size ? { size } : {})} color="accent">
-        {text}
+        <span>
+          {text}
+        </span>
       </nldd-text>
     </button>
   );

@@ -81,7 +81,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
     },
     [setActiveTab],
   );
-  useNlddEvent(tabBarRef, 'tabchange', handleTabChange);
+  useNlddEvent(tabBarRef, 'tab-change', handleTabChange);
   const [showEditForm, setShowEditForm] = useState(false);
   const { data: node, isLoading, error } = useNode(nodeId);
   const { data: neighbors } = useNodeNeighbors(nodeId);
@@ -198,7 +198,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
             unused across the app). Measured on this route: two visible h1s,
             "Bouwmeester" from the bar and this one, plus a level skip
             straight to the h3 section headings below. */}
-        <nldd-title size={1}>
+        <nldd-title size="display-1">
           <h2>{node.title}</h2>
         </nldd-title>
         {/* Each item as wide as its text, so they sit side by side while they
@@ -206,11 +206,11 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
         <nldd-container layout="wrap" gap="16" vertical-alignment="center">
           <div className="hug">
             <Icon name="calendar" size="xs" />
-            <nldd-text size="xs" color="secondary">Aangemaakt: {formatDate(node.created_at)}</nldd-text>
+            <nldd-text size="xs" color="secondary"><p>Aangemaakt: {formatDate(node.created_at)}</p></nldd-text>
           </div>
           <div className="hug">
             <Icon name="link" size="xs" />
-            <nldd-text size="xs" color="secondary">{node.edge_count ?? 0} verbindingen</nldd-text>
+            <nldd-text size="xs" color="secondary"><p>{node.edge_count ?? 0} verbindingen</p></nldd-text>
           </div>
           {parlementairItem?.document_url && (
             <nldd-link
@@ -250,14 +250,14 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
 
             {/* Description */}
             <Card>
-              <nldd-title size={3}><h3>Beschrijving</h3></nldd-title>
+              <nldd-title size="display-3"><h3>Beschrijving</h3></nldd-title>
               <RichTextDisplay content={node.description} />
             </Card>
 
             {/* Financieel overzicht for instrument/maatregel/doel nodes */}
             {(node.node_type === NodeType.INSTRUMENT || node.node_type === NodeType.MAATREGEL || node.node_type === NodeType.DOEL) && (
               <Card>
-                <nldd-title size={3}><h3>Financieel overzicht</h3></nldd-title>
+                <nldd-title size="display-3"><h3>Financieel overzicht</h3></nldd-title>
                 <FinancieelOverzichtPanel nodeId={nodeId} nodeType={node.node_type} />
               </Card>
             )}
@@ -265,7 +265,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
             {/* Bron detail */}
             {node.node_type === NodeType.BRON && bronDetail && (
               <Card>
-                <nldd-title size={3}>
+                <nldd-title size="display-3">
                   <h3>Brongegevens</h3>
                   {!bronEditing && (
                     <span slot="end">
@@ -350,7 +350,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
                           bronDetail.url.startsWith('http://') || bronDetail.url.startsWith('https://') ? (
                             <nldd-link href={bronDetail.url} target="_blank" text={bronDetail.url} start-icon="external-link" />
                           ) : (
-                            <nldd-text size="md" color="secondary">{bronDetail.url}</nldd-text>
+                            <nldd-text size="md" color="secondary"><p>{bronDetail.url}</p></nldd-text>
                           )
                         ) : undefined,
                       },
@@ -363,7 +363,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
             {/* Bijlage */}
             {node.node_type === NodeType.BRON && (
               <Card>
-                <nldd-title size={3}><h3>Bijlage</h3></nldd-title>
+                <nldd-title size="display-3"><h3>Bijlage</h3></nldd-title>
                 {bijlageInfo ? (
                   <nldd-list appearance="box-tinted" dividers="never">
                     <nldd-list-item>
@@ -421,7 +421,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
 
             {/* Tags */}
             <Card>
-              <nldd-title size={3}><h3>Tags</h3></nldd-title>
+              <nldd-title size="display-3"><h3>Tags</h3></nldd-title>
               <nldd-container layout="wrap" gap="6" padding-bottom="12">
                 {nodeTags?.map((nt) => (
                   <NlddTagToken
@@ -431,7 +431,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
                   />
                 ))}
                 {(!nodeTags || nodeTags.length === 0) && (
-                  <nldd-text size="xs" color="secondary">Geen tags</nldd-text>
+                  <nldd-text size="xs" color="secondary"><p>Geen tags</p></nldd-text>
                 )}
               </nldd-container>
               {/* Add tag: search existing or create a new one */}
@@ -452,7 +452,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
             {/* Verwijzingen (back-references from mentions) */}
             {references && references.length > 0 && (
               <Card>
-                <nldd-title size={3}><h3>Verwijzingen ({references.length})</h3></nldd-title>
+                <nldd-title size="display-3"><h3>Verwijzingen ({references.length})</h3></nldd-title>
                 <nldd-list appearance="box-tinted" dividers="never">
                   {references.map((ref) => (
                     <NlddListItemButton
@@ -477,7 +477,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
             {/* Metadata */}
             {node.metadata && Object.keys(node.metadata).length > 0 && (
               <Card>
-                <nldd-title size={3}><h3>Metadata</h3></nldd-title>
+                <nldd-title size="display-3"><h3>Metadata</h3></nldd-title>
                 <DetailMetadataGrid
                   items={Object.entries(node.metadata).map(([key, value]) => ({
                     label: titleCase(key.replace(/_/g, ' ')),
@@ -490,7 +490,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
             {/* Stakeholders preview */}
             {stakeholders && stakeholders.length > 0 && (
               <nldd-container gap="12">
-                <nldd-title size={3}><h3>Betrokkenen ({stakeholders.length})</h3></nldd-title>
+                <nldd-title size="display-3"><h3>Betrokkenen ({stakeholders.length})</h3></nldd-title>
                 <nldd-container gap="8">
                   {stakeholders.slice(0, 5).map((s) => (
                     <PersonCardExpandable
@@ -517,7 +517,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
             {/* Connected nodes preview */}
             {neighbors && neighbors.length > 0 && (
               <Card>
-                <nldd-title size={3}><h3>Verbonden nodes ({neighbors.length})</h3></nldd-title>
+                <nldd-title size="display-3"><h3>Verbonden nodes ({neighbors.length})</h3></nldd-title>
                 <nldd-list appearance="box-tinted" dividers="never">
                   {neighbors.slice(0, 5).map((neighbor) => (
                     <NlddListItemButton key={neighbor.id} onClick={() => navigate(`/nodes/${neighbor.id}`)}>
@@ -554,7 +554,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
           // than a card with a heading as loud as the section's own.
           <nldd-container gap="32">
             <nldd-container gap="16">
-              <nldd-title size={3}><h3>Betrokkenen ({stakeholders?.length ?? 0})</h3></nldd-title>
+              <nldd-title size="display-3"><h3>Betrokkenen ({stakeholders?.length ?? 0})</h3></nldd-title>
 
               {/* Stakeholder list. A row wraps on a phone: the person keeps
                   the full width and the role and delete button move under it,
@@ -594,7 +594,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
                 </nldd-container>
               ) : (
                 <nldd-text size="sm" color="secondary">
-                  Er zijn nog geen personen gekoppeld aan deze node.
+                  <p>Er zijn nog geen personen gekoppeld aan deze node.</p>
                 </nldd-text>
               )}
 
@@ -603,7 +603,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
                   button share the next line and wrap together on a phone. */}
               <Card>
                 <nldd-container gap="12">
-                  <nldd-title size={6}><h4>Betrokkene toevoegen</h4></nldd-title>
+                  <nldd-title size="display-6"><h4>Betrokkene toevoegen</h4></nldd-title>
                   <CreatableSelect
                     label="Persoon"
                     value={newStakeholderPersonId}
@@ -654,10 +654,12 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
             </nldd-container>
 
             <nldd-container gap="8">
-              <nldd-title size={3}><h3>Belang, houding &amp; invloed</h3></nldd-title>
+              <nldd-title size="display-3"><h3>Belang, houding &amp; invloed</h3></nldd-title>
               <nldd-text size="sm" color="secondary">
-                Inschatting per stakeholder, los van rol. Aparte assessment voor
-                analyse-doeleinden.
+                <p>
+                  Inschatting per stakeholder, los van rol. Aparte assessment voor
+                  analyse-doeleinden.
+                </p>
               </nldd-text>
               <StakeholderTab scopeType="corpus_node" scopeId={nodeId} />
             </nldd-container>
@@ -672,7 +674,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
           <nldd-container gap="24">
             {/* Title history */}
             <Card>
-              <nldd-title size={3}><h3>Titelgeschiedenis</h3></nldd-title>
+              <nldd-title size="display-3"><h3>Titelgeschiedenis</h3></nldd-title>
               <nldd-spacer size="8" />
               {titleHistory && titleHistory.length > 0 ? (
                 <nldd-list dividers="never">
@@ -700,13 +702,13 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
                   ))}
                 </nldd-list>
               ) : (
-                <nldd-text size="sm" color="secondary">Geen titelgeschiedenis beschikbaar.</nldd-text>
+                <nldd-text size="sm" color="secondary"><p>Geen titelgeschiedenis beschikbaar.</p></nldd-text>
               )}
             </Card>
 
             {/* Status history */}
             <Card>
-              <nldd-title size={3}><h3>Statusgeschiedenis</h3></nldd-title>
+              <nldd-title size="display-3"><h3>Statusgeschiedenis</h3></nldd-title>
               <nldd-spacer size="8" />
               {statusHistory && statusHistory.length > 0 ? (
                 <nldd-list dividers="never">
@@ -734,7 +736,7 @@ export function NodeDetail({ nodeId }: NodeDetailProps) {
                   ))}
                 </nldd-list>
               ) : (
-                <nldd-text size="sm" color="secondary">Geen statusgeschiedenis beschikbaar.</nldd-text>
+                <nldd-text size="sm" color="secondary"><p>Geen statusgeschiedenis beschikbaar.</p></nldd-text>
               )}
             </Card>
           </nldd-container>

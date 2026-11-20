@@ -16,9 +16,11 @@ export function SubeenheidCard({ sub, onSelect }: SubeenheidCardProps) {
           <nldd-container layout="row" gap="8" vertical-alignment="center">
             <Icon name="apartment-building" size="md" />
             <nldd-container layout="stack" gap="0">
-              <nldd-text weight="medium">{sub.eenheid_naam}</nldd-text>
+              <nldd-text weight="medium"><p>{sub.eenheid_naam}</p></nldd-text>
               <nldd-text size="xs" color="secondary">
-                {formatOrganisatieType(sub.eenheid_type)}
+                <p>
+                  {formatOrganisatieType(sub.eenheid_type)}
+                </p>
               </nldd-text>
             </nldd-container>
           </nldd-container>
@@ -36,13 +38,19 @@ export function SubeenheidCard({ sub, onSelect }: SubeenheidCardProps) {
             while "Afgerond" ran past the card's edge. */}
         <nldd-container layout="wrap" gap="16">
           <nldd-text size="sm" color="secondary">
-            Open: {sub.open_count}
+            <p>
+              Open: {sub.open_count}
+            </p>
           </nldd-text>
           <nldd-text size="sm" color="secondary">
-            In uitvoering: {sub.in_progress_count}
+            <p>
+              In uitvoering: {sub.in_progress_count}
+            </p>
           </nldd-text>
           <nldd-text size="sm" color="secondary">
-            Afgerond: {sub.done_count}
+            <p>
+              Afgerond: {sub.done_count}
+            </p>
           </nldd-text>
         </nldd-container>
       </nldd-container>

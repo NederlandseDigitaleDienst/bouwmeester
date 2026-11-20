@@ -228,16 +228,20 @@ export function StartCasusModal({ lead: vasteLead, onClose, onStarted, kiesUit, 
           <Select required label="Uit welke lead?" options={leadOptions} value={gekozenId} onChange={(e) => setGekozenId(e.target.value)} />
         ) : (
           <nldd-text size="sm">
-            Er staat nu geen lead klaar. Een casus begint bij een lead in de kolom In the pocket op de tab Leads,
-            die nog geen casus heeft.
+            <p>
+              Er staat nu geen lead klaar. Een casus begint bij een lead in de kolom In the pocket op de tab Leads,
+              die nog geen casus heeft.
+            </p>
           </nldd-text>
         ))}
         <nldd-text size="sm" color="secondary">
-          De lead wordt daarna alleen-lezen. Het werk gaat verder op de casus. De vragen stel je in
-          bij de instellingen van het initiatief.
+          <p>
+            De lead wordt daarna alleen-lezen. Het werk gaat verder op de casus. De vragen stel je in
+            bij de instellingen van het initiatief.
+          </p>
         </nldd-text>
         {!vragenGeladen ? (
-          <nldd-text size="sm" color="secondary">Laden...</nldd-text>
+          <nldd-text size="sm" color="secondary"><p>Laden...</p></nldd-text>
         ) : (
           vragen.map((v) => (
             <StartvraagVeld key={v.id} vraag={v} waarde={waarden[v.id]} onChange={(w) => setWaarden((a) => ({ ...a, [v.id]: w }))} />
@@ -246,8 +250,8 @@ export function StartCasusModal({ lead: vasteLead, onClose, onStarted, kiesUit, 
         {satelliet && criteriaLijst.length > 0 && (
           <nldd-container gap="12">
             <nldd-container gap="2">
-              <nldd-text size="sm" weight="bold">Acceptatiecriteria voor een satellietcasus</nldd-text>
-              <nldd-text size="xs" color="secondary">Vink aan waaraan de casus voldoet, en licht toe waar dat helpt.</nldd-text>
+              <nldd-text size="sm" weight="bold"><p>Acceptatiecriteria voor een satellietcasus</p></nldd-text>
+              <nldd-text size="xs" color="secondary"><p>Vink aan waaraan de casus voldoet, en licht toe waar dat helpt.</p></nldd-text>
             </nldd-container>
             {criteriaLijst.map((c) => (
               <nldd-container key={c} gap="4">
@@ -273,9 +277,9 @@ export function StartCasusModal({ lead: vasteLead, onClose, onStarted, kiesUit, 
         {heeftEisen(gekozenSoorten, 'start_eisen') && (
           <nldd-container gap="12">
             <nldd-container gap="2">
-              <nldd-text size="sm" weight="bold">Starteisen van de gekozen soorten</nldd-text>
+              <nldd-text size="sm" weight="bold"><p>Starteisen van de gekozen soorten</p></nldd-text>
               <nldd-text size="xs" color="secondary">
-                Vink aan wat klopt, en licht toe waar dat helpt. Starten kan ook als niet alles klopt.
+                <p>Vink aan wat klopt, en licht toe waar dat helpt. Starten kan ook als niet alles klopt.</p>
               </nldd-text>
             </nldd-container>
             <EisenNalopen

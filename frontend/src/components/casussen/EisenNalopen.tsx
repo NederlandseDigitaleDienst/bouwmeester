@@ -63,7 +63,7 @@ export function EisenNalopen({
 export function EisenMomentopname({ titel, eisen }: { titel: string; eisen: SoortEis[] }) {
   return (
     <nldd-container gap="6">
-      <nldd-text size="xs" weight="medium" color="secondary">{titel}</nldd-text>
+      <nldd-text size="xs" weight="medium" color="secondary"><p>{titel}</p></nldd-text>
       {eisen.map((e) => (
         <div key={`${e.soort_id}-${e.eis}`} className="hug hug-top hug-gap-8">
           {e.akkoord ? (
@@ -73,12 +73,16 @@ export function EisenMomentopname({ titel, eisen }: { titel: string; eisen: Soor
           )}
           <nldd-container gap="2">
             <nldd-text size="sm">
-              {e.eis}
-              <span className="visually-hidden">{e.akkoord ? ' (af)' : ' (niet af)'}</span>
+              <p>
+                {e.eis}
+                <span className="visually-hidden">{e.akkoord ? ' (af)' : ' (niet af)'}</span>
+              </p>
             </nldd-text>
             <nldd-text size="xs" color="secondary">
-              {e.soort}
-              {e.opmerking ? `: ${e.opmerking}` : ''}
+              <p>
+                {e.soort}
+                {e.opmerking ? `: ${e.opmerking}` : ''}
+              </p>
             </nldd-text>
           </nldd-container>
         </div>

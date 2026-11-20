@@ -59,14 +59,16 @@ export function CasusSoortenBeheer({ initiatiefId }: { initiatiefId: string }) {
   return (
     <nldd-container gap="12">
       <nldd-text size="sm" color="secondary">
-        Soorten casus die je als labels aan een casus hangt, bij het starten of later bij de casusgegevens.
-        De uitleg staat bij het kiezen en als tooltip op het label. Een wijziging werkt meteen op alle
-        casussen.
+        <p>
+          Soorten casus die je als labels aan een casus hangt, bij het starten of later bij de casusgegevens.
+          De uitleg staat bij het kiezen en als tooltip op het label. Een wijziging werkt meteen op alle
+          casussen.
+        </p>
       </nldd-text>
       {isLoading ? (
-        <nldd-text size="sm" color="secondary">Laden...</nldd-text>
+        <nldd-text size="sm" color="secondary"><p>Laden...</p></nldd-text>
       ) : soorten.length === 0 ? (
-        <nldd-text size="sm" color="secondary">Nog geen soorten.</nldd-text>
+        <nldd-text size="sm" color="secondary"><p>Nog geen soorten.</p></nldd-text>
       ) : (
         <nldd-container gap="16">
           {soorten.map((s, i) => (
@@ -214,7 +216,9 @@ function SoortRegel({ soort, initiatiefId, eerste, laatste, onOmhoog, onOmlaag, 
         <nldd-tag text={soort.naam} color={leadColumnTagColor(soort.kleur)} size="sm" />
       </div>
       <nldd-text size="xs" color="secondary" style={{ width: '80px', flexShrink: 0, textAlign: 'right', whiteSpace: 'nowrap' }}>
-        {soort.casus_count === 1 ? '1 casus' : `${soort.casus_count} casussen`}
+        <p>
+          {soort.casus_count === 1 ? '1 casus' : `${soort.casus_count} casussen`}
+        </p>
       </nldd-text>
       <NlddIconButton icon="arrow-up" accessibleLabel={`${soort.naam} omhoog`} variant="neutral-transparent" size="sm" disabled={eerste} onClick={onOmhoog} />
       <NlddIconButton icon="arrow-down" accessibleLabel={`${soort.naam} omlaag`} variant="neutral-transparent" size="sm" disabled={laatste} onClick={onOmlaag} />

@@ -167,13 +167,15 @@ function ResultItemContent({ result, compact }: { result: SearchResult; compact?
             {SEARCH_RESULT_TYPE_LABELS[result.result_type]}
           </Badge>
           {result.subtitle && (
-            <nldd-text size="xs" color="secondary">{formatSubtitle(result)}</nldd-text>
+            <nldd-text size="xs" color="secondary"><p>{formatSubtitle(result)}</p></nldd-text>
           )}
         </nldd-container>
-        <nldd-text size="sm" weight="medium">{result.title}</nldd-text>
+        <nldd-text size="sm" weight="medium"><p>{result.title}</p></nldd-text>
         {result.description && (
           <nldd-text size="xs" color="secondary" className={compact ? 'line-clamp-1' : 'line-clamp-2'}>
-            {richTextToPlain(result.description)}
+            <p>
+              {richTextToPlain(result.description)}
+            </p>
           </nldd-text>
         )}
         {result.highlights &&
@@ -210,7 +212,9 @@ function ResultItemContent({ result, compact }: { result: SearchResult; compact?
       </nldd-container>
       {result.score > 0 && (
         <nldd-text size="xs" color="secondary">
-          {Math.round(result.score * 100)}%
+          <p>
+            {Math.round(result.score * 100)}%
+          </p>
         </nldd-text>
       )}
     </nldd-container>
@@ -257,12 +261,16 @@ export function SearchResultsList({ query, data, isLoading, isFetched, onResultC
     return (
       <nldd-container gap="24">
         <nldd-text size="sm" color="secondary">
-          {data?.total ?? results.length} resultaten voor &ldquo;{data?.query ?? query}&rdquo;
+          <p>
+            {data?.total ?? results.length} resultaten voor &ldquo;{data?.query ?? query}&rdquo;
+          </p>
         </nldd-text>
         {Object.entries(grouped).map(([resultType, groupResults]) => (
           <nldd-container key={resultType} gap="8">
             <nldd-text size="xs" weight="bold" color="secondary">
-              {SEARCH_RESULT_TYPE_LABELS[resultType as SearchResultType]} ({groupResults.length})
+              <p>
+                {SEARCH_RESULT_TYPE_LABELS[resultType as SearchResultType]} ({groupResults.length})
+              </p>
             </nldd-text>
             <nldd-container gap="8">
               {groupResults.map((result) => (
@@ -282,9 +290,9 @@ export function SearchResultsList({ query, data, isLoading, isFetched, onResultC
   if (query.length < 2 && !isFetched) {
     return (
       <nldd-container gap="12" horizontal-alignment="center" padding="48">
-        <nldd-icon icon="magnifier" size="40" color="secondary-content" aria-hidden="true" />
+        <nldd-icon icon="magnifier" size="40" color="secondary" aria-hidden="true" />
         <nldd-text size="sm" color="secondary" horizontal-alignment="center">
-          Voer minimaal 2 tekens in om te zoeken.
+          <p>Voer minimaal 2 tekens in om te zoeken.</p>
         </nldd-text>
       </nldd-container>
     );
@@ -331,7 +339,9 @@ export function GroupedListboxRows({
               padding stays on the plain div. */}
           <div style={{ paddingInline: '20px', paddingTop: '12px', paddingBottom: '4px' }} role="presentation">
             <nldd-text size="xs" weight="medium" color="secondary">
-              {SEARCH_RESULT_TYPE_LABELS[resultType as SearchResultType]} ({groupResults.length})
+              <p>
+                {SEARCH_RESULT_TYPE_LABELS[resultType as SearchResultType]} ({groupResults.length})
+              </p>
             </nldd-text>
           </div>
           {groupResults.map((result) => (

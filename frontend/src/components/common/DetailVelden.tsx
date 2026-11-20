@@ -36,7 +36,7 @@ export function Eigenschappen({ children }: { children: ReactNode }) {
 export function Eigenschap({ label, children, breed = false }: { label: string; children: ReactNode; breed?: boolean }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0, ...(breed ? { gridColumn: '1 / -1' } : {}) }}>
-      <nldd-text size="xs" weight="bold" color="secondary">{label}</nldd-text>
+      <nldd-text size="xs" weight="bold" color="secondary"><p>{label}</p></nldd-text>
       {children}
     </div>
   );
@@ -45,9 +45,9 @@ export function Eigenschap({ label, children, breed = false }: { label: string; 
 /** Platte waarde in een eigenschap; `leeg` als er niets is. */
 export function Waarde({ children, leeg }: { children?: ReactNode; leeg?: boolean }) {
   return leeg ? (
-    <nldd-text size="sm" color="secondary">Geen</nldd-text>
+    <nldd-text size="sm" color="secondary"><p>Geen</p></nldd-text>
   ) : (
-    <nldd-text size="sm">{children}</nldd-text>
+    <nldd-text size="sm"><p>{children}</p></nldd-text>
   );
 }
 

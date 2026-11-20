@@ -81,7 +81,9 @@ export function FileUpload({
         />
       </div>
       <nldd-text size="xs" color="secondary">
-        Ondersteunde formaten: {accept}
+        <p>
+          Ondersteunde formaten: {accept}
+        </p>
       </nldd-text>
     </nldd-container>
   );

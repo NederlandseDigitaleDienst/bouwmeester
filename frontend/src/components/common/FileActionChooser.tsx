@@ -45,7 +45,7 @@ export function FileActionChooser() {
         <nldd-banner variant="neutral" icon="file-text" text={fileLabel} size="sm" />
 
         <nldd-text size="sm" color="secondary">
-          Wat wil je met dit bestand doen?
+          <p>Wat wil je met dit bestand doen?</p>
         </nldd-text>
 
         {/* Two choices, so a list of rows rather than two buttons carrying a

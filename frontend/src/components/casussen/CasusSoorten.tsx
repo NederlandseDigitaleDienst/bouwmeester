@@ -34,7 +34,7 @@ export function CasusSoortenKiezer({
   if (soorten.length === 0) {
     return (
       <nldd-text size="sm" color="secondary">
-        Nog geen casussoorten. De eigenaar voegt ze toe bij de instellingen van het initiatief.
+        <p>Nog geen casussoorten. De eigenaar voegt ze toe bij de instellingen van het initiatief.</p>
       </nldd-text>
     );
   }
@@ -90,7 +90,9 @@ function SoortVinkje({ soort, aan, onChange }: { soort: CasusSoort; aan: boolean
       {vinkje}
       {/* Ingesprongen tot onder het label, naast het vakje. */}
       <nldd-text ref={uitlegRef} size="xs" color="secondary" style={{ paddingLeft: '28px' }}>
-        {soort.uitleg}
+        <p>
+          {soort.uitleg}
+        </p>
       </nldd-text>
     </nldd-container>
   );

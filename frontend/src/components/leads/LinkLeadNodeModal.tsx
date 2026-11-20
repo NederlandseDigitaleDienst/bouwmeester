@@ -180,7 +180,7 @@ export function LinkLeadNodeModal({ leadId, onClose }: Props) {
         <nldd-divider />
         <nldd-container gap="12">
           <nldd-text size="xs" color="secondary">
-            Optioneel: voeg ook een externe contactpersoon toe aan deze lead.
+            <p>Optioneel: voeg ook een externe contactpersoon toe aan deze lead.</p>
           </nldd-text>
           <CreatableSelect
             label="Externe contactpersoon"

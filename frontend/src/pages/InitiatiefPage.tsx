@@ -64,7 +64,7 @@ export function InitiatiefPage() {
     return (
       <nldd-container padding="48" horizontal-alignment="center">
         <nldd-text size="sm" color="secondary" horizontal-alignment="center">
-          Initiatief niet gevonden, of je hebt er geen toegang toe.
+          <p>Initiatief niet gevonden, of je hebt er geen toegang toe.</p>
         </nldd-text>
       </nldd-container>
     );
@@ -124,7 +124,7 @@ function InitiatiefTabBar({
     },
     [initiatiefId, navigate],
   );
-  useNlddEvent(ref, 'tabchange', handleTabChange);
+  useNlddEvent(ref, 'tab-change', handleTabChange);
 
   return (
     <nldd-tab-bar ref={ref} variant="text" accessible-label="Onderdelen van het initiatief">

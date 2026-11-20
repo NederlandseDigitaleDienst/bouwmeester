@@ -35,7 +35,7 @@ interface IconProps {
   /** Screen-reader label. Without one the icon is decorative and hidden. */
   label?: string;
   /**
-   * An nldd-icon colour: a role ('secondary-content', 'critical', ...) or a
+   * An nldd-icon colour: a role ('secondary', 'critical', ...) or a
    * Rijkshuisstijl name. Forwarded so a call site never has to reach for an
    * inline style, which is how a hand-picked palette step ends up standing in
    * for a role that already exists.

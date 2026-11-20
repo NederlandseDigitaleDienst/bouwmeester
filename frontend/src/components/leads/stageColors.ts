@@ -88,7 +88,7 @@ export function leadColumnTagColor(color: string): NlddTagColor {
  * mirrored from backend `schema.lead_column.LEAD_COLUMN_COLORS` (kept in
  * sync by hand). The swatch is an nldd-icon in that color: the icon takes the
  * same Rijkshuisstijl names and semantic roles as the tag, except that its
- * grey is 'secondary-content' rather than 'neutral'.
+ * grey is 'secondary' rather than 'neutral'.
  */
 export const TAG_KLEUR_OPTIES: { label: string; value: NlddTagColor }[] = [
   // Semantic roles

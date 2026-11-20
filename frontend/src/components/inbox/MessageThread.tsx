@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { RichTextDisplay } from '@/components/common/RichTextDisplay';
+import { surfaceContext } from '@/components/nldd/surface';
 import { RichTextEditor } from '@/components/common/RichTextEditor';
 import { Modal } from '@/components/common/Modal';
 import { useNotification, useReplies, useReplyToNotification, useMarkNotificationRead, useReactToMessage } from '@/hooks/useNotifications';
@@ -30,12 +31,16 @@ function MessageBubble({ message, isCurrentUser, reactions, onReact }: MessageBu
     <>
       {!isCurrentUser && message.sender_name && (
         <nldd-text size="xs" weight="medium" color="secondary">
-          {message.sender_name}
+          <p>
+            {message.sender_name}
+          </p>
         </nldd-text>
       )}
-      <RichTextDisplay content={message.message} fallback="" color={isCurrentUser ? 'inherit' : 'content'} />
-      <nldd-text size="xxs" color={isCurrentUser ? 'inherit' : 'secondary'}>
-        {timeAgo(message.created_at)}
+      <RichTextDisplay content={message.message} fallback="" />
+      <nldd-text size="xxs" color="secondary">
+        <p>
+          {timeAgo(message.created_at)}
+        </p>
       </nldd-text>
     </>
   );
@@ -61,6 +66,7 @@ function MessageBubble({ message, isCurrentUser, reactions, onReact }: MessageBu
                 borderRadius: 'var(--semantics-surfaces-corner-radius)',
                 backgroundColor: 'var(--primitives-color-accent-600)',
                 color: 'var(--primitives-color-neutral-0)',
+                ...surfaceContext('var(--primitives-color-neutral-0)', 'var(--primitives-color-accent-600)'),
               }}
             >
               <nldd-container gap="4" padding-inline="16" padding-block="10">{body}</nldd-container>

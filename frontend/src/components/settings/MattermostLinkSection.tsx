@@ -61,9 +61,9 @@ export function MattermostLinkSection({ compact = false }: { compact?: boolean }
         <nldd-container layout="row" gap="12" vertical-alignment="center">
           <Icon name="message-rectangle-text" size="lg" />
           <nldd-container gap="2">
-            <nldd-text weight="medium">Mattermost koppeling</nldd-text>
+            <nldd-text weight="medium"><p>Mattermost koppeling</p></nldd-text>
             <nldd-text size="sm" color="secondary">
-              Koppel je account om Bouwmeester-notificaties in Mattermost te ontvangen.
+              <p>Koppel je account om Bouwmeester-notificaties in Mattermost te ontvangen.</p>
             </nldd-text>
           </nldd-container>
         </nldd-container>
@@ -96,17 +96,21 @@ export function MattermostLinkSection({ compact = false }: { compact?: boolean }
               <nldd-card background="tinted">
                 <nldd-container gap="8" padding="16">
                   <nldd-text size="sm">
-                    Kopieer onderstaand bericht en plak het in een DM naar <strong>@bouwmeester</strong> in
-                    Mattermost.
-                    {linkStatus?.bot_dm_url && (
-                      <>
-                        {' '}
-                        <nldd-link href={linkStatus.bot_dm_url} target="_blank" text="Open het gesprek met de bot" />
-                      </>
-                    )}
+                    <p>
+                      Kopieer onderstaand bericht en plak het in een DM naar <strong>@bouwmeester</strong> in
+                      Mattermost.
+                      {linkStatus?.bot_dm_url && (
+                        <>
+                          {' '}
+                          <nldd-link href={linkStatus.bot_dm_url} target="_blank" text="Open het gesprek met de bot" />
+                        </>
+                      )}
+                    </p>
                   </nldd-text>
                   <nldd-text size="sm" weight="medium">
-                    Hoi! Koppel mij alsjeblieft aan Bouwmeester: {linkCode!.code}
+                    <p>
+                      Hoi! Koppel mij alsjeblieft aan Bouwmeester: {linkCode!.code}
+                    </p>
                   </nldd-text>
                   <NlddButton
                     text={copied ? 'Gekopieerd!' : 'Kopieer bericht'}
@@ -116,11 +120,13 @@ export function MattermostLinkSection({ compact = false }: { compact?: boolean }
                     onClick={handleCopyCode}
                   />
                   <nldd-text size="xs" color="secondary">
-                    Code verloopt om{' '}
-                    {new Date(linkCode!.expires_at).toLocaleTimeString('nl-NL', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                    <p>
+                      Code verloopt om{' '}
+                      {new Date(linkCode!.expires_at).toLocaleTimeString('nl-NL', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
                   </nldd-text>
                 </nldd-container>
               </nldd-card>

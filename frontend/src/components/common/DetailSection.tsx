@@ -32,7 +32,9 @@ export function DetailSection({
         <nldd-container layout="row" gap="6" vertical-alignment="center">
           {icon}
           <nldd-text size="xs" weight="bold" color="secondary">
-            {count != null ? `${title} (${count})` : title}
+            <p>
+              {count != null ? `${title} (${count})` : title}
+            </p>
           </nldd-text>
         </nldd-container>
         {action && (

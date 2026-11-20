@@ -162,7 +162,7 @@ export function InitiatiefUpdates({ initiatief }: { initiatief: InitiatiefDetail
 
       {concepts.length > 0 && (
         <nldd-container gap="4">
-          <nldd-text size="xs" color="secondary">Concepten</nldd-text>
+          <nldd-text size="xs" color="secondary"><p>Concepten</p></nldd-text>
           <nldd-list type="list" appearance="box-tinted">
             {concepts.map((post) => (
               <PostRow
@@ -181,7 +181,7 @@ export function InitiatiefUpdates({ initiatief }: { initiatief: InitiatiefDetail
 
       {published.length > 0 ? (
         <nldd-container gap="4">
-          <nldd-text size="xs" color="secondary">Gepubliceerd</nldd-text>
+          <nldd-text size="xs" color="secondary"><p>Gepubliceerd</p></nldd-text>
           <nldd-list type="list" appearance="box-tinted">
             {published.map((post) => (
               <PostRow
@@ -200,7 +200,7 @@ export function InitiatiefUpdates({ initiatief }: { initiatief: InitiatiefDetail
         concepts.length === 0 &&
         !composing && (
           <nldd-text size="sm" color="secondary">
-            Nog geen updates. Klik op &quot;Nieuwe update&quot; om iets te publiceren.
+            <p>Nog geen updates. Klik op &quot;Nieuwe update&quot; om iets te publiceren.</p>
           </nldd-text>
         )
       )}
@@ -250,13 +250,17 @@ function PostRow({
           </nldd-container>
           {post.body && (
             <nldd-text size="sm" color="secondary">
-              <RichTextDisplay content={post.body} />
+              <p>
+                <RichTextDisplay content={post.body} />
+              </p>
             </nldd-text>
           )}
           {isPublished && post.published_at && (
             <nldd-text size="xs" color="secondary">
-              {new Date(post.published_at).toLocaleString('nl-NL')}
-              {post.published_by_naam && ` · ${post.published_by_naam}`}
+              <p>
+                {new Date(post.published_at).toLocaleString('nl-NL')}
+                {post.published_by_naam && ` · ${post.published_by_naam}`}
+              </p>
             </nldd-text>
           )}
         </nldd-container>
@@ -308,7 +312,7 @@ function PublicPageNote({ initiatief }: { initiatief: InitiatiefDetail }) {
   if (initiatief.public_page_enabled && initiatief.slug) {
     return (
       <nldd-container layout="row" gap="4" vertical-alignment="center">
-        <nldd-text size="xs" color="secondary">Gepubliceerde updates staan op</nldd-text>
+        <nldd-text size="xs" color="secondary"><p>Gepubliceerde updates staan op</p></nldd-text>
         <nldd-link
           href={`/c/${initiatief.slug}`}
           target="_blank"
@@ -321,8 +325,10 @@ function PublicPageNote({ initiatief }: { initiatief: InitiatiefDetail }) {
   }
   return (
     <nldd-text size="xs" color="secondary">
-      De publieke pagina staat uit, dus gepubliceerde updates zijn nog nergens te zien. Zet
-      hem aan onder Instellingen.
+      <p>
+        De publieke pagina staat uit, dus gepubliceerde updates zijn nog nergens te zien. Zet
+        hem aan onder Instellingen.
+      </p>
     </nldd-text>
   );
 }

@@ -57,7 +57,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
       const { label, onAction } = toast.action;
       const button = document.createElement('nldd-button');
       button.setAttribute('slot', 'actions');
-      button.setAttribute('variant', 'inherit-tinted');
+      button.setAttribute('appearance', 'content-tinted');
       button.setAttribute('size', 'sm');
       button.setAttribute('text', label);
       button.addEventListener('click', () => {

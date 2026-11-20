@@ -32,8 +32,10 @@ export function PlacementRequestManager() {
   return (
     <nldd-container gap="16">
       <nldd-text size="sm" color="secondary">
-        Nieuwe medewerkers die zich aanmelden kiezen een team. Hieronder kun je hun teamverzoek
-        goedkeuren of afwijzen.
+        <p>
+          Nieuwe medewerkers die zich aanmelden kiezen een team. Hieronder kun je hun teamverzoek
+          goedkeuren of afwijzen.
+        </p>
       </nldd-text>
 
       <nldd-table
@@ -53,7 +55,7 @@ export function PlacementRequestManager() {
             <nldd-title-cell text={req.person_naam} />
             <nldd-text-cell>
               <nldd-container layout="row" gap="6" vertical-alignment="center">
-                <nldd-text size="sm">{req.eenheid_naam}</nldd-text>
+                <nldd-text size="sm"><p>{req.eenheid_naam}</p></nldd-text>
                 <NlddIconButton
                   icon="pencil"
                   accessibleLabel="Team wijzigen"

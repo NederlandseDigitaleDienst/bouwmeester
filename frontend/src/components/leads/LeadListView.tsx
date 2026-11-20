@@ -197,8 +197,10 @@ export function LeadListView({
         >
           <nldd-container gap="16">
             <nldd-text size="sm" color="secondary">
-              Kies de lead die je wilt behouden. De andere lead wordt hierin samengevoegd
-              (activiteiten, contacten, tags en bijlagen worden overgenomen).
+              <p>
+                Kies de lead die je wilt behouden. De andere lead wordt hierin samengevoegd
+                (activiteiten, contacten, tags en bijlagen worden overgenomen).
+              </p>
             </nldd-text>
             {Array.from(selectedIds).map((id) => {
               const lead = allLeads.find((l) => l.id === id);
@@ -289,7 +291,9 @@ function LeadListRow({ lead, column, selected, onToggleSelect, onOpen }: LeadLis
           <nldd-container layout="row" gap="4" vertical-alignment="center">
             <nldd-icon icon="calendar" size="16" aria-hidden="true" />
             <nldd-text size="sm" color={overdue ? 'critical' : 'content'} weight={overdue ? 'medium' : 'regular'}>
-              {formatDateShort(lead.next_action_date)}
+              <p>
+                {formatDateShort(lead.next_action_date)}
+              </p>
             </nldd-text>
           </nldd-container>
         ) : (
@@ -302,7 +306,7 @@ function LeadListRow({ lead, column, selected, onToggleSelect, onOpen }: LeadLis
             <nldd-tag key={tag} text={tag} color="neutral" size="sm" />
           ))}
           {lead.tags.length > 3 && (
-            <nldd-text size="xs" color="secondary">+{lead.tags.length - 3}</nldd-text>
+            <nldd-text size="xs" color="secondary"><p>+{lead.tags.length - 3}</p></nldd-text>
           )}
         </nldd-container>
       </nldd-text-cell>
@@ -350,7 +354,7 @@ function MergeCandidateCard({ lead, stageName, disabled, onPick }: MergeCandidat
           text={lead.title}
           supporting-text={`${lead.organization ?? 'geen organisatie'} - ${stageName}`}
         />
-        <nldd-text size="xs" color="accent">← Deze behouden</nldd-text>
+        <nldd-text size="xs" color="accent"><p>← Deze behouden</p></nldd-text>
       </nldd-container>
     </nldd-card>
   );
