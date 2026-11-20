@@ -8,6 +8,7 @@ import {
   listCasusKanaalberichten,
   listInitiatiefChannels,
   listLeadChannels,
+  opnieuwCasusKanaalbericht,
   searchMattermostChannels,
   updateChannelLink,
   type MattermostChannelLinkCreate,
@@ -70,6 +71,18 @@ export function useCasusKanaalberichten(casusId: string | undefined) {
       )
         ? 2_000
         : false,
+  });
+}
+
+export function useOpnieuwCasusKanaalbericht(casusId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (berichtId: string) => opnieuwCasusKanaalbericht(casusId!, berichtId),
+    onSettled: () => {
+      qc.invalidateQueries({
+        queryKey: queryKeys.mattermostChannels.berichtenForCasus(casusId),
+      });
+    },
   });
 }
 

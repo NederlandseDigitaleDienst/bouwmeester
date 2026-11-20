@@ -206,7 +206,7 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
       <DetailSection title="Mattermost" separated>
         <nldd-container gap="12">
           <MattermostChannelsSection scope={{ type: 'casus', id: casus.id }} kanBeheren={kanKanalenBeheren} />
-          <CasusKanaalberichten casusId={casus.id} />
+          <CasusKanaalberichten casusId={casus.id} kanBeheren={kanKanalenBeheren} />
         </nldd-container>
       </DetailSection>
 

@@ -838,6 +838,7 @@ def _worker_expected_cadence_sec() -> dict[str, float]:
         "opdracht_task": float(settings.OPDRACHT_TASK_INTERVAL_SECONDS),
         "fcc_sync": float(settings.FCC_POLL_INTERVAL_SECONDS),
         "mattermost_retry": float(settings.MATTERMOST_RETRY_INTERVAL_SECONDS),
+        "casus_kanaal": float(settings.MATTERMOST_RETRY_INTERVAL_SECONDS),
         "overheidsorganisaties_daily": float(
             settings.OVERHEIDSORG_DAILY_INTERVAL_SECONDS
         ),

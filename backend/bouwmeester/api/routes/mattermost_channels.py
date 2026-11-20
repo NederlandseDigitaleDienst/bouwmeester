@@ -32,6 +32,7 @@ from bouwmeester.core.initiatief_context import (
 )
 from bouwmeester.core.permissions import PermissionContext, get_permission_context
 from bouwmeester.models.casus import Casus
+from bouwmeester.models.casus_kanaalbericht import CasusKanaalbericht
 from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.models.lead import Lead
 from bouwmeester.models.mattermost_channel_link import (
@@ -51,7 +52,12 @@ from bouwmeester.schema.mattermost_channel_link import (
     MattermostChannelSearchResult,
 )
 from bouwmeester.services.activity_service import log_activity
-from bouwmeester.services.casus_kanaal_service import berichten_van_casus
+from bouwmeester.services.casus_kanaal_service import (
+    OPNIEUW_STATUSSEN,
+    berichten_van_casus,
+    kanaal_kort,
+    opnieuw,
+)
 from bouwmeester.services.mattermost_service import vul_teamnaam_aan
 
 logger = logging.getLogger(__name__)
@@ -152,11 +158,24 @@ async def _privekanaal(db: AsyncSession, channel_id: str) -> dict:
             )
         kanaal = await service.get_channel(channel_id)
         if not kanaal or kanaal.get("delete_at"):
+            # Met wat Mattermost zei: een nieuwere versie dan de 9.5 van
+            # lokaal kan een ander antwoord geven, en dan staat het hier.
+            logger.warning(
+                "Casuskanaal geweigerd: kanaal %s is niet te lezen of gearchiveerd; "
+                "Mattermost zegt %s",
+                channel_id,
+                kanaal_kort(kanaal),
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Dit kanaal is niet te vinden in Mattermost",
             )
         if kanaal.get("type") != "P":
+            logger.warning(
+                "Casuskanaal geweigerd: kanaal %s is niet privé; Mattermost zegt %s",
+                channel_id,
+                kanaal_kort(kanaal),
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Alleen een privékanaal kan de voortgang van een casus krijgen",
@@ -496,6 +515,58 @@ async def list_casus_kanaalberichten(
     await _resolve_casus(db, casus_id, init_ctx)
     berichten = await berichten_van_casus(db, casus_id)
     return [CasusKanaalberichtResponse.model_validate(b) for b in berichten]
+
+
+@router.post(
+    "/casussen/{casus_id}/kanaalberichten/{bericht_id}/opnieuw",
+    response_model=CasusKanaalberichtResponse,
+)
+async def casus_kanaalbericht_opnieuw(
+    casus_id: UUID,
+    bericht_id: UUID,
+    current_user: OptionalUser,
+    db: AsyncSession = Depends(get_db),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
+) -> CasusKanaalberichtResponse:
+    """Verstuur een bericht dat niet (zeker) aankwam nog een keer.
+
+    Alleen voor wie de casus mag wijzigen, want het stuurt casusinhoud
+    naar Mattermost. Naar de kanalen van toen, met dezelfde controles als
+    de eerste keer; het antwoord zegt hoe het nu afliep. Een bericht dat al
+    verstuurd is of nooit een kanaal had, gaat niet nog een keer (400).
+    """
+    from bouwmeester.services.mattermost_service import MattermostService
+
+    casus = await _resolve_casus(db, casus_id, init_ctx)
+    await _mag_casuskanaal_beheren(db, casus, current_user, perm_ctx)
+    bericht = await db.get(CasusKanaalbericht, bericht_id)
+    if bericht is None or bericht.casus_id != casus.id:
+        raise _not_found()
+    if bericht.status not in OPNIEUW_STATUSSEN:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dit bericht is al verstuurd of had geen kanaal",
+        )
+    service = MattermostService(db)
+    try:
+        nieuw = await opnieuw(db, service, bericht)
+    finally:
+        await service.close()
+    await log_activity(
+        db,
+        current_user,
+        None,
+        "casus.kanaalbericht_opnieuw",
+        details={
+            "casus_id": str(casus.id),
+            "bericht_id": str(bericht.id),
+            "kanalen": [k.get("naam") for k in bericht.kanalen],
+            "status": nieuw,
+        },
+    )
+    await db.refresh(bericht)
+    return CasusKanaalberichtResponse.model_validate(bericht)
 
 
 # ---------------------------------------------------------------------------

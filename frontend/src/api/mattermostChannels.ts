@@ -129,6 +129,16 @@ export async function listCasusKanaalberichten(
   return apiGet<CasusKanaalbericht[]>(`/api/casussen/${casusId}/kanaalberichten`);
 }
 
+/** Een bericht dat niet (zeker) aankwam nog een keer naar zijn kanalen. */
+export async function opnieuwCasusKanaalbericht(
+  casusId: string,
+  berichtId: string,
+): Promise<CasusKanaalbericht> {
+  return apiPost<CasusKanaalbericht>(
+    `/api/casussen/${casusId}/kanaalberichten/${berichtId}/opnieuw`,
+  );
+}
+
 export async function updateChannelLink(
   linkId: string,
   data: MattermostChannelLinkUpdate,

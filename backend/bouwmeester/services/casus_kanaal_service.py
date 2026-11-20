@@ -2,7 +2,7 @@
 
 Een kanaal aan een casus (scope casus, zie models/mattermost_channel_link.py)
 krijgt een kort bericht als de casus naar een andere fase gaat, en als er
-een onderzoeksvraag bijkomt of een vraag is afgerond. Alleen een
+een issue bijkomt of af is (een onderzoeksvraag of een gewoon issue). Alleen een
 privékanaal, en alleen als de voortgang er aan staat. Bij een kanaal dat
 van de lead is meegekomen staat die uit tot het team hem aanzet.
 
@@ -27,6 +27,7 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlparse
 from uuid import UUID
@@ -56,8 +57,13 @@ logger = logging.getLogger(__name__)
 # GC een taak opruimen voor hij gedraaid heeft, en dan valt het bericht stil.
 _BACKGROUND_TASKS: set[asyncio.Task] = set()
 
-# Waar de berichten van een request wachten tot de commit (session.info).
+# Waar de berichten van een request wachten tot de commit (session.info),
+# en of de sessie al luistert naar zijn commit.
 _WACHTRIJ = "casuskanaal_berichten"
+_LUISTERT = "casuskanaal_luistert"
+
+# Achter een `@` of `~` in tekst van gebruikers; zie `_esc`.
+ZERO_WIDTH_SPACE = "\u200b"
 
 # Korte inhoud: genoeg om te weten waar het over gaat, niet het hele stuk.
 MAX_INHOUD = 300
@@ -135,10 +141,24 @@ async def berichten_van_casus(
 
 
 def _na_commit_versturen(session: AsyncSession) -> None:
+    """Hang aan de sessie: na de echte commit gaan de berichten weg.
+
+    `after_commit` vuurt ook als een savepoint wordt vrijgegeven
+    (`begin_nested()`), en dan is er nog niets gecommit: het bericht zou
+    vertrekken voor de rij bestaat en de status zou op "wacht" blijven.
+    Daarom luisteren we niet eenmalig (`once`), maar laten we een savepoint
+    voorbijgaan en wachten we op de commit van de buitenste transactie.
+    Eén keer per sessie aanhaken is genoeg; de wachtrij wordt leeggehaald.
+    """
+    if session.info.get(_LUISTERT):
+        return
+    session.info[_LUISTERT] = True
     sync_session = session.sync_session
 
-    @event.listens_for(sync_session, "after_commit", once=True)
+    @event.listens_for(sync_session, "after_commit")
     def _after_commit(sess):
+        if sess.in_nested_transaction():
+            return
         berichten = sess.info.pop(_WACHTRIJ, None)
         if not berichten:
             return
@@ -151,8 +171,10 @@ def _na_commit_versturen(session: AsyncSession) -> None:
         task.add_done_callback(_BACKGROUND_TASKS.discard)
 
     # Wat terugrolt, is niet gebeurd: dan gaat er ook niets naar het kanaal.
-    @event.listens_for(sync_session, "after_rollback", once=True)
+    @event.listens_for(sync_session, "after_rollback")
     def _after_rollback(sess):
+        if sess.in_nested_transaction():
+            return
         sess.info.pop(_WACHTRIJ, None)
 
 
@@ -182,23 +204,24 @@ async def plaats(mm: Any, berichten: list[Bericht]) -> dict[UUID, str]:
     """
     if not await mm.is_enabled():
         return {bericht.bericht_id: STATUS_UIT for bericht in berichten}
-    prive: dict[str, bool] = {}
+    kanalen: dict[str, Any] = {}
     statussen: dict[UUID, str] = {}
     for bericht in berichten:
         gelukt = True
         for channel_id in bericht.channel_ids:
-            if channel_id not in prive:
-                kanaal = await mm.get_channel(channel_id)
-                prive[channel_id] = (
-                    isinstance(kanaal, dict)
-                    and kanaal.get("type") == "P"
-                    and not kanaal.get("delete_at")
-                )
-            if not prive[channel_id]:
+            if channel_id not in kanalen:
+                kanalen[channel_id] = await mm.get_channel(channel_id)
+            kanaal = kanalen[channel_id]
+            if not is_privekanaal(kanaal):
                 gelukt = False
+                # Met wat Mattermost zei: een nieuwere versie kan een ander
+                # antwoord geven dan de 9.5 van lokaal, en dan is dit de plek
+                # waar dat te zien moet zijn.
                 logger.warning(
-                    "Casusbericht niet geplaatst: kanaal %s is niet (meer) privé",
+                    "Casusbericht niet geplaatst: kanaal %s is niet te lezen of "
+                    "niet (meer) privé; Mattermost zegt %s",
                     channel_id,
+                    kanaal_kort(kanaal),
                 )
             elif not await mm.send_channel_message(channel_id, bericht.tekst):
                 gelukt = False
@@ -215,6 +238,68 @@ async def zet_status(session: AsyncSession, statussen: dict[UUID, str]) -> None:
             .where(CasusKanaalbericht.id == bericht_id)
             .values(status=status)
         )
+
+
+def is_privekanaal(kanaal: Any) -> bool:
+    """Een bestaand, niet gearchiveerd privékanaal, zoals Mattermost het geeft."""
+    return (
+        isinstance(kanaal, dict)
+        and kanaal.get("type") == "P"
+        and not kanaal.get("delete_at")
+    )
+
+
+def kanaal_kort(kanaal: Any) -> dict[str, Any] | None:
+    """Wat van het antwoord van Mattermost in het log mag: geen naam of kop."""
+    if not isinstance(kanaal, dict):
+        return None
+    return {k: kanaal.get(k) for k in ("id", "type", "delete_at", "team_id")}
+
+
+# Een bericht dat niet (zeker) is aangekomen mag opnieuw.
+OPNIEUW_STATUSSEN = (STATUS_WACHT, STATUS_MISLUKT, STATUS_UIT)
+
+# Na zo lang is "wacht" niet meer onderweg maar blijven hangen: de taak
+# liep stuk of het proces is herstart tussen de commit en het versturen.
+BLIJFT_HANGEN_NA = timedelta(minutes=10)
+
+
+async def opnieuw(session: AsyncSession, mm: Any, bericht: CasusKanaalbericht) -> str:
+    """Bied een bewaard bericht nog een keer aan zijn kanalen aan.
+
+    Naar de kanalen van toen, met dezelfde controles als de eerste keer.
+    Geeft de nieuwe status terug en zet die bij het bericht.
+    """
+    te_versturen = Bericht(
+        bericht.id, tuple(k["id"] for k in bericht.kanalen), bericht.tekst
+    )
+    statussen = await plaats(mm, [te_versturen])
+    await zet_status(session, statussen)
+    return statussen[bericht.id]
+
+
+async def blijven_hangen(
+    session: AsyncSession, ouder_dan: timedelta = BLIJFT_HANGEN_NA
+) -> list[CasusKanaalbericht]:
+    """Berichten die op "wacht" staan terwijl dat allang niet meer kan."""
+    grens = datetime.now(UTC) - ouder_dan
+    stmt = (
+        select(CasusKanaalbericht)
+        .where(
+            CasusKanaalbericht.status == STATUS_WACHT,
+            CasusKanaalbericht.created_at < grens,
+        )
+        .order_by(CasusKanaalbericht.created_at)
+    )
+    return list((await session.execute(stmt)).scalars().all())
+
+
+async def verstuur_blijven_hangen(session: AsyncSession, mm: Any) -> int:
+    """Voor de worker: wat bleef hangen alsnog versturen. Geeft het aantal."""
+    hangend = await blijven_hangen(session)
+    for bericht in hangend:
+        await opnieuw(session, mm, bericht)
+    return len(hangend)
 
 
 # ---------------------------------------------------------------------------
@@ -294,11 +379,23 @@ def _esc(tekst: str) -> str:
     `\\\\@channel`: een gewone backslash met een werkende @channel erachter,
     en zo ook een werkende link. Regeleinden gaan eruit, anders schrijft een
     titel eigen regels in het bericht, zoals een nep-voetregel of een citaat.
+
+    Een vermelding (`@`) en een kanaalverwijzing (`~`) krijgen geen
+    backslash maar een zero-width space erachter. Mattermost leest
+    vermeldingen op de server uit de ruwe tekst en knipt die op alles wat
+    geen letter, cijfer, `@` of leesteken van een naam is; een backslash is
+    zo'n knippunt, dus van `\\@channel` blijft `@channel` over en de melding
+    gaat af. In de client blijft de backslash bovendien zichtbaar. Gemeten
+    tegen Mattermost 9.5.14 op 20 november 2026: met backslash een melding
+    voor elk lid, met zero-width space niet.
     """
     een_regel = re.sub(r"\s+", " ", tekst).strip()
     # `<` ook: anders wordt `<node:…>` in de weergave bij de casus een
     # autolink, en daarmee een nep-vermelding.
-    return escape_mattermost_prose(een_regel.replace("\\", "\\\\")).replace("<", "\\<")
+    uit = escape_mattermost_prose(een_regel.replace("\\", "\\\\")).replace("<", "\\<")
+    for teken in ("@", "~"):
+        uit = uit.replace("\\" + teken, teken + ZERO_WIDTH_SPACE)
+    return uit
 
 
 def _bericht(kop: str, inhoud: str | None, casus: Any, actor: str | None) -> str:

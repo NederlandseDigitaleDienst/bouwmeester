@@ -16,15 +16,19 @@ Dekt:
   uit en zonder bericht. Aanzetten kan alleen als het privé is. Een lead
   met casus krijgt geen nieuw kanaal (409). Gaat de casus weg, dan gaat het
   kanaal terug naar de lead.
-- Berichten bij een fasewissel en een nieuwe of afgeronde vraag. Geen
-  bericht naar Mattermost zonder kanaal, als de voortgang uit staat, of bij
-  een andere statuswissel.
+- Berichten bij een fasewissel en een nieuw of afgerond issue (een
+  onderzoeksvraag of een gewoon issue). Geen bericht naar Mattermost zonder
+  kanaal, als de voortgang uit staat, of bij een andere statuswissel.
 - Elk bericht staat ook bij de casus, met of zonder kanaal, nieuwste
   eerst. Na het versturen staat erbij hoe het afliep: verstuurd, mislukt,
-  of Mattermost uit.
+  of Mattermost uit. Een savepoint verstuurt nog niets; wat mislukte of
+  bleef hangen gaat opnieuw, met de hand (alleen wie de casus wijzigt) of
+  door de worker.
 - Opmaak: korte inhoud, escaping (ook met een backslash ervoor of een
-  regeleinde in de titel), een link naar de casus, en de voetregel los van
-  het citaat. Rare tiptap-JSON breekt het afronden van een issue niet.
+  regeleinde in de titel; een vermelding krijgt een zero-width space, want
+  een backslash houdt de melding niet tegen), een link naar de casus, en
+  de voetregel los van het citaat. Rare tiptap-JSON breekt het afronden
+  van een issue niet.
 - Schakelaars per soort kanaal, en het slash-commando volgt de regel dat
   een lead met casus geen kanaal meer krijgt.
 
@@ -34,15 +38,17 @@ Mattermost zelf is nagebootst: de routes zien alleen de kanalen uit
 `_kanaal`, het versturen gaat naar `_NepMattermost`.
 """
 
+import asyncio
 import json
 import uuid
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from bouwmeester.models.activity import Activity
+from bouwmeester.models.casus_kanaalbericht import CasusKanaalbericht
 from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.models.lead import Lead
 from bouwmeester.models.mattermost_channel_link import SCOPE_CASUS
@@ -109,11 +115,21 @@ class _NepMattermostService:
     async def is_bot_member_of_channel(self, channel_id: str) -> bool:
         return _MM_KANALEN[channel_id]["bot"]
 
+    async def send_channel_message(self, channel_id: str, tekst: str) -> bool:
+        # Alleen voor opnieuw versturen uit de route; de eerste keer gaat
+        # na de commit, en tests committen niet.
+        _MM_GEPLAATST.append((channel_id, tekst))
+        return True
+
     async def team_namen(self) -> dict[str, str]:
         return {}
 
     async def close(self) -> None:
         pass
+
+
+# Wat de nagebootste Mattermost uit de routes geplaatst kreeg: (kanaal, tekst).
+_MM_GEPLAATST: list[tuple[str, str]] = []
 
 
 @pytest.fixture(autouse=True)
@@ -959,8 +975,27 @@ def test_titel_wordt_ge_escaped():
         title="*vet* en @iedereen", toelichting=None, is_onderzoeksvraag=False
     )
     tekst = kanaal.bericht_issue_nieuw(casus, issue, None)
-    assert "**\\*vet\\* en \\@iedereen**" in tekst
+    assert "**\\*vet\\* en @\u200biedereen**" in tekst
     assert "issue **" in tekst
+
+
+def test_vermelding_en_kanaal_krijgen_een_zero_width_space():
+    # Een backslash houdt een vermelding niet tegen: Mattermost knipt de
+    # tekst op de server op de backslash en ziet gewoon `@channel`, en in de
+    # client blijft de backslash staan. Gemeten tegen 9.5.14 op 20 november
+    # 2026: met backslash een melding, met een zero-width space niet.
+    casus = _casus()
+    issue = SimpleNamespace(
+        title="Let op @channel en @here in ~casus-prive",
+        toelichting="Voor @iedereen",
+        is_onderzoeksvraag=False,
+    )
+    tekst = kanaal.bericht_issue_nieuw(casus, issue, None)
+    zw = kanaal.ZERO_WIDTH_SPACE
+    assert f"@{zw}channel en @{zw}here in ~{zw}casus-prive" in tekst
+    assert f"> Voor @{zw}iedereen" in tekst
+    assert "\\@" not in tekst
+    assert "\\~" not in tekst
 
 
 def test_inhoud_kort_en_op_een_regel():
@@ -991,8 +1026,10 @@ def test_inhoud_uit_tiptap_is_platte_tekst():
 
 
 def test_backslash_maakt_escapen_niet_ongedaan():
-    # `\@channel` mag geen `\\@channel` worden: dan staat er een gewone
-    # backslash met een werkende @channel erachter. Zo ook voor een link.
+    # `\[hier\]` mag geen `\\[hier\\]` worden: dan staat er een gewone
+    # backslash met een werkende link erachter. Een backslash voor een
+    # vermelding blijft een gewone backslash; de zero-width space erachter
+    # houdt de vermelding tegen.
     casus = _casus()
     issue = SimpleNamespace(
         title="Kijk \\@channel \\[hier\\](https://nep.example)",
@@ -1000,7 +1037,7 @@ def test_backslash_maakt_escapen_niet_ongedaan():
         is_onderzoeksvraag=False,
     )
     kop = kanaal.bericht_issue_nieuw(casus, issue, None).split("\n\n")[0]
-    assert "\\\\\\@channel" in kop
+    assert f"\\\\@{kanaal.ZERO_WIDTH_SPACE}channel" in kop
     assert "\\\\\\[hier\\\\\\]" in kop
 
 
@@ -1075,3 +1112,131 @@ def test_zonder_initiatief_geen_link():
     casus.initiatief_id = None
     tekst = kanaal.bericht_fase(casus, None, DEFAULT_CASUS_FASES[0].id, None)
     assert "Open in Bouwmeester" not in tekst
+
+
+# ---------------------------------------------------------------------------
+# Na de commit, en wat daarna nog mis kan gaan
+# ---------------------------------------------------------------------------
+
+
+async def test_savepoint_verstuurt_nog_niets(db_session, client, casus, monkeypatch):
+    # `after_commit` vuurt ook als een savepoint wordt vrijgegeven. Dan is
+    # er nog niets gecommit: het bericht moet blijven wachten op de echte
+    # commit, en dan precies één keer weggaan.
+    verstuurd: list[list[kanaal.Bericht]] = []
+
+    async def _nep_verstuur(berichten):
+        verstuurd.append(berichten)
+
+    monkeypatch.setattr(kanaal, "_verstuur", _nep_verstuur)
+    await _koppel(client, casus)
+    voor = _aantal(db_session)
+    await kanaal.meld(db_session, uuid.UUID(casus["id"]), "Eerste bericht")
+    async with db_session.begin_nested():
+        await kanaal.meld(db_session, uuid.UUID(casus["id"]), "Tweede bericht")
+    assert verstuurd == []
+    assert _teksten(db_session, voor) == ["Eerste bericht", "Tweede bericht"]
+
+    await db_session.commit()
+    await asyncio.sleep(0)
+    assert [b.tekst for b in verstuurd[0]] == ["Eerste bericht", "Tweede bericht"]
+    assert len(verstuurd) == 1
+    assert kanaal.wachtende_berichten(db_session) == []
+
+    # Een tweede commit zonder nieuw bericht verstuurt niets nog een keer.
+    await db_session.commit()
+    await asyncio.sleep(0)
+    assert len(verstuurd) == 1
+
+
+async def _bericht_met_status(
+    db_session, client, casus, status: str, fase: int = 1
+) -> dict:
+    """Een bewaard bericht van de casus (een fasewissel), met deze status."""
+    voor = _aantal(db_session)
+    resp = await client.put(
+        f"/api/casussen/{casus['id']}", json={"fase": DEFAULT_CASUS_FASES[fase].id}
+    )
+    assert resp.status_code == 200, resp.text
+    (bericht,) = kanaal.wachtende_berichten(db_session)[voor:]
+    await kanaal.zet_status(db_session, {bericht.bericht_id: status})
+    bewaard = {b["id"]: b for b in await _bewaard(client, casus)}
+    return bewaard[str(bericht.bericht_id)]
+
+
+async def test_mislukt_bericht_gaat_opnieuw(db_session, client, casus):
+    link = await _koppel(client, casus)
+    bericht = await _bericht_met_status(db_session, client, casus, "mislukt")
+    _MM_GEPLAATST.clear()
+
+    pad = f"/api/casussen/{casus['id']}/kanaalberichten/{bericht['id']}/opnieuw"
+    resp = await client.post(pad)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "verstuurd"
+    assert _MM_GEPLAATST == [(link["channel_id"], bericht["tekst"])]
+    bewaard = {b["id"]: b for b in await _bewaard(client, casus)}
+    assert bewaard[bericht["id"]]["status"] == "verstuurd"
+
+    # Nog eens: al verstuurd, dus niet nog een keer.
+    resp = await client.post(pad)
+    assert resp.status_code == 400, resp.text
+    assert len(_MM_GEPLAATST) == 1
+
+    # Het staat in het log, met de kanalen en hoe het afliep.
+    rows = await db_session.execute(
+        select(Activity).where(Activity.event_type == "casus.kanaalbericht_opnieuw")
+    )
+    (activiteit,) = rows.scalars().all()
+    assert activiteit.details["status"] == "verstuurd"
+    assert activiteit.details["kanalen"] == [link["channel_display_name"]]
+
+
+async def test_opnieuw_volgt_dezelfde_controles(db_session, client, casus):
+    # Het kanaal is inmiddels openbaar: dan gaat er ook bij opnieuw niets heen.
+    link = await _koppel(client, casus)
+    bericht = await _bericht_met_status(db_session, client, casus, "mislukt")
+    _MM_KANALEN[link["channel_id"]]["type"] = "O"
+    _MM_GEPLAATST.clear()
+    resp = await client.post(
+        f"/api/casussen/{casus['id']}/kanaalberichten/{bericht['id']}/opnieuw"
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "mislukt"
+    assert _MM_GEPLAATST == []
+
+
+async def test_opnieuw_alleen_voor_wie_de_casus_wijzigt(
+    db_session, client, casus, kijker, buitenstaander
+):
+    await _koppel(client, casus)
+    bericht = await _bericht_met_status(db_session, client, casus, "mislukt")
+    pad = f"/api/casussen/{casus['id']}/kanaalberichten/{bericht['id']}/opnieuw"
+    async with client_as(db_session, kijker) as c:
+        assert (await c.post(pad)).status_code == 403
+    async with client_as(db_session, buitenstaander) as c:
+        assert (await c.post(pad)).status_code == 404
+    # Een bericht van een andere casus hoort niet bij deze.
+    resp = await client.post(
+        f"/api/casussen/{uuid.uuid4()}/kanaalberichten/{bericht['id']}/opnieuw"
+    )
+    assert resp.status_code == 404
+
+
+async def test_worker_pakt_op_wat_bleef_hangen(db_session, client, casus):
+    # Herstart het proces tussen de commit en het versturen, dan blijft
+    # "wacht" staan. Na tien minuten is dat blijven hangen, niet onderweg.
+    link = await _koppel(client, casus)
+    oud = await _bericht_met_status(db_session, client, casus, "wacht", fase=1)
+    vers = await _bericht_met_status(db_session, client, casus, "wacht", fase=2)
+    await db_session.execute(
+        update(CasusKanaalbericht)
+        .where(CasusKanaalbericht.id == uuid.UUID(oud["id"]))
+        .values(created_at=datetime.now(UTC) - timedelta(minutes=11))
+    )
+    mm = _NepMattermost()
+    assert await kanaal.verstuur_blijven_hangen(db_session, mm) == 1
+    assert mm.geplaatst == [(link["channel_id"], oud["tekst"])]
+    bewaard = {b["id"]: b for b in await _bewaard(client, casus)}
+    assert bewaard[oud["id"]]["status"] == "verstuurd"
+    assert bewaard[vers["id"]]["status"] == "wacht"
+    assert await kanaal.verstuur_blijven_hangen(db_session, mm) == 0
