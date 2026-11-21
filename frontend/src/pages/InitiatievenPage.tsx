@@ -70,7 +70,7 @@ function InitiatiefCard({ initiatief }: { initiatief: InitiatiefListItem }) {
             aria-hidden="true"
           />
           <nldd-container width="fit-content" className="row-fill">
-            <nldd-text size="sm" weight="bold">{initiatief.naam}</nldd-text>
+            <nldd-text size="sm" weight="bold"><p>{initiatief.naam}</p></nldd-text>
           </nldd-container>
           {initiatief.public_page_enabled && (
             <nldd-tag text="Publiek" icon="globe" color="lintblauw" size="sm" />
@@ -79,14 +79,14 @@ function InitiatiefCard({ initiatief }: { initiatief: InitiatiefListItem }) {
 
         {description && (
           <nldd-text size="xs" color="secondary" className="line-clamp-2">
-            {description}
+            <span>{description}</span>
           </nldd-text>
         )}
 
         {/* One line of figures. As separate icon-and-text rows each took a
             full-width line, because a row container without a width fills
             its parent, and the card grew three lines taller than its text. */}
-        <nldd-text size="xs" color="secondary">{figures(initiatief)}</nldd-text>
+        <nldd-text size="xs" color="secondary"><p>{figures(initiatief)}</p></nldd-text>
       </nldd-container>
     </nldd-card>
   );
@@ -111,8 +111,8 @@ export function InitiatievenPage() {
     <nldd-container gap="24">
       <nldd-toolbar accessible-label="Initiatiefacties">
         <nldd-toolbar-item slot="start" priority={1} min-width="160px">
-          <nldd-text size="sm" color="secondary">
-            {isLoading ? '' : plural(initiatieven.length, 'initiatief', 'initiatieven')}
+          <nldd-text color="secondary">
+            <span>{isLoading ? '' : plural(initiatieven.length, 'initiatief', 'initiatieven')}</span>
           </nldd-text>
         </nldd-toolbar-item>
         <nldd-toolbar-item slot="end">
@@ -128,7 +128,7 @@ export function InitiatievenPage() {
       ) : initiatieven.length === 0 ? (
         <nldd-container padding="48" horizontal-alignment="center">
           <nldd-text size="sm" color="secondary" horizontal-alignment="center">
-            Je bent nog bij geen enkel initiatief betrokken.
+            <p>Je bent nog bij geen enkel initiatief betrokken.</p>
           </nldd-text>
         </nldd-container>
       ) : (

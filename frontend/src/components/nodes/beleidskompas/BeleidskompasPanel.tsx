@@ -118,11 +118,11 @@ function StepTypeGroups({
       <>
         {status.nodes.map((node) => (
           <NlddListItemButton key={node.id} onClick={() => openNodeDetail(node.id)}>
-            <nldd-text-cell width="fit-content">
+            <nldd-cell width="fit-content">
               <Badge color={NODE_TYPE_COLORS[node.node_type as NodeType]} dot>
                 {NODE_TYPE_LABELS[node.node_type as NodeType]}
               </Badge>
-            </nldd-text-cell>
+            </nldd-cell>
             <nldd-text-cell text={node.title} />
           </NlddListItemButton>
         ))}
@@ -145,16 +145,16 @@ function StepTypeGroups({
         return (
           <nldd-container key={nt} gap="4" padding-left="8">
             <nldd-text size="xs" color="secondary" weight="medium">
-              {NODE_TYPE_LABELS[nt]}:
+              <p>{NODE_TYPE_LABELS[nt]}:</p>
             </nldd-text>
             <nldd-container gap="0">
               {typeNodes.map((node) => (
                 <NlddListItemButton key={node.id} onClick={() => openNodeDetail(node.id)}>
-                  <nldd-text-cell width="fit-content">
+                  <nldd-cell width="fit-content">
                     <Badge color={NODE_TYPE_COLORS[node.node_type as NodeType]} dot>
                       {NODE_TYPE_LABELS[node.node_type as NodeType]}
                     </Badge>
-                  </nldd-text-cell>
+                  </nldd-cell>
                   <nldd-text-cell text={node.title} />
                 </NlddListItemButton>
               ))}
@@ -182,7 +182,7 @@ function BeleidskompasStepRow({ status, dossierId, onCreateNew, onLinkExisting }
             <nldd-icon-cell icon="check-mark-circle" color="success" />
             <StepNumberBadge number={status.step.number} complete />
             <nldd-title-cell text={status.step.question} />
-            <nldd-text-cell width="fit-content" color="secondary" hide-below="sm" text={stepCountLabel(status)} />
+            <nldd-text-cell width="fit-content" color="secondary" text={stepCountLabel(status)} />
           </DisclosureSegment>
           <nldd-list-item-segment href={status.step.kcbrUrl} target="_blank" width="fit-content" accessible-label="Bekijk op KCBR">
             <nldd-icon-cell icon="external-link" size="16" />
@@ -212,10 +212,10 @@ function BeleidskompasStepRow({ status, dossierId, onCreateNew, onLinkExisting }
           <nldd-icon icon="exclamation-triangle" size="20" color="warning" aria-hidden="true" />
           <nldd-container gap="0" width="full">
             <nldd-container layout="row" vertical-alignment="center" gap="6">
-              <nldd-text size="sm" weight="medium">{status.step.question}</nldd-text>
+              <nldd-text size="sm" weight="medium"><p>{status.step.question}</p></nldd-text>
               <nldd-link href={status.step.kcbrUrl} target="_blank" accessible-label="Bekijk op KCBR" start-icon="external-link" />
             </nldd-container>
-            <nldd-text size="xs" color="secondary">{status.step.description}</nldd-text>
+            <nldd-text size="xs" color="secondary"><p>{status.step.description}</p></nldd-text>
           </nldd-container>
         </nldd-container>
         <nldd-container padding-left="24" gap="6">
@@ -285,7 +285,7 @@ export function BeleidskompasPanel({ nodeId, stakeholderCount, onNavigateToStake
           {/* Header */}
           <nldd-container layout="row" gap="8" vertical-alignment="center">
             <nldd-icon icon="signpost" size="20" color="accent" aria-hidden="true" />
-            <nldd-title size={6}><h3>Beleidskompas</h3></nldd-title>
+            <nldd-title size="display-6"><h3>Beleidskompas</h3></nldd-title>
             <nldd-link href={KCBR_MAIN_URL} target="_blank" accessible-label="Bekijk Beleidskompas op KCBR" start-icon="external-link" />
             <nldd-spacer size="flexible" />
             {/* A fixed width: a bar takes the width of its parent, so a

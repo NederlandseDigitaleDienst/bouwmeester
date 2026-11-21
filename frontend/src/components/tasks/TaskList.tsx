@@ -47,7 +47,7 @@ export function TaskList({ tasks, onEditTask }: TaskListProps) {
         return (
           <nldd-container key={status} gap="8">
             <nldd-text size="xs" weight="bold" color="secondary">
-              {TASK_STATUS_LABELS[status]} ({groupTasks.length})
+              <p>{TASK_STATUS_LABELS[status]} ({groupTasks.length})</p>
             </nldd-text>
             <nldd-container gap="8">
               {groupTasks.map((task) => (

@@ -194,13 +194,15 @@ export function DebatAankondigingenSection({
         <nldd-container layout="row" gap="6" vertical-alignment="center">
           <Icon name="megaphone" size="sm" />
           <nldd-text size="xs" weight="bold" color="secondary">
-            Debatten
+            <p>Debatten</p>
           </nldd-text>
         </nldd-container>
         <nldd-text size="sm" color="secondary">
-          {canEdit
-            ? 'Kondig een debat aan in de kanalen van dit initiatief waar Kamerstuk-alerts aan staat. Op de ochtend van het debat volgt daar een herinnering, of het bericht dat het niet doorgaat.'
-            : 'Debatten die zijn aangekondigd in de kanalen van dit initiatief waar Kamerstuk-alerts aan staat. Op de ochtend van het debat volgt daar een herinnering, of het bericht dat het niet doorgaat.'}
+          <p>
+            {canEdit
+              ? 'Kondig een debat aan in de kanalen van dit initiatief waar Kamerstuk-alerts aan staat. Op de ochtend van het debat volgt daar een herinnering, of het bericht dat het niet doorgaat.'
+              : 'Debatten die zijn aangekondigd in de kanalen van dit initiatief waar Kamerstuk-alerts aan staat. Op de ochtend van het debat volgt daar een herinnering, of het bericht dat het niet doorgaat.'}
+          </p>
         </nldd-text>
 
         {aankondigingen.isLoading && (
@@ -268,8 +270,10 @@ export function DebatAankondigingenSection({
         )}
         {meer > 0 && (
           <nldd-text size="sm" color="secondary">
-            En nog {meer} {meer === 1 ? 'vergadering' : 'vergaderingen'}. Zoek preciezer om ze te
-            zien.
+            <p>
+              En nog {meer} {meer === 1 ? 'vergadering' : 'vergaderingen'}. Zoek preciezer om ze te
+              zien.
+            </p>
           </nldd-text>
         )}
       </nldd-container>

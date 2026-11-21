@@ -26,12 +26,12 @@ export function LeadCard({ lead, onClick }: LeadCardProps) {
     <nldd-card ref={ref} button accessible-label={lead.title}>
       <nldd-container gap="6" padding="12">
         <nldd-text size="sm" weight="medium" className="line-clamp-2">
-          {lead.title}
+          <span>{lead.title}</span>
         </nldd-text>
 
         {lead.organization && (
           <nldd-text size="xs" color="secondary" className="truncate">
-            {lead.organisatie_eenheid?.naam ?? lead.organization}
+            <span>{lead.organisatie_eenheid?.naam ?? lead.organization}</span>
           </nldd-text>
         )}
 
@@ -42,7 +42,7 @@ export function LeadCard({ lead, onClick }: LeadCardProps) {
             ))}
             {lead.tags.length > 3 && (
               <nldd-text size="xs" color="secondary">
-                +{lead.tags.length - 3}
+                <p>+{lead.tags.length - 3}</p>
               </nldd-text>
             )}
           </nldd-container>
@@ -52,22 +52,24 @@ export function LeadCard({ lead, onClick }: LeadCardProps) {
           {isInbox ? (
             lead.brought_by && (
               <nldd-text size="xs" color="secondary" className="truncate" style={{ maxWidth: '120px' }}>
-                via {lead.brought_by.naam}
+                <span>via {lead.brought_by.naam}</span>
               </nldd-text>
             )
           ) : (
             <>
               {lead.assignee && (
                 <nldd-text size="xs" color="secondary" className="truncate" style={{ maxWidth: '120px' }}>
-                  {lead.assignee.naam}
+                  <span>{lead.assignee.naam}</span>
                 </nldd-text>
               )}
               {contacts.length > 0 && (
                 <div className="hug hug-gap-2 hug-truncate" title={contacts.join(', ')}>
                   <nldd-icon icon="users" size="16" aria-hidden="true" />
                   <nldd-text size="xs" color="secondary">
-                    {contacts[0]}
-                    {contacts.length > 1 && ` +${contacts.length - 1}`}
+                    <span>
+                      {contacts[0]}
+                      {contacts.length > 1 && ` +${contacts.length - 1}`}
+                    </span>
                   </nldd-text>
                 </div>
               )}
@@ -78,7 +80,7 @@ export function LeadCard({ lead, onClick }: LeadCardProps) {
             <div className="hug hug-gap-2">
               <nldd-icon icon="calendar" size="16" aria-hidden="true" />
               <nldd-text size="xs" color={overdue ? 'critical' : 'secondary'} weight={overdue ? 'medium' : 'regular'}>
-                {formatDateShort(lead.next_action_date)}
+                <p>{formatDateShort(lead.next_action_date)}</p>
               </nldd-text>
             </div>
           )}
@@ -86,7 +88,7 @@ export function LeadCard({ lead, onClick }: LeadCardProps) {
           {lead.attachment_count > 0 && (
             <div className="hug hug-gap-2">
               <nldd-icon icon="paperclip" size="16" aria-hidden="true" />
-              <nldd-text size="xs" color="secondary">{lead.attachment_count}</nldd-text>
+              <nldd-text size="xs" color="secondary"><p>{lead.attachment_count}</p></nldd-text>
             </div>
           )}
 
@@ -97,7 +99,7 @@ export function LeadCard({ lead, onClick }: LeadCardProps) {
               title={`Strategisch ${lead.score_strategisch} · Politiek ${lead.score_politiek} · Positie ${lead.score_positie}`}
               style={{ fontVariantNumeric: 'tabular-nums' }}
             >
-              {lead.score_strategisch}·{lead.score_politiek}·{lead.score_positie}
+              <p>{lead.score_strategisch}·{lead.score_politiek}·{lead.score_positie}</p>
             </nldd-text>
           )}
         </nldd-container>

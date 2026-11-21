@@ -16,7 +16,7 @@ export function ChatHeader() {
 
     >
       <nldd-container width="full">
-        <nldd-text size="sm" weight="bold">Assistent</nldd-text>
+        <nldd-text size="sm" weight="bold"><p>Assistent</p></nldd-text>
       </nldd-container>
       <div className="hug">
         <NlddIconButton

@@ -83,7 +83,7 @@ function DeadlineVeld({ datum, teLaat, onOpslaan }: { datum: string; teLaat: boo
   return (
     <>
       <Input ref={ref} type="date" aria-label="Deadline" value={datum} />
-      {teLaat && <nldd-text size="xs" color="critical" weight="bold">Over de deadline</nldd-text>}
+      {teLaat && <nldd-text size="xs" color="critical" weight="bold"><p>Over de deadline</p></nldd-text>}
     </>
   );
 }
@@ -226,7 +226,7 @@ function Subtaken({ task }: { task: Task }) {
           ))}
         </nldd-list>
       ) : (
-        <nldd-text size="sm" color="secondary">Geen subtaken</nldd-text>
+        <nldd-text size="sm" color="secondary"><p>Geen subtaken</p></nldd-text>
       )}
       <TaskCreateForm open={nieuw} onClose={() => setNieuw(false)} nodeId={task.node_id ?? undefined} parentId={task.id} />
     </DetailSection>
@@ -349,8 +349,10 @@ function TaakVelden({ task, onClose }: { task: Task; onClose: () => void }) {
           )}
         </Eigenschappen>
         <nldd-text size="xs" color="secondary">
-          Aangemaakt {formatDateLong(task.created_at)}
-          {task.updated_at ? `, laatst bijgewerkt ${formatDateLong(task.updated_at)}` : ''}
+          <p>
+            Aangemaakt {formatDateLong(task.created_at)}
+            {task.updated_at ? `, laatst bijgewerkt ${formatDateLong(task.updated_at)}` : ''}
+          </p>
         </nldd-text>
       </nldd-container>
 
@@ -435,7 +437,7 @@ export function TaskDetailModal({ taskId, open, onClose, placement = 'center' }:
           <LoadingSpinner padding="32" />
         ) : !task ? (
           <nldd-container layout="row" horizontal-alignment="center" vertical-alignment="center" padding-block="32">
-            <nldd-text size="sm" color="secondary">Taak niet gevonden.</nldd-text>
+            <nldd-text size="sm" color="secondary"><p>Taak niet gevonden.</p></nldd-text>
           </nldd-container>
         ) : (
           <nldd-container gap="24">

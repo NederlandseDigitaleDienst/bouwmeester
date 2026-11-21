@@ -70,7 +70,7 @@ function NotificationItem({
               className="row-badge"
             />
             <nldd-text size="xs" color="secondary">
-              {timeAgo(notification.last_activity_at ?? notification.created_at)}
+              <p>{timeAgo(notification.last_activity_at ?? notification.created_at)}</p>
             </nldd-text>
           </nldd-container>
           {/* `nldd-text`, not `nldd-text-cell`. A cell is built to be a column
@@ -83,11 +83,11 @@ function NotificationItem({
               `truncate` keeps a long title to one line. The whole notification
               is in the supporting text underneath, and the row opens it. */}
           <nldd-text weight="medium" className="truncate">
-            {notification.title}
+            <span>{notification.title}</span>
           </nldd-text>
           {body && (
             <nldd-text size="sm" color="secondary" className="truncate">
-              {body}
+              <span>{body}</span>
             </nldd-text>
           )}
         </nldd-container>
@@ -285,7 +285,7 @@ export function NotificationBell() {
                 what is left. */}
             <nldd-container layout="row" gap="4" vertical-alignment="center" padding="12">
               <nldd-container width="fit-content" className="row-fill">
-                <nldd-title size={5}><h2>Meldingen</h2></nldd-title>
+                <nldd-title size="display-5"><h2>Meldingen</h2></nldd-title>
               </nldd-container>
               <BrowserNotificationToggle />
               <NotificationSoundToggle />
@@ -317,7 +317,7 @@ export function NotificationBell() {
             ) : (
               <nldd-container padding="24" horizontal-alignment="center">
                 <nldd-text size="sm" color="secondary">
-                  Geen meldingen
+                  <p>Geen meldingen</p>
                 </nldd-text>
               </nldd-container>
             )}

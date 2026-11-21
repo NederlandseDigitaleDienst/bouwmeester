@@ -67,9 +67,9 @@ export function PersonCard({ person, onClick, draggable, onDragStart }: PersonCa
             <PersonAvatar person={person} />
           </div>
           {person.is_agent && (
-            <span slot="text">
+            <p slot="text">
               {person.naam} <Badge color="paars">Agent</Badge>
-            </span>
+            </p>
           )}
         </nldd-identity>
 
@@ -81,17 +81,17 @@ export function PersonCard({ person, onClick, draggable, onDragStart }: PersonCa
           {person.functie && (
             <nldd-container layout="row" gap="6" vertical-alignment="center">
               <Icon name="business-suitcase" size="xs" />
-              <nldd-text size="xs" color="secondary">{formatFunctie(person.functie)}</nldd-text>
+              <nldd-text size="xs" color="secondary"><p>{formatFunctie(person.functie)}</p></nldd-text>
             </nldd-container>
           )}
           {person.expertise && (
             <nldd-container layout="row" gap="6" vertical-alignment="center">
               <Icon name="tag" size="xs" />
-              <nldd-text size="xs" color="secondary">{person.expertise}</nldd-text>
+              <nldd-text size="xs" color="secondary"><p>{person.expertise}</p></nldd-text>
             </nldd-container>
           )}
           {person.is_agent && person.description && (
-            <nldd-text size="xs" color="secondary">{richTextToPlain(person.description)}</nldd-text>
+            <nldd-text size="xs" color="secondary"><p>{richTextToPlain(person.description)}</p></nldd-text>
           )}
         </nldd-container>
       </nldd-container>

@@ -512,7 +512,7 @@ export function LeadIntakeDialog({ open, onClose, defaultInitiatiefId, sharedPar
             <nldd-card background="tinted">
               <nldd-container layout="row" gap="8" vertical-alignment="center" padding="8" padding-inline="12">
                 <LoadingSpinner size="sm" />
-                <nldd-text size="sm" color="accent">E-mail wordt gelezen...</nldd-text>
+                <nldd-text size="sm" color="accent"><p>E-mail wordt gelezen...</p></nldd-text>
               </nldd-container>
             </nldd-card>
           )}
@@ -522,9 +522,11 @@ export function LeadIntakeDialog({ open, onClose, defaultInitiatiefId, sharedPar
               <nldd-container layout="row" gap="8" vertical-alignment="center" padding="8" padding-inline="12">
                 <nldd-icon icon="envelope" size="16" color="accent" aria-hidden="true" />
                 <nldd-text size="sm" color="accent">
-                  E-mail van {parsedEmail.senderName || parsedEmail.senderEmail}
-                  {parsedEmail.subject ? `: ${parsedEmail.subject}` : ''}
-                  {parsedEmail.date ? ` (${parsedEmail.date})` : ''}
+                  <p>
+                    E-mail van {parsedEmail.senderName || parsedEmail.senderEmail}
+                    {parsedEmail.subject ? `: ${parsedEmail.subject}` : ''}
+                    {parsedEmail.date ? ` (${parsedEmail.date})` : ''}
+                  </p>
                 </nldd-text>
               </nldd-container>
             </nldd-card>
@@ -572,7 +574,7 @@ export function LeadIntakeDialog({ open, onClose, defaultInitiatiefId, sharedPar
               >
                 <nldd-container layout="row" gap="8" vertical-alignment="center">
                   <nldd-icon icon="upload" size="20" aria-hidden="true" />
-                  <nldd-text size="sm" weight="medium" color="accent">Sleep bestanden hierheen</nldd-text>
+                  <nldd-text size="sm" weight="medium" color="accent"><p>Sleep bestanden hierheen</p></nldd-text>
                 </nldd-container>
               </div>
             )}
@@ -597,7 +599,7 @@ export function LeadIntakeDialog({ open, onClose, defaultInitiatiefId, sharedPar
                       <nldd-icon icon="file-text" size="16" aria-hidden="true" />
                     )}
                     <nldd-text size="sm" color="secondary" className="truncate row-fill">
-                      {file.name}
+                      <span>{file.name}</span>
                     </nldd-text>
                     <NlddIconButton
                       icon="close"
@@ -663,7 +665,7 @@ export function LeadIntakeDialog({ open, onClose, defaultInitiatiefId, sharedPar
       {step === 'parsing' && (
         <nldd-container gap="12" horizontal-alignment="center" padding="48">
           <LoadingSpinner />
-          <nldd-text size="sm" color="secondary" horizontal-alignment="center">VLAM analyseert je invoer...</nldd-text>
+          <nldd-text size="sm" color="secondary" horizontal-alignment="center"><p>VLAM analyseert je invoer...</p></nldd-text>
         </nldd-container>
       )}
 
@@ -673,7 +675,7 @@ export function LeadIntakeDialog({ open, onClose, defaultInitiatiefId, sharedPar
             <nldd-card background="tinted">
               <nldd-container padding="8" padding-inline="12">
                 <nldd-text size="xs" color="secondary">
-                  VLAM heeft de volgende velden voorgesteld. Pas aan waar nodig.
+                  <p>VLAM heeft de volgende velden voorgesteld. Pas aan waar nodig.</p>
                 </nldd-text>
               </nldd-container>
             </nldd-card>
@@ -683,7 +685,7 @@ export function LeadIntakeDialog({ open, onClose, defaultInitiatiefId, sharedPar
           <nldd-container layout="grid" column-count={1} md-column-count={2} gap="16">
             {/* LEFT COLUMN: Lead info */}
             <nldd-container gap="16">
-              <nldd-title size={6}>
+              <nldd-title size="display-6">
                 <h3>Lead</h3>
               </nldd-title>
 
@@ -762,7 +764,7 @@ export function LeadIntakeDialog({ open, onClose, defaultInitiatiefId, sharedPar
 
             {/* RIGHT COLUMN: People */}
             <nldd-container gap="16">
-              <nldd-title size={6}>
+              <nldd-title size="display-6">
                 <h3>Personen</h3>
               </nldd-title>
 
@@ -789,7 +791,7 @@ export function LeadIntakeDialog({ open, onClose, defaultInitiatiefId, sharedPar
                     <>
                       <nldd-divider />
                       <nldd-container layout="row" gap="8" vertical-alignment="center">
-                        <nldd-text size="xs" weight="medium" color="secondary">Extra externe contactpersoon</nldd-text>
+                        <nldd-text size="xs" weight="medium" color="secondary"><p>Extra externe contactpersoon</p></nldd-text>
                         <NlddIconButton
                           icon="close"
                           accessibleLabel="Verwijderen"
@@ -859,7 +861,7 @@ export function LeadIntakeDialog({ open, onClose, defaultInitiatiefId, sharedPar
           {/* Files + buttons below both columns */}
           {files.length > 0 && (
             <nldd-text size="xs" color="secondary">
-              {files.length} {files.length === 1 ? 'bijlage' : 'bijlagen'} worden meegestuurd
+              <p>{files.length} {files.length === 1 ? 'bijlage' : 'bijlagen'} worden meegestuurd</p>
             </nldd-text>
           )}
 
@@ -920,7 +922,7 @@ function DuplicateLeadLink({ title, detail, onOpen }: DuplicateLeadLinkProps) {
   return (
     <nldd-container layout="row" gap="4" vertical-alignment="center">
       <NlddButton variant="neutral-transparent" size="xs" text={title} onClick={onOpen} />
-      <nldd-text size="sm" color="secondary">({detail})</nldd-text>
+      <nldd-text size="sm" color="secondary"><p>({detail})</p></nldd-text>
     </nldd-container>
   );
 }

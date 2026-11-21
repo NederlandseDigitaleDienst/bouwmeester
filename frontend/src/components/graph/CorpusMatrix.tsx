@@ -24,9 +24,10 @@ const MAX_MATRIX_DIMENSION = 100;
  * it goes. A plain click is intercepted and opens the detail surface instead,
  * which keeps the matrix on screen behind it.
  *
- * The color rides on `--semantics-links-color`, not `color`: the link paints
- * itself from that token inside its shadow root, where a `color` set on the
- * host does not reach.
+ * The color rides on `--context-link-color`, not `color`: the link paints
+ * itself from that variable inside its shadow root, where a `color` set on the
+ * host does not reach. (`--semantics-links-color` only gives it its value on
+ * `:root` since 0.23.0.)
  */
 function NodeTitleLink({
   nodeId,
@@ -58,7 +59,13 @@ function NodeTitleLink({
       text={title}
       title={title}
       className={className}
-      style={{ '--semantics-links-color': color } as React.CSSProperties}
+      style={
+        {
+          '--context-link-color': color,
+          '--context-link-is-hovered-color': color,
+          '--context-link-is-active-color': color,
+        } as React.CSSProperties
+      }
     />
   );
 }
@@ -166,12 +173,14 @@ export function CorpusMatrix({
   return (
     <nldd-container gap="12">
       <nldd-text size="xs" color="secondary">
-        {rowNodes.length}{isTruncated && allRowNodes.length > MAX_MATRIX_DIMENSION ? ` van ${allRowNodes.length}` : ''} rijen
-        {' '}&times;{' '}
-        {colNodes.length}{isTruncated && allColNodes.length > MAX_MATRIX_DIMENSION ? ` van ${allColNodes.length}` : ''} kolommen
-        {' '}&middot;{' '}
-        {connectionCount} {connectionCount === 1 ? 'relatie' : 'relaties'}
-        {sameType && ' (symmetrische matrix — zelfde type rij en kolom)'}
+        <p>
+          {rowNodes.length}{isTruncated && allRowNodes.length > MAX_MATRIX_DIMENSION ? ` van ${allRowNodes.length}` : ''} rijen
+          {' '}&times;{' '}
+          {colNodes.length}{isTruncated && allColNodes.length > MAX_MATRIX_DIMENSION ? ` van ${allColNodes.length}` : ''} kolommen
+          {' '}&middot;{' '}
+          {connectionCount} {connectionCount === 1 ? 'relatie' : 'relaties'}
+          {sameType && ' (symmetrische matrix — zelfde type rij en kolom)'}
+        </p>
       </nldd-text>
 
       {/* The actions are nldd-buttons, not inline action text: the banner

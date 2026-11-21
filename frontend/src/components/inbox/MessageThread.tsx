@@ -9,6 +9,7 @@ import { EmojiPicker } from './EmojiPicker';
 import { ReactionBar } from './ReactionBar';
 import type { Notification, ReactionSummary } from '@/types';
 import { NlddButton } from '@/components/nldd/NlddButton';
+import { surfaceTextColor } from '@/components/nldd/surface';
 
 interface MessageThreadProps {
   notificationId: string;
@@ -30,12 +31,12 @@ function MessageBubble({ message, isCurrentUser, reactions, onReact }: MessageBu
     <>
       {!isCurrentUser && message.sender_name && (
         <nldd-text size="xs" weight="medium" color="secondary">
-          {message.sender_name}
+          <p>{message.sender_name}</p>
         </nldd-text>
       )}
-      <RichTextDisplay content={message.message} fallback="" color={isCurrentUser ? 'inherit' : 'content'} />
-      <nldd-text size="xxs" color={isCurrentUser ? 'inherit' : 'secondary'}>
-        {timeAgo(message.created_at)}
+      <RichTextDisplay content={message.message} fallback="" />
+      <nldd-text size="xxs" color="secondary">
+        <p>{timeAgo(message.created_at)}</p>
       </nldd-text>
     </>
   );
@@ -60,7 +61,7 @@ function MessageBubble({ message, isCurrentUser, reactions, onReact }: MessageBu
               style={{
                 borderRadius: 'var(--semantics-surfaces-corner-radius)',
                 backgroundColor: 'var(--primitives-color-accent-600)',
-                color: 'var(--primitives-color-neutral-0)',
+                ...surfaceTextColor('var(--primitives-color-neutral-0)'),
               }}
             >
               <nldd-container gap="4" padding-inline="16" padding-block="10">{body}</nldd-container>

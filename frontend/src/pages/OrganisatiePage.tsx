@@ -253,8 +253,8 @@ export function OrganisatiePage() {
       {/* Page header */}
       <nldd-toolbar accessible-label="Organisatieacties">
         <nldd-toolbar-item slot="start" priority={1}>
-          <nldd-text size="sm" color="secondary">
-            Beheer de organisatiestructuur: Ministerie, DG, Directie, Afdeling, Team.
+          <nldd-text color="secondary">
+            <p>Beheer de organisatiestructuur: Ministerie, DG, Directie, Afdeling, Team.</p>
           </nldd-text>
         </nldd-toolbar-item>
         <nldd-toolbar-item slot="end">
@@ -333,7 +333,7 @@ export function OrganisatiePage() {
                 <nldd-container gap="12" padding="48" horizontal-alignment="center">
                   <Icon name="apartment-building" size="32" style={{ opacity: 0.3 }} aria-hidden="true" />
                   <nldd-text size="sm" color="secondary" horizontal-alignment="center">
-                    Selecteer een eenheid in de boomstructuur.
+                    <p>Selecteer een eenheid in de boomstructuur.</p>
                   </nldd-text>
                 </nldd-container>
               </Card>

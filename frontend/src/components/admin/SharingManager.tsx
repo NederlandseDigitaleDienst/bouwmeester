@@ -122,7 +122,7 @@ export function SharingManager() {
         <nldd-form>
         <form onSubmit={handleSubmit}>
           <nldd-container padding="16" gap="12">
-          <nldd-title size={4}><h3>Nieuwe deling aanmaken</h3></nldd-title>
+          <nldd-title size="display-4"><h3>Nieuwe deling aanmaken</h3></nldd-title>
 
           {/* Mode toggle */}
           <nldd-radio-button-group ref={modeGroupRef} accessible-label="Type deling" name="share-mode">
@@ -262,7 +262,7 @@ export function SharingManager() {
               color="secondary"
               hide-below="lg"
             />
-            <nldd-text-cell>
+            <nldd-cell>
               {confirmDeleteId === share.id ? (
                 <nldd-container layout="row" gap="4" vertical-alignment="center">
                   <NlddButton
@@ -288,7 +288,7 @@ export function SharingManager() {
                   onClick={() => setConfirmDeleteId(share.id)}
                 />
               )}
-            </nldd-text-cell>
+            </nldd-cell>
           </nldd-table-row>
         ))}
         <div slot="empty">
@@ -297,8 +297,10 @@ export function SharingManager() {
       </nldd-table>
 
       <nldd-text size="xs" color="secondary">
-        Delingen geven een organisatie-eenheid toegang tot gegevens van een andere eenheid of een
-        specifiek item. Verwijder een deling om de toegang in te trekken.
+        <p>
+          Delingen geven een organisatie-eenheid toegang tot gegevens van een andere eenheid of een
+          specifiek item. Verwijder een deling om de toegang in te trekken.
+        </p>
       </nldd-text>
     </nldd-container>
   );

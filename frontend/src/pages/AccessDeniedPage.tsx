@@ -127,7 +127,7 @@ export function AccessDeniedPage({ email }: AccessDeniedPageProps) {
         <nldd-container gap="24" horizontal-alignment="center">
           <nldd-container gap="12" horizontal-alignment="center">
             <nldd-image src={logoImg} alt="Bouwmeester" width="80" height={80} shape="circle" />
-            <nldd-title size={3}>
+            <nldd-title size="display-3">
               <h1>Bouwmeester</h1>
             </nldd-title>
           </nldd-container>
@@ -145,7 +145,7 @@ export function AccessDeniedPage({ email }: AccessDeniedPageProps) {
               {state.step === 'idle' && (
                 <>
                   <nldd-text color="secondary">
-                    Je account staat niet op de toegangslijst voor deze applicatie.
+                    <p>Je account staat niet op de toegangslijst voor deze applicatie.</p>
                   </nldd-text>
                   <NlddButton
                     text="Toegang aanvragen"
@@ -158,7 +158,7 @@ export function AccessDeniedPage({ email }: AccessDeniedPageProps) {
               {state.step === 'form' && <AccessRequestForm onSubmit={handleSubmit} />}
 
               {state.step === 'submitting' && (
-                <nldd-text color="secondary">Verzoek wordt verstuurd...</nldd-text>
+                <nldd-text color="secondary"><p>Verzoek wordt verstuurd...</p></nldd-text>
               )}
 
               {(state.step === 'pending' || state.step === 'already_pending') && (
@@ -197,7 +197,7 @@ export function AccessDeniedPage({ email }: AccessDeniedPageProps) {
 
               {state.step === 'error' && (
                 <>
-                  <nldd-text color="critical">{state.message}</nldd-text>
+                  <nldd-text color="critical"><p>{state.message}</p></nldd-text>
                   <NlddButton
                     text="Opnieuw proberen"
                     variant="neutral-transparent"

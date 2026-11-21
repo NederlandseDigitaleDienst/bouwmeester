@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { apiGet } from '@/api/client';
-import { useNlddEvent } from '@/components/nldd/events';
+import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { mentionToMarkdown, type MentionKind } from '@/utils/mentions';
 import { formatFunctie, titleCase } from '@/types';
 import type { Person, OrganisatieEenheid } from '@/types';
@@ -183,7 +183,7 @@ export function RichTextEditor({
   // The built-in @-mention writes `[text](user:id)` with the candidate's own id.
   // An organisation comes through the same list, so its token is rewritten to
   // the org scheme after insertion.
-  useNlddEvent(ref, 'nldd-text-editor-mention', (event) => {
+  useNlddEvent(ref, 'mention', (event) => {
     const detail = (event as CustomEvent<{ id: string; text: string; from: number; to: number }>)
       .detail;
     if (!detail?.id?.startsWith('org:')) return;
@@ -214,7 +214,10 @@ export function RichTextEditor({
   return (
     <nldd-text-editor
       ref={ref}
-      appearance={bare ? 'simple' : 'input-field'}
+      embedded={orUndef(bare)}
+      // Since 0.26.0 the marks are hidden by default; keep them in view as
+      // before the upgrade.
+      syntax="visible"
       rows={rows}
       resize="auto"
       {...(placeholder ? { placeholder } : {})}

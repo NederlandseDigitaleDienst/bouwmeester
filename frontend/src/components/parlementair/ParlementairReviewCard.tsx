@@ -199,7 +199,7 @@ function RelevantieBadge({ extra }: { extra?: Record<string, unknown> }) {
     <div className="hug hug-gap-2" title={reden || undefined}>
       <Icon name="ai" size="xs" />
       <nldd-text size="xs" color={kleur}>
-        relevantie {score}
+        <p>relevantie {score}</p>
       </nldd-text>
     </div>
   );
@@ -417,27 +417,27 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
             >
               {PARLEMENTAIR_ITEM_STATUS_LABELS[item.status]}
             </Badge>
-            <nldd-text size="xs" color="secondary">{item.bron === 'tweede_kamer' ? 'Tweede Kamer' : 'Eerste Kamer'}</nldd-text>
-            <nldd-text size="xs" color="secondary">{item.zaak_nummer}</nldd-text>
+            <nldd-text size="xs" color="secondary"><p>{item.bron === 'tweede_kamer' ? 'Tweede Kamer' : 'Eerste Kamer'}</p></nldd-text>
+            <nldd-text size="xs" color="secondary"><p>{item.zaak_nummer}</p></nldd-text>
             {/* `hug`: as containers at the default 100% each date took a line
                 of its own in this wrap row instead of sitting beside the
                 badges. */}
             {item.datum && (
               <div className="hug hug-gap-2">
                 <Icon name="calendar" size="xs" />
-                <nldd-text size="xs" color="secondary">{formatDateLong(item.datum)}</nldd-text>
+                <nldd-text size="xs" color="secondary"><p>{formatDateLong(item.datum)}</p></nldd-text>
               </div>
             )}
             {item.deadline && (
               <div className="hug hug-gap-2">
                 <Icon name="calendar" size="xs" />
                 <nldd-text size="xs" color="warning">
-                  Deadline: {formatDateLong(item.deadline)}
+                  <p>Deadline: {formatDateLong(item.deadline)}</p>
                 </nldd-text>
               </div>
             )}
             {item.ministerie && (
-              <nldd-text size="xs" color="secondary">{item.ministerie}</nldd-text>
+              <nldd-text size="xs" color="secondary"><p>{item.ministerie}</p></nldd-text>
             )}
             {/* De score stuurt of dit stuk in Mattermost verschijnt, maar
                 stond nergens. "Waarom kwam dit door?" was daardoor alleen
@@ -448,17 +448,17 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
                 the header on a phone, and the title wrapped every few words. */}
             {item.suggested_edges && item.suggested_edges.length > 0 && (
               <nldd-text size="xs" color="secondary">
-                {pendingEdges.length} te beoordelen
+                <p>{pendingEdges.length} te beoordelen</p>
               </nldd-text>
             )}
           </nldd-container>
           <nldd-container layout="row" gap="8" vertical-alignment="center">
-            <nldd-text size="sm" weight="bold">{item.onderwerp}</nldd-text>
+            <nldd-text size="sm" weight="bold"><p>{item.onderwerp}</p></nldd-text>
             {item.document_url && (
               <ExternalDocLink href={item.document_url} label="Bekijk op tweedekamer.nl" iconOnly />
             )}
           </nldd-container>
-          <nldd-text size="xs" color="secondary">Zaak: {item.titel}</nldd-text>
+          <nldd-text size="xs" color="secondary"><p>Zaak: {item.titel}</p></nldd-text>
         </nldd-container>
 
         {/* Only the chevron, at its own width. It used to sit in a container
@@ -493,7 +493,7 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
             <nldd-container gap="6">
               <nldd-container layout="row" gap="4" vertical-alignment="center">
                 <Icon name="users" size="sm" />
-                <nldd-text size="xs" weight="medium">Indieners</nldd-text>
+                <nldd-text size="xs" weight="medium"><p>Indieners</p></nldd-text>
               </nldd-container>
               <nldd-container layout="wrap" gap="4">
                 {item.indieners.map((indiener) => (
@@ -506,7 +506,7 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
           {/* Summary */}
           {item.llm_samenvatting && (
             <nldd-container gap="4">
-              <nldd-text size="xs" weight="medium">Samenvatting</nldd-text>
+              <nldd-text size="xs" weight="medium"><p>Samenvatting</p></nldd-text>
               <nldd-text size="sm" color="secondary">
                 <MarkdownRenderer content={item.llm_samenvatting} />
               </nldd-text>
@@ -516,7 +516,7 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
           {/* Document text */}
           {item.document_tekst && (
             <nldd-container gap="4">
-              <nldd-text size="xs" weight="medium">Tekst</nldd-text>
+              <nldd-text size="xs" weight="medium"><p>Tekst</p></nldd-text>
               {/* nldd-box draws the tinted surface and nldd-container the
                   inset. Neither has a max-height, so a plain div between them
                   carries the scroll; on the box itself the surface would
@@ -538,7 +538,7 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
           {/* Matched tags */}
           {item.matched_tags && item.matched_tags.length > 0 && (
             <nldd-container gap="6">
-              <nldd-text size="xs" weight="medium">Gematchte tags</nldd-text>
+              <nldd-text size="xs" weight="medium"><p>Gematchte tags</p></nldd-text>
               <nldd-container layout="wrap" gap="4">
                 {item.matched_tags.map((tag) => (
                   <Badge key={tag} color="donkerblauw">{tag}</Badge>
@@ -550,7 +550,7 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
           {/* Tags on corpus node */}
           {corpusNodeId && (
             <nldd-container gap="6" max-width="320px">
-              <nldd-text size="xs" weight="medium">Tags</nldd-text>
+              <nldd-text size="xs" weight="medium"><p>Tags</p></nldd-text>
               <TagTokenField
                 nodeTags={nodeTags}
                 allTags={allTags}
@@ -564,9 +564,11 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
           {/* Suggested edges + add new edges */}
           <nldd-container gap="8" max-width="672px">
             <nldd-text size="xs" weight="medium">
-              Verbindingen
-              {(sortedSuggestedEdges.length + manualEdges.length > 0) &&
-                ` (${sortedSuggestedEdges.length + manualEdges.length})`}
+              <p>
+                Verbindingen
+                {(sortedSuggestedEdges.length + manualEdges.length > 0) &&
+                  ` (${sortedSuggestedEdges.length + manualEdges.length})`}
+              </p>
             </nldd-text>
 
             {/* Suggested edges list */}
@@ -609,11 +611,11 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
                         )}
                         <nldd-container layout="row" gap="6" vertical-alignment="center">
                           <nldd-text size="xs" color="secondary">
-                            {Math.round(edge.confidence * 100)}% match
+                            <p>{Math.round(edge.confidence * 100)}% match</p>
                           </nldd-text>
                           {edge.reason && (
                             <nldd-text size="xs" color="secondary">
-                              — {edge.reason}
+                              <p>— {edge.reason}</p>
                             </nldd-text>
                           )}
                         </nldd-container>
@@ -701,7 +703,7 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
                 <NlddButton variant="neutral-transparent" size="sm" startIcon="plus" onClick={() => setShowAddEdge(true)} text="Verbinding toevoegen" />
               ) : (
                 <nldd-text size="xs" color="secondary">
-                  Geen corpus-node gekoppeld — verbindingen kunnen niet worden toegevoegd.
+                  <p>Geen corpus-node gekoppeld — verbindingen kunnen niet worden toegevoegd.</p>
                 </nldd-text>
               )
             )}
@@ -713,7 +715,7 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
                   <nldd-container gap="8" width="full" padding="4">
                     <nldd-container layout="row" gap="6" vertical-alignment="center">
                       <Icon name="link" size="sm" />
-                      <nldd-text size="xs" weight="medium">Nieuwe verbinding</nldd-text>
+                      <nldd-text size="xs" weight="medium"><p>Nieuwe verbinding</p></nldd-text>
                     </nldd-container>
                     <nldd-container gap="8">
                       <CreatableSelect
@@ -733,7 +735,7 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
                     </nldd-container>
                     {createEdge.isError && (
                       <nldd-text size="xs" color="critical">
-                        {(createEdge.error as { body?: { detail?: string } })?.body?.detail || 'Fout bij aanmaken verbinding'}
+                        <p>{(createEdge.error as { body?: { detail?: string } })?.body?.detail || 'Fout bij aanmaken verbinding'}</p>
                       </nldd-text>
                     )}
                     <nldd-container layout="row" gap="8" vertical-alignment="center">
@@ -765,7 +767,7 @@ export function ParlementairReviewCard({ item, defaultExpanded = false }: Parlem
           {/* Follow-up tasks (right below verbindingen) */}
           {item.status === 'imported' && (
             <nldd-container gap="8" max-width="672px">
-              <nldd-text size="xs" weight="medium">Vervolgacties</nldd-text>
+              <nldd-text size="xs" weight="medium"><p>Vervolgacties</p></nldd-text>
               {followUpTasks.length > 0 && (
                 <nldd-list appearance="box-tinted">
                   {followUpTasks.map((task, index) => (

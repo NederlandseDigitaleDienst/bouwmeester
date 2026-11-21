@@ -16,13 +16,13 @@ const GROUP_DEFS: { prefix: string[]; label: string; description: string; icon: 
     prefix: ['ANTHROPIC_', 'LLM_', 'VLAM_'],
     label: 'LLM-instellingen',
     description: 'API-sleutels en modelconfiguratie voor Claude en VLAM.',
-    icon: <nldd-icon icon="sparkles" size="20" color="accent" box />,
+    icon: <nldd-icon icon="sparkles" size="20" color="accent" tile />,
   },
   {
     prefix: ['MATTERMOST_'],
     label: 'Mattermost',
     description: 'Configuratie voor de Mattermost-integratie (notificaties, slash-commando\u2019s).',
-    icon: <nldd-icon icon="message-rectangle-text" size="20" color="accent" box />,
+    icon: <nldd-icon icon="message-rectangle-text" size="20" color="accent" tile />,
   },
 ];
 
@@ -73,15 +73,15 @@ export function ConfigManager() {
 
   return (
     <nldd-container gap="24">
-      <nldd-text size="xs" color="secondary">Wijzigingen worden direct actief.</nldd-text>
+      <nldd-text size="xs" color="secondary"><p>Wijzigingen worden direct actief.</p></nldd-text>
 
       {groups.map((group) => (
         <nldd-container key={group.label} gap="12">
           <nldd-container layout="row" gap="8" vertical-alignment="center">
             {group.icon}
             <nldd-container gap="0">
-              <nldd-text size="sm" weight="bold">{group.label}</nldd-text>
-              <nldd-text size="xs" color="secondary">{group.description}</nldd-text>
+              <nldd-text size="sm" weight="bold"><p>{group.label}</p></nldd-text>
+              <nldd-text size="xs" color="secondary"><p>{group.description}</p></nldd-text>
             </nldd-container>
           </nldd-container>
           <nldd-container gap="8">
@@ -132,11 +132,11 @@ function ConfigRow({ entry }: { entry: AppConfigEntry }) {
         <nldd-container layout="row" gap="16" horizontal-alignment="left" vertical-alignment="top">
           <nldd-container width="fit-content" className="row-fill" gap="4">
             <nldd-container layout="row" gap="8" vertical-alignment="center">
-              <nldd-text size="sm" weight="medium">{entry.key}</nldd-text>
+              <nldd-text size="sm" weight="medium"><p>{entry.key}</p></nldd-text>
               {entry.is_secret && <nldd-tag text="geheim" color="warning" size="sm" />}
             </nldd-container>
             {entry.description && (
-              <nldd-text size="xs" color="secondary">{entry.description}</nldd-text>
+              <nldd-text size="xs" color="secondary"><p>{entry.description}</p></nldd-text>
             )}
 
             {editing ? (
@@ -162,7 +162,7 @@ function ConfigRow({ entry }: { entry: AppConfigEntry }) {
               </nldd-container>
             ) : (
               <nldd-container layout="row" gap="8" vertical-alignment="center">
-                <nldd-text size="xs" color="secondary">{displayValue}</nldd-text>
+                <nldd-text size="xs" color="secondary"><p>{displayValue}</p></nldd-text>
                 {saved && <nldd-tag text="Opgeslagen" icon="check-mark" color="success" size="sm" />}
               </nldd-container>
             )}
@@ -175,14 +175,16 @@ function ConfigRow({ entry }: { entry: AppConfigEntry }) {
 
         {entry.updated_by && (
           <nldd-text size="xxs" color="secondary">
-            Laatst gewijzigd door {entry.updated_by} op{' '}
-            {new Date(entry.updated_at).toLocaleDateString('nl-NL', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+            <p>
+              Laatst gewijzigd door {entry.updated_by} op{' '}
+              {new Date(entry.updated_at).toLocaleDateString('nl-NL', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </p>
           </nldd-text>
         )}
       </nldd-container>

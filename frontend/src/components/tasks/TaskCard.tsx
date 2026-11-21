@@ -64,7 +64,7 @@ function TaskTitleButton({
       style={{ textAlign: 'left', minWidth: 0 }}
     >
       <nldd-text size="sm" weight="medium" color={isDone ? 'secondary' : 'content'}>
-        {title}
+        <span>{title}</span>
       </nldd-text>
     </button>
   );
@@ -122,13 +122,13 @@ export function TaskCard({ task, onEdit, compact = false }: TaskCardProps) {
             />
           ) : (
             <nldd-text size="sm" weight="medium" color={isDone ? 'secondary' : 'content'}>
-              {task.title}
+              <p>{task.title}</p>
             </nldd-text>
           )}
 
           {!compact && task.description && (
             <nldd-text size="xs" color="secondary">
-              {richTextToPlain(task.description)}
+              <p>{richTextToPlain(task.description)}</p>
             </nldd-text>
           )}
 
@@ -151,7 +151,7 @@ export function TaskCard({ task, onEdit, compact = false }: TaskCardProps) {
               <div className="hug">
                 <Icon name="clock" size="xs" />
                 <nldd-text size="xs" color={isOverdue ? 'critical' : 'secondary'} weight={isOverdue ? 'bold' : 'regular'}>
-                  {formatDateShort(task.due_date)}
+                  <p>{formatDateShort(task.due_date)}</p>
                 </nldd-text>
               </div>
             )}
@@ -163,14 +163,14 @@ export function TaskCard({ task, onEdit, compact = false }: TaskCardProps) {
                 ) : (
                   <Icon name="person" size="xs" />
                 )}
-                <nldd-text size="xs" color="secondary">{task.assignee.naam}</nldd-text>
+                <nldd-text size="xs" color="secondary"><p>{task.assignee.naam}</p></nldd-text>
               </div>
             )}
 
             {task.organisatie_eenheid && (
               <div className="hug">
                 <Icon name="apartment-building" size="xs" />
-                <nldd-text size="xs" color="secondary">{task.organisatie_eenheid.naam}</nldd-text>
+                <nldd-text size="xs" color="secondary"><p>{task.organisatie_eenheid.naam}</p></nldd-text>
               </div>
             )}
 
@@ -181,7 +181,7 @@ export function TaskCard({ task, onEdit, compact = false }: TaskCardProps) {
             {subtasks.length > 0 && (
               <div className="hug">
                 <Icon name="tree-structure" size="xs" />
-                <nldd-text size="xs" color="secondary">{doneSubtasks}/{subtasks.length}</nldd-text>
+                <nldd-text size="xs" color="secondary"><p>{doneSubtasks}/{subtasks.length}</p></nldd-text>
               </div>
             )}
           </nldd-container>

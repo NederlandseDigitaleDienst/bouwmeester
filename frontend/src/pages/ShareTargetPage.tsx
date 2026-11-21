@@ -137,7 +137,7 @@ export function ShareTargetPage() {
           supporting-text="Deel een afbeelding vanuit je telefoon (foto's, WhatsApp, e-mail) via het deelmenu en kies Bouwmeester. De afbeelding wordt automatisch geanalyseerd en omgezet naar een nieuwe lead."
         >
           <nldd-text size="xs" color="secondary" horizontal-alignment="center">
-            Vereist dat de app is geinstalleerd via &quot;Toevoegen aan startscherm&quot;.
+            <p>Vereist dat de app is geinstalleerd via &quot;Toevoegen aan startscherm&quot;.</p>
           </nldd-text>
           <NlddButton
             slot="actions"

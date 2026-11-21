@@ -74,14 +74,16 @@ function Team({ initiatief }: { initiatief: InitiatiefDetail }) {
   return (
     <nldd-container gap="8">
       <nldd-text size="xs" color="secondary">
-        Alleen deze mensen zien de casussen, onderzoeksvragen en taken van dit initiatief, en alleen zij zijn
-        te kiezen op een taak of in een casusteam. Iemand erbij? Voeg die hieronder toe als lid, of via een
-        eenheid.
+        <p>
+          Alleen deze mensen zien de casussen, onderzoeksvragen en taken van dit initiatief, en alleen zij zijn
+          te kiezen op een taak of in een casusteam. Iemand erbij? Voeg die hieronder toe als lid, of via een
+          eenheid.
+        </p>
       </nldd-text>
       {isLoading ? (
-        <nldd-text size="sm" color="secondary">Laden...</nldd-text>
+        <nldd-text size="sm" color="secondary"><p>Laden...</p></nldd-text>
       ) : mensen.length === 0 ? (
-        <nldd-text size="sm" color="secondary">Nog niemand kan dit initiatief zien.</nldd-text>
+        <nldd-text size="sm" color="secondary"><p>Nog niemand kan dit initiatief zien.</p></nldd-text>
       ) : (
         <nldd-list type="list" appearance="box-tinted" accessible-label="Team van dit initiatief">
           {mensen.map((p) => (
@@ -234,7 +236,7 @@ function Eenheden({ initiatief, isEigenaar }: { initiatief: InitiatiefDetail; is
   return (
     <nldd-container gap="8">
       <nldd-text size="xs" color="secondary">
-        Iedereen in een gekoppelde eenheid krijgt de rol die hier naast de eenheid staat.
+        <p>Iedereen in een gekoppelde eenheid krijgt de rol die hier naast de eenheid staat.</p>
       </nldd-text>
 
       {initiatief.eenheden.length > 0 && (

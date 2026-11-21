@@ -68,7 +68,7 @@ const statusFilters: { value: ParlementairItemStatus | 'all'; label: string }[] 
 /**
  * Content-switching tab bar for the status filter. `nldd-tab-bar` self-manages
  * `current` on click and arrow-key navigation (non-`navigation` mode), so this
- * only needs to read the id back off `tabchange`'s `detail.item` — same
+ * only needs to read the id back off `tab-change`'s `detail.item` — same
  * pattern as AdminPage's tab bar.
  */
 function StatusTabBar({
@@ -81,7 +81,7 @@ function StatusTabBar({
   const ref = useRef<HTMLElement>(null);
   useNlddEvent(
     ref,
-    'tabchange',
+    'tab-change',
     useCallback(
       (event: Event) => {
         const item = (event as CustomEvent<{ item?: HTMLElement }>).detail?.item;

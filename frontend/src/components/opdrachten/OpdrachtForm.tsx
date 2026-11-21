@@ -397,11 +397,11 @@ export function OpdrachtForm({ opdracht, onClose, onSuccess, defaults }: Opdrach
                   {koppelingen.map(k => (
                     <nldd-list-item key={k.id}>
                       {k.node_type && (
-                        <nldd-text-cell width="fit-content">
+                        <nldd-cell width="fit-content">
                           <Badge color={NODE_TYPE_COLORS[k.node_type as NodeType] ?? 'coolgray'} dot>
                             {k.node_type}
                           </Badge>
-                        </nldd-text-cell>
+                        </nldd-cell>
                       )}
                       <nldd-text-cell text={k.node_title || k.node_id} overline={k.relatie_type ?? undefined} />
                       <NlddIconButton

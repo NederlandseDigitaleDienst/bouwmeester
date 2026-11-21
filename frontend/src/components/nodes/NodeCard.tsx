@@ -42,13 +42,13 @@ export function NodeCard({ node }: NodeCardProps) {
           {/* The title wraps rather than truncating: nldd-title resets its
               slotted heading with `all: revert !important`, so a truncate
               class on the h3 would never apply. */}
-          <nldd-title size={6}>
+          <nldd-title size="display-6">
             <h3>{node.title}</h3>
           </nldd-title>
 
           {node.description && (
             <nldd-text size="xs" color="secondary" className="line-clamp-2">
-              {richTextToPlain(node.description)}
+              <span>{richTextToPlain(node.description)}</span>
             </nldd-text>
           )}
         </nldd-container>
@@ -64,25 +64,25 @@ export function NodeCard({ node }: NodeCardProps) {
         {node.edge_count !== undefined && (
           <div className="hug">
             <Icon name="link" size="xs" />
-            <nldd-text size="xs" color="secondary">{node.edge_count} verbindingen</nldd-text>
+            <nldd-text size="xs" color="secondary"><p>{node.edge_count} verbindingen</p></nldd-text>
           </div>
         )}
         {node.financieel_summary && node.financieel_summary.totaal_budget > 0 && (
           <div className="hug" title={`Budget: ${formatCurrency(node.financieel_summary.totaal_budget)} — Gerealiseerd: ${formatCurrency(node.financieel_summary.totaal_gerealiseerd)}`}>
             <Icon name="euro-sign" size="xs" />
-            <nldd-text size="xs" color="secondary">{formatCurrencyCompact(node.financieel_summary.totaal_budget)}</nldd-text>
+            <nldd-text size="xs" color="secondary"><p>{formatCurrencyCompact(node.financieel_summary.totaal_budget)}</p></nldd-text>
           </div>
         )}
         {node.node_type === NodeType.DOSSIER && node.beleidskompas_progress && (
           <div className="hug" title={`Beleidskompas: ${node.beleidskompas_progress.completed_steps} van ${node.beleidskompas_progress.total_steps} stappen compleet`}>
             <Icon name="signpost" size="xs" />
             <nldd-text size="xs" weight="medium" color={kompasDone ? 'success' : 'secondary'}>
-              {node.beleidskompas_progress.completed_steps}/{node.beleidskompas_progress.total_steps}
+              <p>{node.beleidskompas_progress.completed_steps}/{node.beleidskompas_progress.total_steps}</p>
             </nldd-text>
           </div>
         )}
         <nldd-spacer direction="horizontal" size="flexible" />
-        <nldd-text size="xs" color="secondary">{formatDateShort(node.updated_at ?? node.created_at)}</nldd-text>
+        <nldd-text size="xs" color="secondary"><p>{formatDateShort(node.updated_at ?? node.created_at)}</p></nldd-text>
       </nldd-container>
     </Card>
   );

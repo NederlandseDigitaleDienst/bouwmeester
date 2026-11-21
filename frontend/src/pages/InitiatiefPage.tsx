@@ -64,7 +64,7 @@ export function InitiatiefPage() {
     return (
       <nldd-container padding="48" horizontal-alignment="center">
         <nldd-text size="sm" color="secondary" horizontal-alignment="center">
-          Initiatief niet gevonden, of je hebt er geen toegang toe.
+          <p>Initiatief niet gevonden, of je hebt er geen toegang toe.</p>
         </nldd-text>
       </nldd-container>
     );
@@ -100,7 +100,7 @@ export function InitiatiefPage() {
 }
 
 /**
- * The section tabs. Their own component, so the `tabchange` listener binds
+ * The section tabs. Their own component, so the `tab-change` listener binds
  * when the bar mounts: `useNlddEvent` binds once, and on the page itself it
  * ran while the loading spinner was still showing, found no bar, and never
  * bound at all. The tabs then lit up on click and changed nothing.
@@ -124,7 +124,7 @@ function InitiatiefTabBar({
     },
     [initiatiefId, navigate],
   );
-  useNlddEvent(ref, 'tabchange', handleTabChange);
+  useNlddEvent(ref, 'tab-change', handleTabChange);
 
   return (
     <nldd-tab-bar ref={ref} variant="text" accessible-label="Onderdelen van het initiatief">
