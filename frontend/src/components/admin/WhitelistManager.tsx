@@ -83,7 +83,7 @@ export function WhitelistManager() {
               color="secondary"
               hide-below="md"
             />
-            <nldd-text-cell>
+            <nldd-cell>
               {confirmDeleteId === entry.id ? (
                 <nldd-container layout="row" gap="4" vertical-alignment="center">
                   <NlddButton
@@ -109,7 +109,7 @@ export function WhitelistManager() {
                   onClick={() => setConfirmDeleteId(entry.id)}
                 />
               )}
-            </nldd-text-cell>
+            </nldd-cell>
           </nldd-table-row>
         ))}
         <div slot="empty">

@@ -266,12 +266,12 @@ function LeadListRow({ lead, column, selected, onToggleSelect, onOpen }: LeadLis
 
   return (
     <nldd-table-row>
-      <nldd-text-cell>
+      <nldd-cell>
         <nldd-checkbox ref={checkboxRef} checked={orUndef(selected)} accessible-label={`Selecteer ${lead.title}`} />
-      </nldd-text-cell>
+      </nldd-cell>
       <nldd-title-cell ref={rowRef} text={lead.title} style={{ cursor: 'pointer' }} />
       <nldd-text-cell text={lead.organisatie_eenheid?.naam ?? lead.organization ?? '-'} hide-below="md" />
-      <nldd-text-cell hide-below="lg">
+      <nldd-cell hide-below="lg">
         {lead.initiatief ? (
           <nldd-tag
             text={lead.initiatief.naam}
@@ -279,14 +279,14 @@ function LeadListRow({ lead, column, selected, onToggleSelect, onOpen }: LeadLis
             size="sm"
           />
         ) : (
-          '-'
+          <nldd-text><p>-</p></nldd-text>
         )}
-      </nldd-text-cell>
-      <nldd-text-cell hide-below="lg">
+      </nldd-cell>
+      <nldd-cell hide-below="lg">
         <nldd-tag text={column?.name ?? lead.stage} color={leadColumnTagColor(column?.color ?? 'neutral')} size="sm" />
-      </nldd-text-cell>
+      </nldd-cell>
       <nldd-text-cell text={lead.assignee?.naam ?? '-'} hide-below="lg" />
-      <nldd-text-cell hide-below="lg">
+      <nldd-cell hide-below="lg">
         {lead.next_action_date ? (
           <nldd-container layout="row" gap="4" vertical-alignment="center">
             <nldd-icon icon="calendar" size="16" aria-hidden="true" />
@@ -297,10 +297,10 @@ function LeadListRow({ lead, column, selected, onToggleSelect, onOpen }: LeadLis
             </nldd-text>
           </nldd-container>
         ) : (
-          '-'
+          <nldd-text><p>-</p></nldd-text>
         )}
-      </nldd-text-cell>
-      <nldd-text-cell hide-below="lg">
+      </nldd-cell>
+      <nldd-cell hide-below="lg">
         <nldd-container layout="wrap" gap="4">
           {lead.tags.slice(0, 3).map((tag) => (
             <nldd-tag key={tag} text={tag} color="neutral" size="sm" />
@@ -309,7 +309,7 @@ function LeadListRow({ lead, column, selected, onToggleSelect, onOpen }: LeadLis
             <nldd-text size="xs" color="secondary"><p>+{lead.tags.length - 3}</p></nldd-text>
           )}
         </nldd-container>
-      </nldd-text-cell>
+      </nldd-cell>
       <nldd-text-cell hide-below="lg" title={formatDateShort(lead.created_at)}>
         {timeAgo(lead.created_at)}
       </nldd-text-cell>

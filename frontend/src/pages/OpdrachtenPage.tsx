@@ -141,14 +141,14 @@ function OpdrachtRow({ opdracht: o, onOpen }: { opdracht: Opdracht; onOpen: () =
       <nldd-text-cell text={o.instrument?.title || '-'} />
       <nldd-text-cell text={formatCurrency(o.budget)} horizontal-alignment="right" />
       <nldd-text-cell text={formatCurrency(o.gerealiseerd)} horizontal-alignment="right" />
-      <nldd-text-cell>
+      <nldd-cell>
         <nldd-container layout="row" gap="6" vertical-alignment="center">
           <Badge color={OPDRACHT_STATUS_COLORS[o.status as OpdrachtStatus] || 'coolgray'}>
             {OPDRACHT_STATUS_LABELS[o.status as OpdrachtStatus] || o.status}
           </Badge>
           <FccTrafficLights opdracht={o} />
         </nldd-container>
-      </nldd-text-cell>
+      </nldd-cell>
     </nldd-table-row>
   );
 }

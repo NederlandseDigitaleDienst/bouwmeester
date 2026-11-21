@@ -397,8 +397,12 @@ function UpdateRow({
 
   return (
     <nldd-list-item>
-      <nldd-text-cell width="full" text={post.titel}>
-        <span slot="supporting-text">
+      {/* A text cell takes text in its slots and no layout. This is the same row,
+          built from a generic cell: the title in the tight line a text cell
+          gives it, and what stood in `supporting-text` right below it. */}
+      <nldd-cell width="full">
+        <nldd-container gap="0">
+          <nldd-text line-height="tight"><p>{post.titel}</p></nldd-text>
           <nldd-container gap="2">
             <nldd-text size="xs" color="secondary">
               <span>
@@ -415,8 +419,8 @@ function UpdateRow({
               </nldd-text>
             )}
           </nldd-container>
-        </span>
-      </nldd-text-cell>
+        </nldd-container>
+      </nldd-cell>
       <nldd-list-item-segment href={getLeadUpdateEmlUrl(leadId, post.id)} accessible-label="Download .eml voor Outlook" title="Download .eml — opent als nieuw concept in Outlook (Windows) met onderwerp en ontvangers ingevuld">
         <Icon name="envelope" size="sm" />
         Outlook

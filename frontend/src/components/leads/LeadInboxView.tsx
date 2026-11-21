@@ -306,8 +306,12 @@ function LeadInboxRow({
       <nldd-list-item-segment ref={checkboxRef} checkbox checked={orUndef(selected)} accessible-label={`Selecteer ${lead.title}`} />
 
       <nldd-list-item-segment ref={openRef} button width="full" accessible-label={lead.title}>
-        <nldd-text-cell text={lead.title}>
-          <span slot="supporting-text">
+        {/* A text cell takes text in its slots and no layout. This is the same row,
+            built from a generic cell: the title in the tight line a text cell
+            gives it, and what stood in `supporting-text` right below it. */}
+        <nldd-cell width="full">
+          <nldd-container gap="0">
+            <nldd-text line-height="tight"><p>{lead.title}</p></nldd-text>
             <nldd-container gap="4">
               {/* A div around RichTextDisplay, because that renders its own
                   nldd-text or nldd-rich-text, so there is no single element
@@ -373,8 +377,8 @@ function LeadInboxRow({
                 </nldd-container>
               )}
             </nldd-container>
-          </span>
-        </nldd-text-cell>
+          </nldd-container>
+        </nldd-cell>
       </nldd-list-item-segment>
 
       <nldd-list-item-segment ref={claimRef} button disabled={orUndef(!canClaim)} accessible-label="Zelf oppakken">

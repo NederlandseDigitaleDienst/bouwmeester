@@ -53,7 +53,7 @@ export function PlacementRequestManager() {
         {requests?.map((req) => (
           <nldd-table-row key={req.id}>
             <nldd-title-cell text={req.person_naam} />
-            <nldd-text-cell>
+            <nldd-cell>
               <nldd-container layout="row" gap="6" vertical-alignment="center">
                 <nldd-text size="sm"><p>{req.eenheid_naam}</p></nldd-text>
                 <NlddIconButton
@@ -64,7 +64,7 @@ export function PlacementRequestManager() {
                   onClick={() => setEditingRequest(req)}
                 />
               </nldd-container>
-            </nldd-text-cell>
+            </nldd-cell>
             <nldd-text-cell
               text={DIENSTVERBAND_LABELS[req.dienstverband] || req.dienstverband}
               color="secondary"
@@ -80,7 +80,7 @@ export function PlacementRequestManager() {
               color="secondary"
               hide-below="md"
             />
-            <nldd-text-cell>
+            <nldd-cell>
               {confirmDenyId === req.id ? (
                 <nldd-container layout="row" gap="4">
                   <NlddButton
@@ -116,7 +116,7 @@ export function PlacementRequestManager() {
                   />
                 </nldd-container>
               )}
-            </nldd-text-cell>
+            </nldd-cell>
           </nldd-table-row>
         ))}
         <div slot="empty">

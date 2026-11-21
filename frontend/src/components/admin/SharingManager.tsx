@@ -262,7 +262,7 @@ export function SharingManager() {
               color="secondary"
               hide-below="lg"
             />
-            <nldd-text-cell>
+            <nldd-cell>
               {confirmDeleteId === share.id ? (
                 <nldd-container layout="row" gap="4" vertical-alignment="center">
                   <NlddButton
@@ -288,7 +288,7 @@ export function SharingManager() {
                   onClick={() => setConfirmDeleteId(share.id)}
                 />
               )}
-            </nldd-text-cell>
+            </nldd-cell>
           </nldd-table-row>
         ))}
         <div slot="empty">

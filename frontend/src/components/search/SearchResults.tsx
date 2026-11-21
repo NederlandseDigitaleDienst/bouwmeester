@@ -305,7 +305,7 @@ function ResultCard({ result, onClick }: { result: SearchResult; onClick: () => 
   const ref = useRef<HTMLElement>(null);
   useNlddEvent(ref, 'click', onClick);
   return (
-    <nldd-card ref={ref} button>
+    <nldd-card ref={ref} button accessible-label={result.title}>
       <ResultItemContent result={result} />
     </nldd-card>
   );

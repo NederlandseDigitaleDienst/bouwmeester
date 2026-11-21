@@ -62,7 +62,7 @@ function AssignmentRow({
         size="sm"
         hide-below="lg"
       />
-      <nldd-text-cell>
+      <nldd-cell>
         {!canRevoke ? null : confirmDelete ? (
           <nldd-container layout="row" gap="4" vertical-alignment="center">
             <NlddButton
@@ -91,7 +91,7 @@ function AssignmentRow({
             onClick={() => setConfirmDelete(true)}
           />
         )}
-      </nldd-text-cell>
+      </nldd-cell>
     </nldd-table-row>
   );
 }
@@ -352,7 +352,7 @@ function ResourcePermissionRow({
         hide-below="md"
       />
       <nldd-text-cell text={rp.rol} color="secondary" size="sm" />
-      <nldd-text-cell>
+      <nldd-cell>
         {confirmDelete ? (
           <nldd-container layout="row" gap="4" vertical-alignment="center">
             <NlddButton
@@ -381,7 +381,7 @@ function ResourcePermissionRow({
             onClick={() => setConfirmDelete(true)}
           />
         )}
-      </nldd-text-cell>
+      </nldd-cell>
     </nldd-table-row>
   );
 }
@@ -828,13 +828,13 @@ function PersonRow({
     // `selected` both highlights the row and, because the table is `selectable`,
     // drives its aria-selected.
     <nldd-table-row selected={selected ? true : undefined}>
-      <nldd-text-cell>
+      <nldd-cell>
         <nldd-checkbox
           ref={checkboxRef}
           checked={selected ? true : undefined}
           accessible-label={`${naam} selecteren voor samenvoegen`}
         />
-      </nldd-text-cell>
+      </nldd-cell>
       <nldd-text-cell>
         <NlddButton
           variant="neutral-transparent"
@@ -846,13 +846,13 @@ function PersonRow({
       </nldd-text-cell>
       <nldd-text-cell text={email || '-'} color="secondary" hide-below="md" />
       <nldd-text-cell text={formatFunctie(functie) || '-'} color="secondary" hide-below="lg" />
-      <nldd-text-cell>
+      <nldd-cell>
         {online ? (
           <nldd-tag text="Nu actief" color="success" size="sm" />
         ) : (
           <nldd-text size="sm" color="secondary"><p>{formatRelativeTime(lastSeenAt)}</p></nldd-text>
         )}
-      </nldd-text-cell>
+      </nldd-cell>
       {isExpanded && (
         <div style={{ gridColumn: '1 / -1' }}>
           <PersonRolesPanel personId={personId} />
