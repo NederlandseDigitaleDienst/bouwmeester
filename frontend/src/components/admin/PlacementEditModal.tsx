@@ -50,8 +50,10 @@ export function PlacementEditModal({ open, onClose, request }: PlacementEditModa
     >
       <nldd-container gap="16">
         <nldd-text size="sm" color="secondary">
-          Kies de juiste eenheid voor het teamverzoek van{' '}
-          <strong>{request?.person_naam}</strong>.
+          <p>
+            Kies de juiste eenheid voor het teamverzoek van{' '}
+            <strong>{request?.person_naam}</strong>.
+          </p>
         </nldd-text>
         <CascadingOrgSelect
           value={selectedEenheidId}

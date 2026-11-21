@@ -118,8 +118,10 @@ export function WhitelistManager() {
       </nldd-table>
 
       <nldd-text size="xs" color="secondary">
-        Alleen personen met een e-mailadres op deze lijst kunnen inloggen. Wanneer de lijst leeg is,
-        is alle toegang open (lokale ontwikkeling).
+        <p>
+          Alleen personen met een e-mailadres op deze lijst kunnen inloggen. Wanneer de lijst leeg is,
+          is alle toegang open (lokale ontwikkeling).
+        </p>
       </nldd-text>
     </nldd-container>
   );

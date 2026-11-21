@@ -200,7 +200,7 @@ export function ChatInput() {
                   )}
                   {/* A max-width to cut against: nldd-text has no width of its own. */}
                   <nldd-text size="xs" className="truncate" style={{ maxWidth: '120px' }} title={att.bestandsnaam}>
-                    {att.bestandsnaam}
+                    <p>{att.bestandsnaam}</p>
                   </nldd-text>
                   <NlddIconButton
                     icon="close"
@@ -216,7 +216,7 @@ export function ChatInput() {
               <nldd-box>
                 <nldd-container layout="row" gap="6" vertical-alignment="center" padding-inline="8" padding-block="6">
                   <nldd-activity-indicator size="16" />
-                  <nldd-text size="xs" color="secondary">Uploaden...</nldd-text>
+                  <nldd-text size="xs" color="secondary"><p>Uploaden...</p></nldd-text>
                 </nldd-container>
               </nldd-box>
             )}

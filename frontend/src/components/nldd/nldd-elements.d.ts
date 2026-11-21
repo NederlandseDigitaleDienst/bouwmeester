@@ -117,8 +117,8 @@ import type { NLDDTabBarItem } from '@nldd/design-system/tab-bar';
 import type { NLDDTable } from '@nldd/design-system/table';
 import type { NLDDTableRow } from '@nldd/design-system/table';
 import type { NLDDTag } from '@nldd/design-system/tag';
-import type { NLDDTaskBoard } from '@nldd/design-system/task-board';
-import type { NLDDTaskBoardColumn } from '@nldd/design-system/task-board-column';
+import type { NLDDKanban } from '@nldd/design-system/kanban';
+import type { NLDDKanbanColumn } from '@nldd/design-system/kanban-column';
 import type { NLDDText } from '@nldd/design-system/text';
 import type { NLDDTextCell } from '@nldd/design-system/text-cell';
 import type { NLDDTextEditor } from '@nldd/design-system/text-editor';
@@ -2420,38 +2420,38 @@ declare module 'react' {
 				'accessible-label'?: NLDDTag['accessibleLabel'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
-			 *  error. Add `import '@nldd/design-system/task-board';` to
+			 *  error. Add `import '@nldd/design-system/kanban';` to
 			 *  components/nldd/register.ts first. Some elements register through a
 			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
 			 *  those. */
 			'nldd-task-board': NlddElement & {
 				/** Accessible name of the board (default: "Takenbord") */
-				'accessible-label'?: NLDDTaskBoard['accessibleLabel'];
+				'accessible-label'?: NLDDKanban['accessibleLabel'];
 				/** Fixed height as a CSS length (e.g. '480px'): every column takes it, and scrolls its items once they do not fit. To fill a page or a pane, set the height in your layout instead (flex, or `height: 100%`) */
-				'height'?: NLDDTaskBoard['height'];
+				'height'?: NLDDKanban['height'];
 				/** Items cannot be dragged or moved with the keyboard; they still work, and `moveItem()` still moves */
-				'readonly'?: NLDDTaskBoard['readonly'];
+				'readonly'?: NLDDKanban['readonly'];
 				/** Override translation keys; unset keys fall back to Dutch */
-				'translations'?: NLDDTaskBoard['translations'];
+				'translations'?: NLDDKanban['translations'];
 				/** The columns, in order. */
-				'columns'?: NLDDTaskBoard['columns'];
+				'columns'?: NLDDKanban['columns'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
-			 *  error. Add `import '@nldd/design-system/task-board-column';` to
+			 *  error. Add `import '@nldd/design-system/kanban-column';` to
 			 *  components/nldd/register.ts first. Some elements register through a
 			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
 			 *  those. */
 			'nldd-task-board-column': NlddElement & {
 				/** The column's name, shown in the header and used as its accessible name */
-				'text'?: NLDDTaskBoardColumn['text'];
+				'text'?: NLDDKanbanColumn['text'];
 				/** Accessible name in place of `text`, for a column whose header comes from the slot */
-				'accessible-label'?: NLDDTaskBoardColumn['accessibleLabel'];
+				'accessible-label'?: NLDDKanbanColumn['accessibleLabel'];
 				/** What the column stands for in your data, such as a status; `nldd-move` reports it as `fromColumn` and `toColumn` */
-				'value'?: NLDDTaskBoardColumn['value'];
+				'value'?: NLDDKanbanColumn['value'];
 				/** The column's name: what a screen reader hears for it. */
-				'label'?: NLDDTaskBoardColumn['label'];
+				'label'?: NLDDKanbanColumn['label'];
 				/** The column's items, in order; a hidden one does not count. */
-				'items'?: NLDDTaskBoardColumn['items'];
+				'items'?: NLDDKanbanColumn['items'];
 			};
 			'nldd-text': NlddElement & {
 				/** Text size on the body scale: 'xxs' | 'xs' | 'sm' | 'md' | 'lg' (default: 'md') */

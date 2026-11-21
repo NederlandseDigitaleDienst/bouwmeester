@@ -182,7 +182,7 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
     <DetailSection title="Updates" icon={<Icon name="megaphone" size="sm" />}>
       <nldd-container layout="row" gap="8" vertical-alignment="center" padding-bottom="8">
         <nldd-text size="xs" color="secondary">
-          {posts.length === 0 ? 'Nog geen updates' : `${posts.length} totaal`}
+          <p>{posts.length === 0 ? 'Nog geen updates' : `${posts.length} totaal`}</p>
         </nldd-text>
         {!composing && (
           <NlddButton variant="secondary" size="sm" onClick={startCompose} text="Nieuwe update" />
@@ -207,7 +207,7 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
                     <nldd-file-field ref={fileFieldRef} multiple accept=".pdf,.docx,.doc,.odt,.txt,image/*" accessible-label="Bestand toevoegen" />
                     {files.length > 0 && (
                       <nldd-text size="xs" color="secondary">
-                        {files.map((f) => f.name).join(', ')}
+                        <p>{files.map((f) => f.name).join(', ')}</p>
                       </nldd-text>
                     )}
                   </nldd-container>
@@ -238,7 +238,7 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
                       text="AI: uit lead-historie"
                     />
                     {parseMutation.isPending && (
-                      <nldd-text size="xs" color="secondary">Bezig...</nldd-text>
+                      <nldd-text size="xs" color="secondary"><p>Bezig...</p></nldd-text>
                     )}
                   </nldd-container>
                   {error && (
@@ -304,7 +304,7 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
 
       {concepts.length > 0 && (
         <nldd-container gap="4" padding-bottom="12">
-          <nldd-text size="xs" color="secondary">Concepten</nldd-text>
+          <nldd-text size="xs" color="secondary"><p>Concepten</p></nldd-text>
           <nldd-list appearance="box-tinted" dividers="always" accessible-label="Conceptupdates">
             {concepts.map((post) => (
               <UpdateRow
@@ -327,7 +327,7 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
 
       {published.length > 0 && (
         <nldd-container gap="4">
-          <nldd-text size="xs" color="secondary">Gepubliceerd</nldd-text>
+          <nldd-text size="xs" color="secondary"><p>Gepubliceerd</p></nldd-text>
           <nldd-list appearance="box-tinted" dividers="always" accessible-label="Gepubliceerde updates">
             {published.map((post) => (
               <UpdateRow
@@ -397,13 +397,15 @@ function UpdateRow({
         <span slot="supporting-text">
           <nldd-container gap="2">
             <nldd-text size="xs" color="secondary">
-              {isPublished
-                ? `Gepubliceerd ${formatDateLong(post.published_at!)}${post.published_by_naam ? ` · ${post.published_by_naam}` : ''}`
-                : `Concept · ${formatDateLong(post.created_at)}`}
+              <span>
+                {isPublished
+                  ? `Gepubliceerd ${formatDateLong(post.published_at!)}${post.published_by_naam ? ` · ${post.published_by_naam}` : ''}`
+                  : `Concept · ${formatDateLong(post.created_at)}`}
+              </span>
             </nldd-text>
             {post.body_public && (
               <nldd-text size="xs" color="secondary" className="line-clamp-2 whitespace-pre-wrap">
-                {post.body_public}
+                <span>{post.body_public}</span>
               </nldd-text>
             )}
           </nldd-container>

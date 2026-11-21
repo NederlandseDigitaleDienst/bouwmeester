@@ -218,7 +218,7 @@ function CommunityGraphNodeComponent({ data }: NodeProps<CommunityGraphNodeData>
           <NodeKindLabel icon={isExtern ? 'person-circle' : 'person'} color={color} text={label} />
           {data.expertise && (
             <nldd-text size="xs" color="secondary">
-              {data.expertise}
+              <p>{data.expertise}</p>
             </nldd-text>
           )}
         </nldd-container>
@@ -276,7 +276,7 @@ function CommunityGraphNodeComponent({ data }: NodeProps<CommunityGraphNodeData>
         {badgeContent}
         <nldd-container layout="row" gap="4" vertical-alignment="bottom">
           <nldd-text size="sm" weight="medium" className="line-clamp-2 row-fill">
-            {data.label}
+            <p>{data.label}</p>
           </nldd-text>
           {data.onAddContact && <AddContactButton onAdd={data.onAddContact} />}
         </nldd-container>
@@ -320,7 +320,7 @@ function NodeKindLabel({
         color="secondary"
         className={truncate ? 'truncate row-fill' : 'row-fill'}
       >
-        {text}
+        <p>{text}</p>
       </nldd-text>
     </nldd-container>
   );

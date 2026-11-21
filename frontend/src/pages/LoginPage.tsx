@@ -48,11 +48,11 @@ export function LoginPage() {
         <nldd-container gap="24" horizontal-alignment="center">
           <nldd-container gap="12" horizontal-alignment="center">
             <nldd-image src={logoImg} alt="Bouwmeester" width="80" height={80} shape="circle" />
-            <nldd-title size={3}>
+            <nldd-title size="display-3">
               <h1>Bouwmeester</h1>
             </nldd-title>
             <nldd-text color="secondary" horizontal-alignment="center">
-              Log in om door te gaan
+              <p>Log in om door te gaan</p>
             </nldd-text>
           </nldd-container>
 

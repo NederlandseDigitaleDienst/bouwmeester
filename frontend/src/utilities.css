@@ -504,7 +504,7 @@
  * 280px; hier delen de kolommen de ruimte, en niet smaller dan 240px, zodat
  * de drie kolommen ook op een laptop naast elkaar passen. Past dat niet,
  * dan schuift het bord zelf opzij. */
-.issue-kader nldd-task-board-column {
+.issue-kader nldd-kanban-column {
   flex: 1 1 0;
   width: auto;
   min-width: var(--primitives-area-240);

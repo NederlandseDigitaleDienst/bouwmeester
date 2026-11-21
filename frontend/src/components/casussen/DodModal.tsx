@@ -90,14 +90,16 @@ export function DodModal({ issue, mode, onClose }: Props) {
     >
       <nldd-container gap="12">
         {issue && (
-          <nldd-text size="sm" weight="medium">{issue.title}</nldd-text>
+          <nldd-text size="sm" weight="medium"><p>{issue.title}</p></nldd-text>
         )}
         <nldd-text size="sm" color="secondary">
-          De Definition of Done is de teamstandaard: waar een issue aan moet voldoen voordat
-          het af is. Aan te passen bij de instellingen van het initiatief.
+          <p>
+            De Definition of Done is de teamstandaard: waar een issue aan moet voldoen voordat
+            het af is. Aan te passen bij de instellingen van het initiatief.
+          </p>
         </nldd-text>
         {!casus ? (
-          <nldd-text size="sm" color="secondary">Laden...</nldd-text>
+          <nldd-text size="sm" color="secondary"><p>Laden...</p></nldd-text>
         ) : (
           <nldd-container gap="8">
             {dodItems.map((item) => (
@@ -113,8 +115,10 @@ export function DodModal({ issue, mode, onClose }: Props) {
         )}
         {mode === 'afronden' && casus && open > 0 && (
           <nldd-text size="xs" color="secondary">
-            Nog {open} van {dodItems.length} eisen niet afgevinkt. Afronden kan, maar dan staat dat
-            zo op het issue.
+            <p>
+              Nog {open} van {dodItems.length} eisen niet afgevinkt. Afronden kan, maar dan staat dat
+              zo op het issue.
+            </p>
           </nldd-text>
         )}
       </nldd-container>

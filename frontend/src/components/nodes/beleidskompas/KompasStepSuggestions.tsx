@@ -104,10 +104,10 @@ export function KompasStepSuggestions({
         compact
       />
 
-      {error && <nldd-text size="xs" color="critical">{error}</nldd-text>}
+      {error && <nldd-text size="xs" color="critical"><p>{error}</p></nldd-text>}
 
       {suggestions !== null && suggestions.length === 0 && (
-        <nldd-text size="xs" color="secondary">Geen suggesties gevonden.</nldd-text>
+        <nldd-text size="xs" color="secondary"><p>Geen suggesties gevonden.</p></nldd-text>
       )}
 
       {suggestions && suggestions.length > 0 && (

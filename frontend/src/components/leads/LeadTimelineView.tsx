@@ -87,7 +87,7 @@ function EventDescription({ event }: { event: LeadTimelineEvent }) {
     case 'created':
       return (
         <nldd-container layout="row" gap="8" vertical-alignment="center" padding-top="8">
-          <nldd-text size="sm" color="secondary">Nieuwe lead aangemaakt</nldd-text>
+          <nldd-text size="sm" color="secondary"><p>Nieuwe lead aangemaakt</p></nldd-text>
           <StageBadge stage={event.stage} />
         </nldd-container>
       );
@@ -122,7 +122,7 @@ function EventDescription({ event }: { event: LeadTimelineEvent }) {
             </nldd-text>
           ) : (
             <nldd-text size="sm" color="secondary" className="line-clamp-2">
-              {getActivityLabel(event.event_type)}
+              <p>{getActivityLabel(event.event_type)}</p>
             </nldd-text>
           )}
         </nldd-container>
@@ -178,13 +178,13 @@ function TimelineEventCard({
           <nldd-container layout="row" gap="8" vertical-alignment="top">
             <nldd-container gap="2" width="full">
               <nldd-container layout="row" gap="8" vertical-alignment="center">
-                <nldd-text size="xs" color="secondary" style={{ fontVariantNumeric: 'tabular-nums' }}>{time}</nldd-text>
+                <nldd-text size="xs" color="secondary" style={{ fontVariantNumeric: 'tabular-nums' }}><p>{time}</p></nldd-text>
                 <Icon name={eventIconName(event.event_type)} size="sm" style={{ opacity: 0.5 }} />
               </nldd-container>
-              <nldd-title-cell text={event.lead_title} size={6} />
+              <nldd-title-cell text={event.lead_title} size="display-6" />
               {event.organization && (
                 <nldd-text size="sm" color="secondary">
-                  {event.organization}
+                  <p>{event.organization}</p>
                 </nldd-text>
               )}
             </nldd-container>
@@ -195,9 +195,9 @@ function TimelineEventCard({
 
           {(event.actor_naam || event.assignee_naam) && (
             <nldd-container layout="row" gap="12" padding-top="10">
-              {event.actor_naam && <nldd-text size="xs" color="secondary">Door {event.actor_naam}</nldd-text>}
+              {event.actor_naam && <nldd-text size="xs" color="secondary"><p>Door {event.actor_naam}</p></nldd-text>}
               {event.assignee_naam && event.assignee_naam !== event.actor_naam && (
-                <nldd-text size="xs" color="secondary">Verantwoordelijk: {event.assignee_naam}</nldd-text>
+                <nldd-text size="xs" color="secondary"><p>Verantwoordelijk: {event.assignee_naam}</p></nldd-text>
               )}
             </nldd-container>
           )}
@@ -283,7 +283,7 @@ export function LeadTimelineView({
 
         {!isLoading && (
           <nldd-text size="xs" color="secondary">
-            {totalEvents} {totalEvents === 1 ? 'activiteit' : 'activiteiten'}
+            <p>{totalEvents} {totalEvents === 1 ? 'activiteit' : 'activiteiten'}</p>
           </nldd-text>
         )}
       </nldd-container>
@@ -314,7 +314,7 @@ export function LeadTimelineView({
                   backgroundColor: 'var(--primitives-color-neutral-0)',
                 }}
               >
-                {formatDateGroupLabel(dateKey)}
+                <p>{formatDateGroupLabel(dateKey)}</p>
               </nldd-text>
 
               {/* Events for this date */}

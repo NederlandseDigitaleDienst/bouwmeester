@@ -173,8 +173,10 @@ export function LeadGitHubLinks({ leadId, links }: Props) {
       ) : (
         !showForm && (
           <nldd-text size="sm" color="secondary">
-            Nog geen GitHub-werk gekoppeld. Plak een URL van een branch, PR of
-            issue.
+            <p>
+              Nog geen GitHub-werk gekoppeld. Plak een URL van een branch, PR of
+              issue.
+            </p>
           </nldd-text>
         )
       )}

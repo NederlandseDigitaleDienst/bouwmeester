@@ -83,7 +83,7 @@ export function CasusFunnelBord({ casussen, initiatiefId, onOpen }: Props) {
     <nldd-container gap="16">
       {/* Zelfde samenvatting als boven het leadbord: totaal en per fase. */}
       <nldd-container layout="wrap" gap="8" vertical-alignment="center">
-        <nldd-text size="sm">{casussen.length} {casussen.length === 1 ? 'casus' : 'casussen'}</nldd-text>
+        <nldd-text size="sm"><p>{casussen.length} {casussen.length === 1 ? 'casus' : 'casussen'}</p></nldd-text>
         {fases.filter((f) => (perFase[f.id]?.length ?? 0) > 0).map((f) => (
           <nldd-tag key={f.id} text={`${f.naam}: ${perFase[f.id].length}`} color={leadColumnTagColor(f.kleur)} size="sm" />
         ))}
@@ -132,7 +132,7 @@ export function CasusFunnelBord({ casussen, initiatiefId, onOpen }: Props) {
                       {...(faseUitleg(f, i === fases.length - 1) ? { title: faseUitleg(f, i === fases.length - 1) } : {})}
                     />
                     <nldd-text size="xs" color="secondary" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                      {kaartjes.length}
+                      <p>{kaartjes.length}</p>
                     </nldd-text>
                   </nldd-container>
                   <nldd-container gap="8" padding-inline="8" padding-bottom="8">
@@ -158,7 +158,7 @@ export function CasusFunnelBord({ casussen, initiatiefId, onOpen }: Props) {
                     ) : (
                       <nldd-container padding-block="24">
                         <nldd-text size="xs" color="secondary" horizontal-alignment="center">
-                          Sleep casussen hierheen
+                          <p>Sleep casussen hierheen</p>
                         </nldd-text>
                       </nldd-container>
                     )}

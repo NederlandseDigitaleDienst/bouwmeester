@@ -216,7 +216,7 @@ export function LeadInboxView({
         return (
           <nldd-container key={group} gap="0">
             <nldd-container padding-inline="12" padding-block="6">
-              <nldd-title size={6}>
+              <nldd-title size="display-6">
                 <h3>{DATE_GROUP_LABELS[group]}</h3>
               </nldd-title>
             </nldd-container>
@@ -327,35 +327,37 @@ function LeadInboxRow({
 
               <nldd-container layout="wrap" gap="4">
                 {lead.brought_by && (
-                  <nldd-text size="xs" color="secondary">via {lead.brought_by.naam}</nldd-text>
+                  <nldd-text size="xs" color="secondary"><span>via {lead.brought_by.naam}</span></nldd-text>
                 )}
                 {lead.organization && (
                   <nldd-text size="xs" color="secondary">
-                    {lead.organisatie_eenheid?.naam ?? lead.organization}
+                    <span>{lead.organisatie_eenheid?.naam ?? lead.organization}</span>
                   </nldd-text>
                 )}
                 {lead.contact_names.length > 0 && (
                   <div className="hug hug-gap-2 hug-truncate" title={lead.contact_names.join(', ')}>
                     <nldd-icon icon="users" size="16" aria-hidden="true" />
                     <nldd-text size="xs" color="secondary">
-                      {lead.contact_names[0]}
-                      {lead.contact_names.length > 1 && ` +${lead.contact_names.length - 1}`}
+                      <span>
+                        {lead.contact_names[0]}
+                        {lead.contact_names.length > 1 && ` +${lead.contact_names.length - 1}`}
+                      </span>
                     </nldd-text>
                   </div>
                 )}
                 {lead.next_action_date && (
                   <div className="hug hug-gap-2">
                     <nldd-icon icon="calendar" size="16" aria-hidden="true" />
-                    <nldd-text size="xs" color="secondary">{formatDateShort(lead.next_action_date)}</nldd-text>
+                    <nldd-text size="xs" color="secondary"><span>{formatDateShort(lead.next_action_date)}</span></nldd-text>
                   </div>
                 )}
                 {lead.attachment_count > 0 && (
                   <div className="hug hug-gap-2">
                     <nldd-icon icon="paperclip" size="16" aria-hidden="true" />
-                    <nldd-text size="xs" color="secondary">{lead.attachment_count}</nldd-text>
+                    <nldd-text size="xs" color="secondary"><span>{lead.attachment_count}</span></nldd-text>
                   </div>
                 )}
-                <nldd-text size="xs" color="secondary">{timeAgo(lead.created_at)}</nldd-text>
+                <nldd-text size="xs" color="secondary"><span>{timeAgo(lead.created_at)}</span></nldd-text>
               </nldd-container>
 
               {lead.tags.length > 0 && (
@@ -364,7 +366,7 @@ function LeadInboxRow({
                     <nldd-tag key={tag} text={tag} color="neutral" size="sm" />
                   ))}
                   {lead.tags.length > 4 && (
-                    <nldd-text size="xs" color="secondary">+{lead.tags.length - 4}</nldd-text>
+                    <nldd-text size="xs" color="secondary"><span>+{lead.tags.length - 4}</span></nldd-text>
                   )}
                 </nldd-container>
               )}

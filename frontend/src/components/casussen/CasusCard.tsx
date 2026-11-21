@@ -27,11 +27,11 @@ export function CasusCard({ casus, onClick, vragen = [] }: CasusCardProps) {
     <nldd-card ref={ref} button accessible-label={casus.title}>
       <nldd-container gap="6" padding="12">
         <nldd-text size="sm" weight="medium" className="line-clamp-2">
-          {casus.title}
+          <p>{casus.title}</p>
         </nldd-text>
         {casus.organization && (
           <nldd-text size="xs" color="secondary" className="truncate">
-            {casus.organization}
+            <p>{casus.organization}</p>
           </nldd-text>
         )}
         {(labels.length > 0 || (casus.soorten?.length ?? 0) > 0) && (
@@ -47,14 +47,16 @@ export function CasusCard({ casus, onClick, vragen = [] }: CasusCardProps) {
           <div className="hug hug-gap-2 hug-truncate">
             <nldd-icon icon="person" size="16" aria-hidden="true" />
             <nldd-text size="xs" color="secondary">
-              {casus.trekker_naam ?? 'Geen trekker'}
-              {casus.team_count > 1 && ` +${casus.team_count - 1}`}
+              <p>
+                {casus.trekker_naam ?? 'Geen trekker'}
+                {casus.team_count > 1 && ` +${casus.team_count - 1}`}
+              </p>
             </nldd-text>
           </div>
           <div className="hug hug-gap-2">
             <nldd-icon icon="check-list" size="16" aria-hidden="true" />
             <nldd-text size="xs" color="secondary" style={{ fontVariantNumeric: 'tabular-nums' }}>
-              {casus.issue_done_count}/{casus.issue_count}
+              <p>{casus.issue_done_count}/{casus.issue_count}</p>
             </nldd-text>
           </div>
         </nldd-container>

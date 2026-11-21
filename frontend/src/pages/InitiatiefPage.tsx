@@ -64,7 +64,7 @@ export function InitiatiefPage() {
     return (
       <nldd-container padding="48" horizontal-alignment="center">
         <nldd-text size="sm" color="secondary" horizontal-alignment="center">
-          Initiatief niet gevonden, of je hebt er geen toegang toe.
+          <p>Initiatief niet gevonden, of je hebt er geen toegang toe.</p>
         </nldd-text>
       </nldd-container>
     );

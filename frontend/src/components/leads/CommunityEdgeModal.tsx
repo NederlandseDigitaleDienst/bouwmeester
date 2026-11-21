@@ -169,7 +169,7 @@ export function CommunityEdgeModal({ pendingConnection, onClose }: Props) {
       }
     >
       {route.kind === 'invalid' && (
-        <nldd-text size="sm" color="secondary">{route.reason}</nldd-text>
+        <nldd-text size="sm" color="secondary"><p>{route.reason}</p></nldd-text>
       )}
 
       {route.kind === 'lead_contact' && (
@@ -185,14 +185,16 @@ export function CommunityEdgeModal({ pendingConnection, onClose }: Props) {
 
       {route.kind === 'lead_node' && (
         <nldd-text size="sm" color="secondary">
-          Wil je deze beleidsnode koppelen aan de lead?
+          <p>Wil je deze beleidsnode koppelen aan de lead?</p>
         </nldd-text>
       )}
 
       {route.kind === 'lead_org' && (
         <nldd-text size="sm" color="secondary">
-          Wil je deze organisatie koppelen aan de lead? Een eventueel eerder gekoppelde organisatie
-          wordt vervangen.
+          <p>
+            Wil je deze organisatie koppelen aan de lead? Een eventueel eerder gekoppelde organisatie
+            wordt vervangen.
+          </p>
         </nldd-text>
       )}
 

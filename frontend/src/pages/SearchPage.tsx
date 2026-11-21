@@ -67,7 +67,7 @@ export function SearchPage() {
       <nldd-container gap="24">
         {/* Page header */}
         <nldd-text size="sm" color="secondary">
-          Doorzoek alles: beleidscorpus, taken, personen, organisaties, parlementaire items, tags en leads.
+          <p>Doorzoek alles: beleidscorpus, taken, personen, organisaties, parlementaire items, tags en leads.</p>
         </nldd-text>
 
         {/* Search input */}

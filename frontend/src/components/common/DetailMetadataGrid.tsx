@@ -27,7 +27,7 @@ export function DetailMetadataGrid({ items, separated = false }: DetailMetadataG
   const renderItem = (item: MetadataItem) => (
     <nldd-container key={item.label} gap="4">
       <nldd-text size="xs" weight="bold" color="secondary">
-        {item.label}
+        <p>{item.label}</p>
       </nldd-text>
       <nldd-container layout="row" gap="6" vertical-alignment="center">
         {item.icon}

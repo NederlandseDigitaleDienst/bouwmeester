@@ -364,7 +364,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
         <LoadingSpinner padding="32" />
       ) : !lead ? (
         <nldd-container horizontal-alignment="center" padding="32">
-          <nldd-text size="sm" color="secondary">Lead niet gevonden.</nldd-text>
+          <nldd-text size="sm" color="secondary"><p>Lead niet gevonden.</p></nldd-text>
         </nldd-container>
       ) : editing ? (
         /* Edit mode */
@@ -442,7 +442,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
             return (
               <nldd-card background="tinted">
                 <nldd-container gap="12" padding="12">
-                  <nldd-title size={6}><h3>Funnel-afweging</h3></nldd-title>
+                  <nldd-title size="display-6"><h3>Funnel-afweging</h3></nldd-title>
                   <Select label="Engagement type" width="full" options={ENGAGEMENT_OPTIONS} value={editEngagementType} onChange={(e) => setEditEngagementType(e.target.value as EngagementType | '')} />
                   <nldd-container layout="grid" column-count={3} gap="8">
                     <ScoreSelect label={labelStrategisch} value={editScoreStrategisch} onChange={setEditScoreStrategisch} />
@@ -465,7 +465,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
               <nldd-card background="tinted">
                 <nldd-container gap="12" padding="12">
                   <nldd-container layout="row" gap="8" vertical-alignment="center">
-                    <nldd-title size={6}><h3>Publicatie op /c/{linkedInit.slug}</h3></nldd-title>
+                    <nldd-title size="display-6"><h3>Publicatie op /c/{linkedInit.slug}</h3></nldd-title>
                     <PublicVisibleSwitch checked={editPublicVisible} onChange={setEditPublicVisible} />
                   </nldd-container>
                   {editPublicVisible && !status.visible && (
@@ -477,9 +477,11 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                     />
                   )}
                   <nldd-text size="xs" color="secondary">
-                    Schrijf een externe titel en samenvatting. Alleen die tekst
-                    verschijnt op de publieke pagina, nooit het interne titel- of
-                    beschrijvingsveld.
+                    <p>
+                      Schrijf een externe titel en samenvatting. Alleen die tekst
+                      verschijnt op de publieke pagina, nooit het interne titel- of
+                      beschrijvingsveld.
+                    </p>
                   </nldd-text>
                   <Input
                     label="Publieke titel"
@@ -492,9 +494,11 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                     <PublicSummaryField value={editPublicSummary} onChange={setEditPublicSummary} />
                   </nldd-form-field>
                   <nldd-text size="xs" color="secondary">
-                    Verschijnt alleen als de stage actief is (eerste gesprek, interne
-                    check, follow-up of in the pocket) én "Publiek tonen" aan staat én
-                    de titel ingevuld is.
+                    <p>
+                      Verschijnt alleen als de stage actief is (eerste gesprek, interne
+                      check, follow-up of in the pocket) én "Publiek tonen" aan staat én
+                      de titel ingevuld is.
+                    </p>
                   </nldd-text>
                 </nldd-container>
               </nldd-card>
@@ -514,7 +518,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
             <nldd-container layout="row" gap="8" vertical-alignment="center">
               <Badge color="groen">Casus gestart</Badge>
               <nldd-text size="sm" color="secondary">
-                Uit deze lead is een casus gestart. De lead is alleen-lezen; het werk gaat verder op de casus.
+                <p>Uit deze lead is een casus gestart. De lead is alleen-lezen; het werk gaat verder op de casus.</p>
               </nldd-text>
             </nldd-container>
           )}
@@ -531,7 +535,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
               >
                 <nldd-icon icon="calendar" size="16" aria-hidden="true" />
                 <nldd-text size="sm" color={overdue ? 'critical' : 'secondary'} weight={overdue ? 'medium' : 'regular'}>
-                  {formatDateLong(lead.next_action_date)}
+                  <p>{formatDateLong(lead.next_action_date)}</p>
                 </nldd-text>
               </div>
             )}
@@ -558,10 +562,10 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                 value: lead.assignee ? (
                   <nldd-container layout="row" gap="6" vertical-alignment="center">
                     <Icon name="person" size="md" />
-                    <nldd-text size="sm">{lead.assignee.naam}</nldd-text>
+                    <nldd-text size="sm"><p>{lead.assignee.naam}</p></nldd-text>
                   </nldd-container>
                 ) : (
-                  <nldd-text size="sm" color="secondary">Niet toegewezen</nldd-text>
+                  <nldd-text size="sm" color="secondary"><p>Niet toegewezen</p></nldd-text>
                 ),
               },
               {
@@ -569,10 +573,10 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                 value: lead.brought_by ? (
                   <nldd-container layout="row" gap="6" vertical-alignment="center">
                     <Icon name="person" size="md" />
-                    <nldd-text size="sm">{lead.brought_by.naam}</nldd-text>
+                    <nldd-text size="sm"><p>{lead.brought_by.naam}</p></nldd-text>
                   </nldd-container>
                 ) : (
-                  <nldd-text size="sm" color="secondary">Onbekend</nldd-text>
+                  <nldd-text size="sm" color="secondary"><p>Onbekend</p></nldd-text>
                 ),
               },
               {
@@ -621,7 +625,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                 <nldd-container gap="8">
                   {lead.engagement_type && (
                     <nldd-container layout="row" gap="6" vertical-alignment="center">
-                      <nldd-text size="sm" color="secondary">Engagement:</nldd-text>
+                      <nldd-text size="sm" color="secondary"><p>Engagement:</p></nldd-text>
                       <nldd-tag
                         text={ENGAGEMENT_TYPE_LABELS[lead.engagement_type]}
                         color={engagementTagColor(lead.engagement_type)}
@@ -632,9 +636,9 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                   <nldd-container layout="grid" column-count={3} gap="8">
                     {labels.map(([label, value], idx) => (
                       <nldd-container key={idx} gap="2">
-                        <nldd-text size="xs" color="secondary">{label}</nldd-text>
+                        <nldd-text size="xs" color="secondary"><p>{label}</p></nldd-text>
                         <nldd-text size="sm" weight="medium">
-                          {value != null ? `${value}/5` : '—'}
+                          <p>{value != null ? `${value}/5` : '—'}</p>
                         </nldd-text>
                       </nldd-container>
                     ))}
@@ -689,13 +693,13 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                   </nldd-container>
                   {!status.visible && status.reason && (
                     <nldd-text size="xs" color="secondary">
-                      {status.reason}
+                      <p>{status.reason}</p>
                     </nldd-text>
                   )}
                   {lead.public_title && (
                     <nldd-container layout="row" gap="4">
-                      <nldd-text size="sm" color="secondary">Publieke titel:</nldd-text>
-                      <nldd-text size="sm" weight="medium">{lead.public_title}</nldd-text>
+                      <nldd-text size="sm" color="secondary"><p>Publieke titel:</p></nldd-text>
+                      <nldd-text size="sm" weight="medium"><p>{lead.public_title}</p></nldd-text>
                     </nldd-container>
                   )}
                   {lead.public_summary && (
@@ -753,7 +757,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                 ))}
               </nldd-list>
             ) : (
-              <nldd-text size="sm" color="secondary">Geen bijlagen</nldd-text>
+              <nldd-text size="sm" color="secondary"><p>Geen bijlagen</p></nldd-text>
             )}
           </DetailSection>
 
@@ -782,7 +786,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                 ))}
               </nldd-list>
             ) : (
-              <nldd-text size="sm" color="secondary">Geen externe contactpersonen</nldd-text>
+              <nldd-text size="sm" color="secondary"><p>Geen externe contactpersonen</p></nldd-text>
             )}
 
             <AddLeadContactModal
@@ -813,7 +817,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                 ))}
               </nldd-list>
             ) : (
-              <nldd-text size="sm" color="secondary">Geen gelinkte nodes</nldd-text>
+              <nldd-text size="sm" color="secondary"><p>Geen gelinkte nodes</p></nldd-text>
             )}
           </DetailSection>
 
@@ -903,7 +907,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                     <nldd-container gap="2" width="full">
                       <nldd-container layout="row" gap="8" vertical-alignment="center">
                         {activity.author_naam && (
-                          <nldd-text size="xs" weight="medium">{activity.author_naam}</nldd-text>
+                          <nldd-text size="xs" weight="medium"><p>{activity.author_naam}</p></nldd-text>
                         )}
                         <Badge color="coolgray">
                           {LEAD_ACTIVITY_TYPE_LABELS[activity.activity_type]}
@@ -924,7 +928,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                             ) : badge;
                           })()
                         )}
-                        <nldd-text size="xs" color="secondary">{timeAgo(activity.created_at)}</nldd-text>
+                        <nldd-text size="xs" color="secondary"><p>{timeAgo(activity.created_at)}</p></nldd-text>
                         {canDelete && (
                           // Pushed to the end of the row and revealed only on
                           // hover/focus of it (`group` on the wrapping div,
@@ -949,7 +953,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                             <nldd-card background="tinted">
                               <nldd-container gap="2" padding="8">
                                 <nldd-text size="xs" weight="medium" color="success">
-                                  Uitkomst
+                                  <p>Uitkomst</p>
                                 </nldd-text>
                                 <nldd-text size="xs">
                                   <span style={{ whiteSpace: 'pre-wrap' }}>{activity.uitkomst}</span>
@@ -961,7 +965,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                             <nldd-card background="tinted">
                               <nldd-container gap="2" padding="8">
                                 <nldd-text size="xs" weight="medium" color="warning">
-                                  Vervolgacties
+                                  <p>Vervolgacties</p>
                                 </nldd-text>
                                 <nldd-text size="xs">
                                   <span style={{ whiteSpace: 'pre-wrap' }}>{activity.vervolgacties}</span>
@@ -977,7 +981,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                 })}
               </nldd-container>
             ) : (
-              <nldd-text size="sm" color="secondary">Nog geen activiteiten</nldd-text>
+              <nldd-text size="sm" color="secondary"><p>Nog geen activiteiten</p></nldd-text>
             )}
           </DetailSection>
 
@@ -1146,21 +1150,21 @@ function AttachmentRow({ attachment: att, downloadUrl, onDelete, onZoom }: Attac
             // The link inherits its size from the text around it, so the
             // ellipsis on that text cuts the link off too.
             <nldd-text size="sm" className="truncate row-fill" title={att.url}>
-              <nldd-link href={att.url} target="_blank" text={att.bestandsnaam ?? att.url} />
+              <p><nldd-link href={att.url} target="_blank" text={att.bestandsnaam ?? att.url} /></p>
             </nldd-text>
           ) : (
             <nldd-text size="sm" className="truncate row-fill">
-              {att.bestandsnaam ?? '(naamloos)'}
+              <p>{att.bestandsnaam ?? '(naamloos)'}</p>
             </nldd-text>
           )}
           {att.source === 'mattermost' && (
             <nldd-tag text="via mm" color="neutral" size="sm" />
           )}
           {att.soort === 'file' && !att.bestand_beschikbaar ? (
-            <nldd-text size="xs" color="critical">Bestand niet beschikbaar</nldd-text>
+            <nldd-text size="xs" color="critical"><p>Bestand niet beschikbaar</p></nldd-text>
           ) : att.soort === 'file' ? (
             <>
-              <nldd-text size="xs" color="secondary">{Math.round((att.bestandsgrootte ?? 0) / 1024)} KB</nldd-text>
+              <nldd-text size="xs" color="secondary"><p>{Math.round((att.bestandsgrootte ?? 0) / 1024)} KB</p></nldd-text>
               <NlddIconButton
                 icon="download"
                 accessibleLabel="Downloaden"

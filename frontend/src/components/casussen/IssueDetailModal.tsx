@@ -115,7 +115,7 @@ function Paneel({ issue, onClose }: { issue: BacklogIssue; onClose: () => void }
           {titelOpen ? (
             <TitelVeld titel={issue.title} onOpslaan={(title) => zet({ title })} onKlaar={() => setTitelOpen(false)} />
           ) : (
-            <nldd-text size="md" weight="medium">{issue.title}</nldd-text>
+            <nldd-text size="md" weight="medium"><p>{issue.title}</p></nldd-text>
           )}
 
           {/* Afronden of heropenen bovenaan: dat is wat je hier het vaakst komt doen. */}
@@ -128,7 +128,7 @@ function Paneel({ issue, onClose }: { issue: BacklogIssue; onClose: () => void }
             {klaar && dodItems.length > 0 && (
               <button type="button" className="plain-button" onClick={() => setDod('bekijken')}>
                 <nldd-text size="xs" color={dodAf < dodItems.length ? 'critical' : 'secondary'}>
-                  DoD {dodAf}/{dodItems.length}
+                  <span>DoD {dodAf}/{dodItems.length}</span>
                 </nldd-text>
               </button>
             )}
@@ -163,7 +163,7 @@ function Paneel({ issue, onClose }: { issue: BacklogIssue; onClose: () => void }
                 disabled={!casussenGeladen}
                 onChange={(e) => e.target.value !== issue.casus_id && zet({ casus_id: e.target.value })}
               />
-              <nldd-text size="xs" color="secondary">Verhuis je de vraag naar een andere casus, dan gaan de taken mee.</nldd-text>
+              <nldd-text size="xs" color="secondary"><p>Verhuis je de vraag naar een andere casus, dan gaan de taken mee.</p></nldd-text>
             </Eigenschap>
           </Eigenschappen>
 

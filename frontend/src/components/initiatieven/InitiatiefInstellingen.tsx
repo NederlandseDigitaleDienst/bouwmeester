@@ -188,19 +188,23 @@ function CasusStartenSettings({ initiatief }: { initiatief: InitiatiefDetail }) 
   return (
     <nldd-container gap="20">
       <nldd-container gap="8">
-        <nldd-text size="sm" weight="bold">Startvragen</nldd-text>
+        <nldd-text size="sm" weight="bold"><p>Startvragen</p></nldd-text>
         <nldd-text size="sm" color="secondary">
-          Bij Nieuwe casus en Casus starten beantwoord je deze vragen. Per vraag kies je het soort antwoord, of
-          hij verplicht is en of het antwoord op het casuskaartje komt. Een casus houdt de vragen zoals ze bij
-          zijn start luidden.
+          <p>
+            Bij Nieuwe casus en Casus starten beantwoord je deze vragen. Per vraag kies je het soort antwoord, of
+            hij verplicht is en of het antwoord op het casuskaartje komt. Een casus houdt de vragen zoals ze bij
+            zijn start luidden.
+          </p>
         </nldd-text>
         <StartvragenEditor initiatief={initiatief} />
       </nldd-container>
       <nldd-container gap="12">
-        <nldd-text size="sm" weight="bold">Acceptatiecriteria voor satellietcasussen</nldd-text>
+        <nldd-text size="sm" weight="bold"><p>Acceptatiecriteria voor satellietcasussen</p></nldd-text>
         <nldd-text size="sm" color="secondary">
-          Alleen bij een satellietcasus loop je deze lijst na: per criterium een vinkje en een uitleg of
-          opmerking. Bij een interne casus niet.
+          <p>
+            Alleen bij een satellietcasus loop je deze lijst na: per criterium een vinkje en een uitleg of
+            opmerking. Bij een interne casus niet.
+          </p>
         </nldd-text>
         <EisenLijst
           items={items}
@@ -296,7 +300,7 @@ function FeatureSettings({ initiatief }: { initiatief: InitiatiefDetail }) {
             <nldd-container layout="row" gap="6" vertical-alignment="center">
               <Icon name="globe" size="sm" />
               <nldd-text size="xs" weight="bold" color="secondary">
-                Publieke pagina
+                <p>Publieke pagina</p>
               </nldd-text>
             </nldd-container>
 
@@ -326,16 +330,18 @@ function FeatureSettings({ initiatief }: { initiatief: InitiatiefDetail }) {
                       end-icon="external-link"
                     />
                   ) : (
-                    <nldd-text size="sm">/c/{initiatief.slug}</nldd-text>
+                    <nldd-text size="sm"><p>/c/{initiatief.slug}</p></nldd-text>
                   )
                 ) : (
                   <nldd-container gap="6">
                     <nldd-text size="xs" color="secondary">
-                      Nog geen slug ingesteld. Kies kleine letters, cijfers en
-                      streepjes (bv. <code>regelrecht</code>).
+                      <p>
+                        Nog geen slug ingesteld. Kies kleine letters, cijfers en
+                        streepjes (bv. <code>regelrecht</code>).
+                      </p>
                     </nldd-text>
                     <nldd-container layout="row" gap="8" vertical-alignment="top">
-                      <nldd-text size="sm" color="secondary">/c/</nldd-text>
+                      <nldd-text size="sm" color="secondary"><p>/c/</p></nldd-text>
                       <nldd-container width="fit-content" className="row-fill">
                         <SlugDraftField
                           value={slugDraft}
@@ -362,7 +368,7 @@ function FeatureSettings({ initiatief }: { initiatief: InitiatiefDetail }) {
                         text="Instellen"
                       />
                     </nldd-container>
-                    {slugError && <nldd-text size="xs" color="critical">{slugError}</nldd-text>}
+                    {slugError && <nldd-text size="xs" color="critical"><p>{slugError}</p></nldd-text>}
                   </nldd-container>
                 )}
               </nldd-form-field>
@@ -376,7 +382,7 @@ function FeatureSettings({ initiatief }: { initiatief: InitiatiefDetail }) {
             <nldd-container layout="row" gap="6" vertical-alignment="center">
               <Icon name="person-badge-plus" size="sm" />
               <nldd-text size="xs" weight="bold" color="secondary">
-                Funnel-afweging
+                <p>Funnel-afweging</p>
               </nldd-text>
             </nldd-container>
 
@@ -394,8 +400,10 @@ function FeatureSettings({ initiatief }: { initiatief: InitiatiefDetail }) {
             {initiatief.funnel_enabled && (
               <nldd-container gap="8" padding-top="8">
                 <nldd-text size="xs" color="secondary">
-                  Optionele eigen labels voor de drie funnel-scores. Leeg laten
-                  gebruikt de standaard.
+                  <p>
+                    Optionele eigen labels voor de drie funnel-scores. Leeg laten
+                    gebruikt de standaard.
+                  </p>
                 </nldd-text>
                 <nldd-container layout="grid" column-count={1} sm-column-count={3} gap="8">
                   {(
@@ -504,8 +512,8 @@ function ToggleRow({
       <nldd-container layout="row" width="fit-content" className="row-fill" gap="8" vertical-alignment="top">
         <Icon name={icon} size="sm" />
         <nldd-container gap="0">
-          <nldd-text size="sm" weight="medium">{label}</nldd-text>
-          <nldd-text size="xs" color="secondary">{description}</nldd-text>
+          <nldd-text size="sm" weight="medium"><p>{label}</p></nldd-text>
+          <nldd-text size="xs" color="secondary"><p>{description}</p></nldd-text>
         </nldd-container>
       </nldd-container>
       <nldd-switch
@@ -555,13 +563,17 @@ function DodSettings({ initiatief }: { initiatief: InitiatiefDetail }) {
   return (
     <nldd-container gap="12">
       <nldd-text size="sm" color="secondary">
-        Waar een onderzoeksvraag aan moet voldoen voordat hij af is. Bij het afronden loopt het team
-        deze lijst na. Geldt voor alle casussen van dit initiatief.
+        <p>
+          Waar een onderzoeksvraag aan moet voldoen voordat hij af is. Bij het afronden loopt het team
+          deze lijst na. Geldt voor alle casussen van dit initiatief.
+        </p>
       </nldd-text>
       {volgtStandaard && (
         <nldd-text size="sm" color="secondary">
-          Dit is de standaardlijst van Bouwmeester. Pas hem aan en sla op, dan wordt het de lijst van
-          dit initiatief.
+          <p>
+            Dit is de standaardlijst van Bouwmeester. Pas hem aan en sla op, dan wordt het de lijst van
+            dit initiatief.
+          </p>
         </nldd-text>
       )}
       <EisenLijst

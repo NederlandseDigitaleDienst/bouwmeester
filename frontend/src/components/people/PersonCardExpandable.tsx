@@ -131,7 +131,7 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
               style={{ overflow: 'hidden', textAlign: 'left', minWidth: 0 }}
             >
               <nldd-text size="sm" weight="medium" className="truncate">
-                {person.naam}
+                <span>{person.naam}</span>
               </nldd-text>
             </button>
             {person.is_agent && <Badge color="paars">Agent</Badge>}
@@ -161,7 +161,7 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
               >
                 <Icon name="envelope" size="xs" />
                 <nldd-text size="xs" color="secondary" className="truncate">
-                  {copied ? 'Gekopieerd!' : displayEmail}
+                  <span>{copied ? 'Gekopieerd!' : displayEmail}</span>
                 </nldd-text>
               </button>
             )}
@@ -182,7 +182,7 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
                 <div className="hug hug-truncate" style={{ maxWidth: '100%' }}>
                   <Icon name="business-suitcase" size="xs" />
                   <nldd-text size="xs" color="secondary">
-                    {formatFunctie(person.functie)}
+                    <p>{formatFunctie(person.functie)}</p>
                   </nldd-text>
                 </div>
               </div>
@@ -191,7 +191,7 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
               <div className="hug hug-truncate hug-top">
                 <Icon name="business-suitcase" size="xs" style={{ marginTop: '2px' }} />
                 <nldd-text size="xs" color="secondary" className={expanded ? undefined : 'truncate'}>
-                  {richTextToPlain(person.description)}
+                  <p>{richTextToPlain(person.description)}</p>
                 </nldd-text>
               </div>
             )}
@@ -248,7 +248,7 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
             <nldd-container padding-bottom="12">
               <nldd-container layout="row" gap="4" vertical-alignment="center">
                 <Icon name="envelope" size="xs" />
-                <nldd-text size="xs" color="secondary" weight="medium">E-mailadressen</nldd-text>
+                <nldd-text size="xs" color="secondary" weight="medium"><p>E-mailadressen</p></nldd-text>
               </nldd-container>
               <nldd-container gap="2">
                 {person.emails.map((em) => (
@@ -256,11 +256,13 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
                     {/* An unsized nldd-link runs inline, so the nldd-text
                         around it sets the size and can end it in an ellipsis. */}
                     <nldd-text size="xs" className="truncate">
-                      <nldd-link
-                        href={`mailto:${em.email}`}
-                        text={em.email}
-                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                      />
+                      <p>
+                        <nldd-link
+                          href={`mailto:${em.email}`}
+                          text={em.email}
+                          onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                        />
+                      </p>
                     </nldd-text>
                     {em.is_default && <nldd-icon icon="star" size="16" color="warning" />}
                   </nldd-container>
@@ -273,7 +275,7 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
             <nldd-container padding-bottom="12">
               <nldd-container layout="row" gap="4" vertical-alignment="center">
                 <Icon name="at" size="xs" />
-                <nldd-text size="xs" color="secondary" weight="medium">Telefoonnummers</nldd-text>
+                <nldd-text size="xs" color="secondary" weight="medium"><p>Telefoonnummers</p></nldd-text>
               </nldd-container>
               <nldd-container gap="2">
                 {person.phones.map((ph) => (
@@ -285,7 +287,7 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
                       onClick={(e: React.MouseEvent) => e.stopPropagation()}
                     />
                     <nldd-text size="xs" color="secondary">
-                      {PHONE_LABELS[ph.label] || ph.label}
+                      <p>{PHONE_LABELS[ph.label] || ph.label}</p>
                     </nldd-text>
                     {ph.is_default && <nldd-icon icon="star" size="16" color="warning" />}
                   </nldd-container>
@@ -302,11 +304,11 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
                 <nldd-container layout="row" gap="12">
                   <div className="hug">
                     <Icon name="circle" size="xs" />
-                    <nldd-text size="xs" color="secondary">{summary.open_task_count} open</nldd-text>
+                    <nldd-text size="xs" color="secondary"><p>{summary.open_task_count} open</p></nldd-text>
                   </div>
                   <div className="hug">
                     <Icon name="check-mark-circle" size="xs" />
-                    <nldd-text size="xs" color="secondary">{summary.done_task_count} afgerond</nldd-text>
+                    <nldd-text size="xs" color="secondary"><p>{summary.done_task_count} afgerond</p></nldd-text>
                   </div>
                 </nldd-container>
                 {summary.open_tasks.length > 0 && (
@@ -383,7 +385,7 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
                 <nldd-container>
                   <nldd-container layout="row" gap="4" vertical-alignment="center">
                     <Icon name="apartment-building" size="xs" />
-                    <nldd-text size="xs" color="secondary" weight="medium">Teams</nldd-text>
+                    <nldd-text size="xs" color="secondary" weight="medium"><p>Teams</p></nldd-text>
                   </nldd-container>
                   <nldd-container gap="4">
                     {placements.map((p) => (
@@ -391,7 +393,7 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
                         <nldd-text size="xs" className="truncate">
                           {p.organisatie_eenheid_naam}
                           {p.functietitel && (
-                            <nldd-text size="xs" color="secondary"> — {p.functietitel}</nldd-text>
+                            <nldd-text size="xs" color="secondary"> <span>— {p.functietitel}</span></nldd-text>
                           )}
                         </nldd-text>
                         <Badge color="coolgray">
@@ -419,7 +421,7 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
                             )}
                             {confirmDeleteId === p.id ? (
                               <div className="hug">
-                                <nldd-text size="xs" color="critical">Zeker?</nldd-text>
+                                <nldd-text size="xs" color="critical"><p>Zeker?</p></nldd-text>
                                 <NlddTextButtonInline
                                   text="Ja"
                                   variant="critical-transparent"
@@ -464,7 +466,7 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
                 <nldd-container>
                   <nldd-container layout="row" gap="4" vertical-alignment="center">
                     <Icon name="handshake" size="xs" />
-                    <nldd-text size="xs" color="secondary" weight="medium">Samenwerkingsverbanden</nldd-text>
+                    <nldd-text size="xs" color="secondary" weight="medium"><p>Samenwerkingsverbanden</p></nldd-text>
                   </nldd-container>
                   <nldd-container gap="4">
                     {lidmaatschappen.map((lid) => (
@@ -485,7 +487,7 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
                           ] ?? lid.samenwerkingsverband_type}
                         </Badge>
                         {lid.rol && (
-                          <nldd-text size="xs" color="secondary">— {lid.rol}</nldd-text>
+                          <nldd-text size="xs" color="secondary"><p>— {lid.rol}</p></nldd-text>
                         )}
                       </nldd-container>
                     ))}
@@ -495,7 +497,7 @@ export function PersonCardExpandable({ person, onEditPerson, onDragStartPerson, 
 
               {/* No tasks and no nodes */}
               {summary.open_task_count === 0 && summary.done_task_count === 0 && summary.stakeholder_nodes.length === 0 && (!placements || placements.length === 0) && (!lidmaatschappen || lidmaatschappen.length === 0) && (
-                <nldd-text size="xs" color="secondary">Geen taken, dossiers of teams.</nldd-text>
+                <nldd-text size="xs" color="secondary"><p>Geen taken, dossiers of teams.</p></nldd-text>
               )}
             </nldd-container>
           ) : null}

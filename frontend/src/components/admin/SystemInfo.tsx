@@ -19,8 +19,8 @@ function formatBuildTime(iso: string): string {
 }
 
 function CommitLink({ sha, repoUrl }: { sha: string; repoUrl: string }) {
-  if (!sha) return <nldd-text color="secondary">–</nldd-text>;
-  if (!repoUrl) return <nldd-text>{sha}</nldd-text>;
+  if (!sha) return <nldd-text color="secondary"><p>–</p></nldd-text>;
+  if (!repoUrl) return <nldd-text><p>{sha}</p></nldd-text>;
   return (
     <nldd-link href={`${repoUrl}/commit/${sha}`} target="_blank" end-icon="square-arrow-right-top" text={sha} />
   );
@@ -31,7 +31,7 @@ function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <nldd-container layout="row" gap="16" vertical-alignment="center">
       <nldd-container width="160px">
-        <nldd-text size="sm" color="secondary">{label}</nldd-text>
+        <nldd-text size="sm" color="secondary"><p>{label}</p></nldd-text>
       </nldd-container>
       <nldd-text size="sm">{children}</nldd-text>
     </nldd-container>
@@ -44,7 +44,7 @@ export function SystemInfo() {
   if (isLoading) return <LoadingSpinner padding="32" />;
 
   if (error) {
-    return <nldd-text size="sm" color="critical">Kon versie-informatie niet ophalen.</nldd-text>;
+    return <nldd-text size="sm" color="critical"><p>Kon versie-informatie niet ophalen.</p></nldd-text>;
   }
 
   const backendSha = data?.git_sha || '';
@@ -56,10 +56,12 @@ export function SystemInfo() {
   return (
     <nldd-container max-width="720px" gap="32">
       <nldd-container gap="4">
-        <nldd-title size={3}><h2>Systeem</h2></nldd-title>
+        <nldd-title size="display-3"><h2>Systeem</h2></nldd-title>
         <nldd-text size="sm" color="secondary">
-          Welke versie van Bouwmeester draait er nu, en zijn de
-          achtergrondprocessen gezond.
+          <p>
+            Welke versie van Bouwmeester draait er nu, en zijn de
+            achtergrondprocessen gezond.
+          </p>
         </nldd-text>
       </nldd-container>
 

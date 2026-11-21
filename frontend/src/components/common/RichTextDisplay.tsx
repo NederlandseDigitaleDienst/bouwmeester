@@ -109,7 +109,7 @@ export function RichTextDisplay({
   if (!content) {
     return (
       <nldd-text size="sm" color={plainColor}>
-        {fallback}
+        <p>{fallback}</p>
       </nldd-text>
     );
   }

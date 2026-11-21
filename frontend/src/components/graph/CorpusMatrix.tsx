@@ -166,12 +166,14 @@ export function CorpusMatrix({
   return (
     <nldd-container gap="12">
       <nldd-text size="xs" color="secondary">
-        {rowNodes.length}{isTruncated && allRowNodes.length > MAX_MATRIX_DIMENSION ? ` van ${allRowNodes.length}` : ''} rijen
-        {' '}&times;{' '}
-        {colNodes.length}{isTruncated && allColNodes.length > MAX_MATRIX_DIMENSION ? ` van ${allColNodes.length}` : ''} kolommen
-        {' '}&middot;{' '}
-        {connectionCount} {connectionCount === 1 ? 'relatie' : 'relaties'}
-        {sameType && ' (symmetrische matrix — zelfde type rij en kolom)'}
+        <p>
+          {rowNodes.length}{isTruncated && allRowNodes.length > MAX_MATRIX_DIMENSION ? ` van ${allRowNodes.length}` : ''} rijen
+          {' '}&times;{' '}
+          {colNodes.length}{isTruncated && allColNodes.length > MAX_MATRIX_DIMENSION ? ` van ${allColNodes.length}` : ''} kolommen
+          {' '}&middot;{' '}
+          {connectionCount} {connectionCount === 1 ? 'relatie' : 'relaties'}
+          {sameType && ' (symmetrische matrix — zelfde type rij en kolom)'}
+        </p>
       </nldd-text>
 
       {/* The actions are nldd-buttons, not inline action text: the banner

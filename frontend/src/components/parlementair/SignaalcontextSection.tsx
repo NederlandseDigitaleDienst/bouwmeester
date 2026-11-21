@@ -74,7 +74,7 @@ export function SignaalcontextSection({ initiatiefId }: { initiatiefId: string }
             <nldd-container layout="row" gap="6" vertical-alignment="center">
               <Icon name="ai" size="sm" />
               <nldd-text size="xs" weight="bold" color="secondary">
-                Context voor de beoordeling
+                <p>Context voor de beoordeling</p>
               </nldd-text>
             </nldd-container>
           </nldd-container>
@@ -93,17 +93,19 @@ export function SignaalcontextSection({ initiatiefId }: { initiatiefId: string }
         {!open && (
           <>
             {origineel ? (
-              <nldd-text size="sm">{eersteRegels(origineel)}</nldd-text>
+              <nldd-text size="sm"><p>{eersteRegels(origineel)}</p></nldd-text>
             ) : (
               <nldd-text size="sm" color="secondary">
-                Nog geen context. Het model beoordeelt nu alleen op de zoekterm
-                zelf, en kan een projectnaam niet van een gewoon woord
-                onderscheiden.
+                <p>
+                  Nog geen context. Het model beoordeelt nu alleen op de zoekterm
+                  zelf, en kan een projectnaam niet van een gewoon woord
+                  onderscheiden.
+                </p>
               </nldd-text>
             )}
             {bewaard && (
               <nldd-text size="xs" color="secondary">
-                Opgeslagen. Geldt vanaf het volgende stuk dat binnenkomt.
+                <p>Opgeslagen. Geldt vanaf het volgende stuk dat binnenkomt.</p>
               </nldd-text>
             )}
           </>
@@ -142,8 +144,10 @@ export function SignaalcontextSection({ initiatiefId }: { initiatiefId: string }
         )}
 
         <nldd-text size="xs" color="secondary">
-          Waar dit dossier over gaat, en vooral wat er niet bij hoort. Geldt voor
-          elke bron, en staat niet op de publieke pagina.
+          <p>
+            Waar dit dossier over gaat, en vooral wat er niet bij hoort. Geldt voor
+            elke bron, en staat niet op de publieke pagina.
+          </p>
         </nldd-text>
       </nldd-container>
     </nldd-card>

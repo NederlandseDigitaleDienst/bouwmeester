@@ -57,7 +57,7 @@ export function RelatedItemsList({
   if (items.length === 0) {
     return (
       <nldd-text size="sm" color="secondary">
-        {emptyLabel}
+        <p>{emptyLabel}</p>
       </nldd-text>
     );
   }
@@ -82,7 +82,7 @@ export function RelatedItemsList({
           />
         ) : (
           <nldd-text size="xs" color="secondary">
-            +{items.length - maxVisible} meer
+            <p>+{items.length - maxVisible} meer</p>
           </nldd-text>
         ))}
     </nldd-container>

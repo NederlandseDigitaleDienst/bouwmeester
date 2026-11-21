@@ -163,7 +163,7 @@ function TaskRow({ task, showPersonAssign, selectedEenheidId, personOptions }: {
             <nldd-container layout="row" gap="4" vertical-alignment="center">
               <Icon name="clock" size="xs" />
               <nldd-text size="xs" color={isOverdue ? 'critical' : 'secondary'} weight={isOverdue ? 'bold' : 'regular'}>
-                {formatDateShort(task.due_date)}
+                <p>{formatDateShort(task.due_date)}</p>
               </nldd-text>
             </nldd-container>
           )}
@@ -253,9 +253,9 @@ export function UnassignedTasksSection({
           <Icon name="exclamation-triangle" size="lg" />
         </div>
         <nldd-container gap="0">
-          <nldd-text size="md" weight="bold">Onverdeeld</nldd-text>
+          <nldd-text size="md" weight="bold"><p>Onverdeeld</p></nldd-text>
           <nldd-text size="sm" color="secondary">
-            {totalCount} {totalCount === 1 ? 'taak' : 'taken'} zonder toewijzing
+            <p>{totalCount} {totalCount === 1 ? 'taak' : 'taken'} zonder toewijzing</p>
           </nldd-text>
         </nldd-container>
       </nldd-container>
@@ -279,7 +279,7 @@ export function UnassignedTasksSection({
               {noUnitCount > noUnitTasks.length && (
                 <nldd-container padding="20" padding-block="8">
                   <nldd-text size="xs" color="secondary">
-                    En nog {noUnitCount - noUnitTasks.length} meer...
+                    <p>En nog {noUnitCount - noUnitTasks.length} meer...</p>
                   </nldd-text>
                 </nldd-container>
               )}
@@ -307,7 +307,7 @@ export function UnassignedTasksSection({
               {noPersonCount > noPersonTasks.length && (
                 <nldd-container padding="20" padding-block="8">
                   <nldd-text size="xs" color="secondary">
-                    En nog {noPersonCount - noPersonTasks.length} meer...
+                    <p>En nog {noPersonCount - noPersonTasks.length} meer...</p>
                   </nldd-text>
                 </nldd-container>
               )}
