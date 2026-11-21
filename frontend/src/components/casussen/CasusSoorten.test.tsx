@@ -24,7 +24,8 @@ describe('CasusSoortenKiezer', () => {
         onChange={vi.fn()}
       />,
     );
-    const uitleg = screen.getByText('We proberen iets nieuws uit om ervan te leren.');
+    // De tekst staat sinds 0.25.0 in een eigen <p>; de beschrijving is de nldd-text eromheen.
+    const uitleg = screen.getByText('We proberen iets nieuws uit om ervan te leren.').closest('nldd-text');
     const vinkje = document.querySelector('nldd-checkbox-field[label="Experiment"]') as HTMLElement & {
       describedByElements?: readonly Element[];
     };

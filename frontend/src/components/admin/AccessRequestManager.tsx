@@ -80,10 +80,10 @@ export function AccessRequestManager() {
               color="secondary"
               hide-below="md"
             />
-            <nldd-text-cell hide-below="md">
+            <nldd-cell hide-below="md">
               <nldd-tag text={STATUS_LABEL[req.status] ?? req.status} color={STATUS_COLOR[req.status as keyof typeof STATUS_COLOR] ?? 'neutral'} size="sm" />
-            </nldd-text-cell>
-            <nldd-text-cell>
+            </nldd-cell>
+            <nldd-cell>
               {req.status === 'pending' && (
                 <>
                   {denyId === req.id ? (
@@ -138,10 +138,10 @@ export function AccessRequestManager() {
                   color="secondary"
                   title={req.deny_reason}
                 >
-                  {req.deny_reason.length > 20 ? `${req.deny_reason.slice(0, 20)}...` : req.deny_reason}
+                  <p>{req.deny_reason.length > 20 ? `${req.deny_reason.slice(0, 20)}...` : req.deny_reason}</p>
                 </nldd-text>
               )}
-            </nldd-text-cell>
+            </nldd-cell>
           </nldd-table-row>
         ))}
         <div slot="empty">

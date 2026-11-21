@@ -61,22 +61,20 @@ export function ConfirmDialog({
     >
       {supporting ? null : children}
 
-      <div slot="actions">
-        <NlddButton
-          text={cancelLabel}
-          variant="primary"
-          onClick={onClose}
-          disabled={loading}
-        />
-      </div>
-      <div slot="actions">
-        <NlddButton
-          text={confirmLabel}
-          variant={variant === 'danger' ? 'destructive' : 'secondary'}
-          onClick={() => void onConfirm()}
-          loading={loading}
-        />
-      </div>
+      <NlddButton
+        slot="actions"
+        text={cancelLabel}
+        variant="primary"
+        onClick={onClose}
+        disabled={loading}
+      />
+      <NlddButton
+        slot="actions"
+        text={confirmLabel}
+        variant={variant === 'danger' ? 'destructive' : 'secondary'}
+        onClick={() => void onConfirm()}
+        loading={loading}
+      />
     </nldd-modal-dialog>
   );
 }

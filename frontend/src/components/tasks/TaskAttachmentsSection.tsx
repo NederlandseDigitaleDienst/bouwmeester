@@ -57,8 +57,8 @@ export function TaskAttachmentsSection({ taskId, acties }: { taskId: string; act
                 <nldd-list-item key={att.id}>
                   <nldd-container layout="row" gap="8" vertical-alignment="center" width="full" padding="4">
                     <nldd-icon icon="paperclip" size="16" aria-hidden="true" />
-                    <nldd-text size="sm" className="truncate row-fill">{att.bestandsnaam}</nldd-text>
-                    <nldd-text size="xs" color="secondary">{Math.round((att.bestandsgrootte ?? 0) / 1024)} KB</nldd-text>
+                    <nldd-text size="sm" className="truncate row-fill"><span>{att.bestandsnaam}</span></nldd-text>
+                    <nldd-text size="xs" color="secondary"><p>{Math.round((att.bestandsgrootte ?? 0) / 1024)} KB</p></nldd-text>
                     <NlddIconButton
                       icon="download"
                       accessibleLabel={`${att.bestandsnaam} downloaden`}

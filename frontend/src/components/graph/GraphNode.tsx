@@ -39,7 +39,7 @@ function GraphNodeComponent({ data }: NodeProps<GraphNodeData>) {
           <Badge color={NODE_TYPE_COLORS[data.nodeType] ?? 'coolgray'}>{label}</Badge>
         </div>
         <nldd-text size="sm" weight="medium" className="line-clamp-2">
-          {data.label}
+          <span>{data.label}</span>
         </nldd-text>
       </nldd-container>
 

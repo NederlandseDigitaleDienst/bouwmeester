@@ -93,11 +93,11 @@ export function LinkExistingNodeModal({ open, onClose, dossierId, nodeType, excl
             <nldd-list appearance="box-tinted" dividers="always">
               {filteredNodes.map((node) => (
                 <NlddListItemButton key={node.id} disabled={isLinking} onClick={() => handleLink(node.id)}>
-                  <nldd-text-cell width="fit-content">
+                  <nldd-cell width="fit-content">
                     <Badge color={NODE_TYPE_COLORS[nodeType]} dot>
                       {NODE_TYPE_LABELS[nodeType]}
                     </Badge>
-                  </nldd-text-cell>
+                  </nldd-cell>
                   <nldd-text-cell text={node.title} />
                 </NlddListItemButton>
               ))}

@@ -295,7 +295,7 @@ export function Header() {
               {currentPerson && (
                 <ShowAbove width={1280}>
                   <nldd-text size="sm" className="truncate">
-                    {currentPerson.naam}
+                    <span>{currentPerson.naam}</span>
                   </nldd-text>
                 </ShowAbove>
               )}

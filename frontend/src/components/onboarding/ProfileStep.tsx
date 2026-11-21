@@ -190,7 +190,7 @@ export function ProfileStep({ onComplete }: { onComplete: () => void }) {
   return (
     <nldd-container gap="16">
       <nldd-text size="sm" color="secondary">
-        Vul je profiel aan om aan de slag te gaan.
+        <p>Vul je profiel aan om aan de slag te gaan.</p>
       </nldd-text>
 
       <nldd-container gap="16">
@@ -274,11 +274,11 @@ export function ProfileStep({ onComplete }: { onComplete: () => void }) {
             <nldd-container gap="4">
               {warnings.map((w, i) => (
                 <nldd-text key={i} size="sm">
-                  - {w}
+                  <p>- {w}</p>
                 </nldd-text>
               ))}
               <nldd-text size="xs" color="secondary">
-                Je kunt deze later toevoegen via Instellingen.
+                <p>Je kunt deze later toevoegen via Instellingen.</p>
               </nldd-text>
             </nldd-container>
           </nldd-banner>

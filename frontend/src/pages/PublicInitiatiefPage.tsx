@@ -108,10 +108,10 @@ export function PublicInitiatiefPage() {
           <nldd-container layout="row" gap="8" vertical-alignment="center">
             <nldd-icon icon="circle-filled-small" size="16" color={accentIcon} />
             <nldd-text size="xs" weight="medium" color="secondary">
-              Community
+              <p>Community</p>
             </nldd-text>
           </nldd-container>
-          <nldd-title size={1}>
+          <nldd-title size="display-1">
             <h1>{data.naam}</h1>
           </nldd-title>
           {data.beschrijving && (
@@ -127,12 +127,12 @@ export function PublicInitiatiefPage() {
           {data.casussen.length > 0 && (
             <section>
               <nldd-container layout="row" gap="8" vertical-alignment="bottom" padding-bottom="24">
-                <nldd-title size={4}>
+                <nldd-title size="display-4">
                   <h2>Lopende casussen</h2>
                 </nldd-title>
                 <nldd-spacer size="flexible" direction="horizontal" />
                 <nldd-text size="sm" color="secondary">
-                  {data.casussen.length} {data.casussen.length === 1 ? 'casus' : 'casussen'}
+                  <p>{data.casussen.length} {data.casussen.length === 1 ? 'casus' : 'casussen'}</p>
                 </nldd-text>
               </nldd-container>
               <nldd-collection layout="grid" item-min-width="280px" gap="16">
@@ -145,13 +145,13 @@ export function PublicInitiatiefPage() {
 
           <section>
             <nldd-container layout="row" gap="8" vertical-alignment="bottom" padding-bottom="24">
-              <nldd-title size={4}>
+              <nldd-title size="display-4">
                 <h2>Updates</h2>
               </nldd-title>
               <nldd-spacer size="flexible" direction="horizontal" />
               {data.updates.length > 0 && (
                 <nldd-text size="sm" color="secondary">
-                  {data.updates.length} {data.updates.length === 1 ? 'bericht' : 'berichten'}
+                  <p>{data.updates.length} {data.updates.length === 1 ? 'bericht' : 'berichten'}</p>
                 </nldd-text>
               )}
             </nldd-container>
@@ -172,11 +172,11 @@ export function PublicInitiatiefPage() {
       <nldd-page-footer width="768px">
         <nldd-container layout="wrap" gap="8" vertical-alignment="center">
           <nldd-text size="sm" color="secondary">
-            Publieke pagina van <strong>{data.naam}</strong>
+            <p>Publieke pagina van <strong>{data.naam}</strong></p>
           </nldd-text>
           <nldd-spacer size="flexible" direction="horizontal" />
           <nldd-text size="xs" color="secondary">
-            Gepubliceerd via Bouwmeester
+            <p>Gepubliceerd via Bouwmeester</p>
           </nldd-text>
         </nldd-container>
       </nldd-page-footer>
@@ -217,15 +217,15 @@ function UpdateCard({
           />
           <nldd-container layout="wrap" gap="8" vertical-alignment="center" padding-bottom="12">
             <nldd-text size="xs" weight="medium" color="secondary">
-              <time dateTime={update.published_at}>{formattedDate}</time>
+              <p><time dateTime={update.published_at}>{formattedDate}</time></p>
             </nldd-text>
             {update.published_by_naam && (
               <nldd-text size="xs" color="secondary">
-                · {update.published_by_naam}
+                <p>· {update.published_by_naam}</p>
               </nldd-text>
             )}
           </nldd-container>
-          <nldd-title size={3}>
+          <nldd-title size="display-3">
             <h3>{update.titel}</h3>
           </nldd-title>
           {update.body && (
@@ -252,16 +252,16 @@ function CasusCard({
         <nldd-container layout="row" gap="8" vertical-alignment="center" padding-bottom="8">
           <nldd-icon icon="circle-filled-small" size="16" color={accentIcon} />
           <nldd-text size="xs" weight="medium" color="secondary">
-            Casus
+            <p>Casus</p>
           </nldd-text>
         </nldd-container>
-        <nldd-title size={5}>
+        <nldd-title size="display-5">
           <h3>{casus.titel}</h3>
         </nldd-title>
         {casus.samenvatting && (
           <nldd-container padding-top="8">
             <nldd-text size="sm" color="secondary">
-              {casus.samenvatting}
+              <p>{casus.samenvatting}</p>
             </nldd-text>
           </nldd-container>
         )}
@@ -272,19 +272,21 @@ function CasusCard({
               <div key={idx}>
                 <nldd-container layout="row" gap="8" vertical-alignment="center">
                   <nldd-text size="sm" weight="medium">
-                    {u.titel}
+                    <p>{u.titel}</p>
                   </nldd-text>
                   <nldd-text size="xs" color="secondary">
-                    {new Date(u.published_at).toLocaleDateString('nl-NL', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
+                    <p>
+                      {new Date(u.published_at).toLocaleDateString('nl-NL', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </p>
                   </nldd-text>
                 </nldd-container>
                 {u.body_public && (
                   <nldd-text size="sm" color="secondary">
-                    {u.body_public}
+                    <p>{u.body_public}</p>
                   </nldd-text>
                 )}
               </div>
@@ -312,11 +314,11 @@ function PublicMessage({ title, body }: { title: string; body: string }) {
     <nldd-shell background="tinted">
       <nldd-simple-section horizontal-alignment="center" vertical-alignment="center" height="100dvh">
         <nldd-container gap="12" horizontal-alignment="center">
-          <nldd-title size={2}>
+          <nldd-title size="display-2">
             <h2>{title}</h2>
           </nldd-title>
           <nldd-text color="secondary" horizontal-alignment="center">
-            {body}
+            <p>{body}</p>
           </nldd-text>
         </nldd-container>
       </nldd-simple-section>

@@ -102,13 +102,13 @@ export function EenheidOverzichtPage() {
           <nldd-container gap="12">
             <nldd-container layout="row" gap="8" vertical-alignment="center">
               <Icon name="users" />
-              <nldd-title size={5}>
+              <nldd-title size="display-5">
                 <h2>Teamoverzicht</h2>
               </nldd-title>
             </nldd-container>
             {overview.by_person.length === 0 ? (
               <Card>
-                <nldd-text color="secondary">Geen personen in deze eenheid.</nldd-text>
+                <nldd-text color="secondary"><p>Geen personen in deze eenheid.</p></nldd-text>
               </Card>
             ) : (
               <nldd-table
@@ -140,7 +140,7 @@ export function EenheidOverzichtPage() {
             <nldd-container gap="12">
               <nldd-container layout="row" gap="8" vertical-alignment="center">
                 <Icon name="apartment-building" />
-                <nldd-title size={5}>
+                <nldd-title size="display-5">
                   <h2>Subeenheden</h2>
                 </nldd-title>
               </nldd-container>

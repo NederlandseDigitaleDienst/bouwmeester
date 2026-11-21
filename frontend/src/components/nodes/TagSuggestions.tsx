@@ -70,17 +70,17 @@ export function TagSuggestions({
         disabled={!title.trim()}
       />
 
-      {error && <nldd-text size="xs" color="critical">{error}</nldd-text>}
+      {error && <nldd-text size="xs" color="critical"><p>{error}</p></nldd-text>}
 
       {result && !hasResults && (
-        <nldd-text size="xs" color="secondary">Geen suggesties gevonden.</nldd-text>
+        <nldd-text size="xs" color="secondary"><p>Geen suggesties gevonden.</p></nldd-text>
       )}
 
       {result && hasResults && (
         <nldd-container gap="8">
           {filteredMatched.length > 0 && (
             <nldd-container gap="4">
-              <nldd-text size="xs" color="secondary">Bestaande tags</nldd-text>
+              <nldd-text size="xs" color="secondary"><p>Bestaande tags</p></nldd-text>
               <nldd-container layout="wrap" gap="6">
                 {filteredMatched.map((tag) => (
                   <TagChip
@@ -96,7 +96,7 @@ export function TagSuggestions({
 
           {result.suggested_new_tags.length > 0 && (
             <nldd-container gap="4">
-              <nldd-text size="xs" color="secondary">Nieuwe tags</nldd-text>
+              <nldd-text size="xs" color="secondary"><p>Nieuwe tags</p></nldd-text>
               <nldd-container layout="wrap" gap="6">
                 {result.suggested_new_tags.map((tag) => (
                   <TagChip

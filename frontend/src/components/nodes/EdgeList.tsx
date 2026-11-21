@@ -51,7 +51,7 @@ export function EdgeList({ nodeId, nodeType }: EdgeListProps) {
   return (
     <nldd-container gap="16">
       <nldd-container layout="row" gap="8" vertical-alignment="center" horizontal-alignment="left">
-        <nldd-title size={6}><h3>Verbindingen ({edges.length})</h3></nldd-title>
+        <nldd-title size="display-6"><h3>Verbindingen ({edges.length})</h3></nldd-title>
         <nldd-spacer direction="horizontal" size="flexible" />
         <NlddButton
           variant="secondary"
@@ -79,17 +79,21 @@ export function EdgeList({ nodeId, nodeType }: EdgeListProps) {
                     overline={edgeLabel(edge.edge_type_id)}
                     text={connectedNode?.title ?? ''}
                   >
-                    <nldd-container slot="overline" layout="row" gap="8" vertical-alignment="center">
-                      <Badge color="donkerblauw">{edgeLabel(edge.edge_type_id)}</Badge>
-                      <Icon name={direction === 'incoming' ? 'arrow-left' : 'arrow-right'} size="xs" />
-                    </nldd-container>
-                    {connectedNode && (
+                    <p slot="overline">
                       <nldd-container layout="row" gap="8" vertical-alignment="center">
-                        <Badge color={NODE_TYPE_COLORS[connectedNode.node_type]} title={nodeAltLabel(connectedNode.node_type)}>
-                          {nodeLabel(connectedNode.node_type)}
-                        </Badge>
-                        {connectedNode.title}
+                        <Badge color="donkerblauw">{edgeLabel(edge.edge_type_id)}</Badge>
+                        <Icon name={direction === 'incoming' ? 'arrow-left' : 'arrow-right'} size="xs" />
                       </nldd-container>
+                    </p>
+                    {connectedNode && (
+                      <p>
+                        <nldd-container layout="row" gap="8" vertical-alignment="center">
+                          <Badge color={NODE_TYPE_COLORS[connectedNode.node_type]} title={nodeAltLabel(connectedNode.node_type)}>
+                            {nodeLabel(connectedNode.node_type)}
+                          </Badge>
+                          {connectedNode.title}
+                        </nldd-container>
+                      </p>
                     )}
                   </nldd-title-cell>
                   {edge.description && (

@@ -18,8 +18,8 @@ interface NlddButtonProps {
     | 'neutral-transparent'
     | 'critical-tinted'
     | 'critical-transparent'
-    | 'inherit-filled'
-    | 'inherit-tinted';
+    | 'content-filled'
+    | 'content-tinted';
   size?: 'xs' | 'sm' | 'md' | 'lg';
   text?: string;
   startIcon?: string;

@@ -88,16 +88,20 @@ export function CasusTeamModal({ casus, onClose }: Props) {
       <nldd-container gap="16">
         {casus?.initiatief_id && (
           <nldd-text size="sm" color="secondary">
-            Alleen wie {casus.initiatief?.naam ?? 'het initiatief'} kan zien is kiesbaar. Iemand
-            anders eerst toevoegen aan het initiatief.
+            <p>
+              Alleen wie {casus.initiatief?.naam ?? 'het initiatief'} kan zien is kiesbaar. Iemand
+              anders eerst toevoegen aan het initiatief.
+            </p>
           </nldd-text>
         )}
         <CreatableSelect label="Persoon" value={personId} onChange={setPersonId} options={options} placeholder="Zoek een persoon..." required />
         {casus?.initiatief_id && contactenZonderLidmaatschap.length > 0 && (
           <nldd-text size="sm" color="secondary">
-            Contact op de lead, nog geen lid: {contactenZonderLidmaatschap.join(', ')}. Voeg{' '}
-            {contactenZonderLidmaatschap.length === 1 ? 'deze persoon' : 'ze'} eerst toe aan het initiatief
-            (tab Mensen), dan {contactenZonderLidmaatschap.length === 1 ? 'is die' : 'zijn ze'} hier te kiezen.
+            <p>
+              Contact op de lead, nog geen lid: {contactenZonderLidmaatschap.join(', ')}. Voeg{' '}
+              {contactenZonderLidmaatschap.length === 1 ? 'deze persoon' : 'ze'} eerst toe aan het initiatief
+              (tab Mensen), dan {contactenZonderLidmaatschap.length === 1 ? 'is die' : 'zijn ze'} hier te kiezen.
+            </p>
           </nldd-text>
         )}
         <Select label="Rol" options={ROL_OPTIONS} value={rol} onChange={(e) => setRol(e.target.value as 'trekker' | 'teamlid')} />

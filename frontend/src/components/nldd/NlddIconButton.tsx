@@ -29,8 +29,8 @@ interface NlddIconButtonProps {
     | 'neutral-transparent'
     | 'critical-tinted'
     | 'critical-transparent'
-    | 'inherit-filled'
-    | 'inherit-tinted';
+    | 'content-filled'
+    | 'content-tinted';
   size?: 'xs' | 'sm' | 'md' | 'lg';
   disabled?: boolean;
   type?: 'button' | 'submit' | 'reset';

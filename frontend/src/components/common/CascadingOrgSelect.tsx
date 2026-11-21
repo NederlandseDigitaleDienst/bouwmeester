@@ -201,7 +201,7 @@ export function CascadingOrgSelect({
       <nldd-container gap="4">
         {label && (
           <nldd-text size="sm" weight="bold">
-            {label}
+            <p>{label}</p>
           </nldd-text>
         )}
         <LoadingSpinner size="sm" />
@@ -218,7 +218,7 @@ export function CascadingOrgSelect({
           pick. The label names the group, so it is a heading for the set. */}
       {label && (
         <nldd-text size="sm" weight="bold">
-          {label}
+          <p>{label}</p>
         </nldd-text>
       )}
       <nldd-container gap="8">
@@ -251,7 +251,7 @@ export function CascadingOrgSelect({
         })}
         {showDepthHint && (
           <nldd-text size="xs" color="warning">
-            Kies een specifiekere organisatie-eenheid
+            <p>Kies een specifiekere organisatie-eenheid</p>
           </nldd-text>
         )}
       </nldd-container>

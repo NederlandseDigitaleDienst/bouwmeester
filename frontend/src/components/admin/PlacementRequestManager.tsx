@@ -32,8 +32,10 @@ export function PlacementRequestManager() {
   return (
     <nldd-container gap="16">
       <nldd-text size="sm" color="secondary">
-        Nieuwe medewerkers die zich aanmelden kiezen een team. Hieronder kun je hun teamverzoek
-        goedkeuren of afwijzen.
+        <p>
+          Nieuwe medewerkers die zich aanmelden kiezen een team. Hieronder kun je hun teamverzoek
+          goedkeuren of afwijzen.
+        </p>
       </nldd-text>
 
       <nldd-table
@@ -51,9 +53,9 @@ export function PlacementRequestManager() {
         {requests?.map((req) => (
           <nldd-table-row key={req.id}>
             <nldd-title-cell text={req.person_naam} />
-            <nldd-text-cell>
+            <nldd-cell>
               <nldd-container layout="row" gap="6" vertical-alignment="center">
-                <nldd-text size="sm">{req.eenheid_naam}</nldd-text>
+                <nldd-text size="sm"><p>{req.eenheid_naam}</p></nldd-text>
                 <NlddIconButton
                   icon="pencil"
                   accessibleLabel="Team wijzigen"
@@ -62,7 +64,7 @@ export function PlacementRequestManager() {
                   onClick={() => setEditingRequest(req)}
                 />
               </nldd-container>
-            </nldd-text-cell>
+            </nldd-cell>
             <nldd-text-cell
               text={DIENSTVERBAND_LABELS[req.dienstverband] || req.dienstverband}
               color="secondary"
@@ -78,7 +80,7 @@ export function PlacementRequestManager() {
               color="secondary"
               hide-below="md"
             />
-            <nldd-text-cell>
+            <nldd-cell>
               {confirmDenyId === req.id ? (
                 <nldd-container layout="row" gap="4">
                   <NlddButton
@@ -114,7 +116,7 @@ export function PlacementRequestManager() {
                   />
                 </nldd-container>
               )}
-            </nldd-text-cell>
+            </nldd-cell>
           </nldd-table-row>
         ))}
         <div slot="empty">

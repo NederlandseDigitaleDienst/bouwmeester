@@ -10,7 +10,7 @@ export function LeadMetricsBar({ initiatiefId }: { initiatiefId?: string }) {
   return (
     <nldd-container layout="wrap" gap="8" vertical-alignment="center">
       <nldd-text size="sm" weight="medium">
-        {metrics.total} {metrics.total === 1 ? 'lead' : 'leads'}
+        <p>{metrics.total} {metrics.total === 1 ? 'lead' : 'leads'}</p>
       </nldd-text>
 
       {LEAD_STAGE_ORDER.map((stage) => {

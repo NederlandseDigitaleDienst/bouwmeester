@@ -41,7 +41,7 @@ export function ReferencesList({ targetId }: ReferencesListProps) {
       <nldd-container layout="row" gap="4" vertical-alignment="center">
         <nldd-icon icon="link" size="16" aria-hidden="true" />
         <nldd-text size="xs" weight="bold" color="secondary">
-          Verwijzingen ({references.length})
+          <p>Verwijzingen ({references.length})</p>
         </nldd-text>
       </nldd-container>
       <nldd-list appearance="simple" accessible-label="Verwijzingen">

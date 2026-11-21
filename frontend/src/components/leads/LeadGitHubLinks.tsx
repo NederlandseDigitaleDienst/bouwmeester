@@ -173,8 +173,10 @@ export function LeadGitHubLinks({ leadId, links }: Props) {
       ) : (
         !showForm && (
           <nldd-text size="sm" color="secondary">
-            Nog geen GitHub-werk gekoppeld. Plak een URL van een branch, PR of
-            issue.
+            <p>
+              Nog geen GitHub-werk gekoppeld. Plak een URL van een branch, PR of
+              issue.
+            </p>
           </nldd-text>
         )
       )}
@@ -211,14 +213,14 @@ function GitHubLinkRow({
     return (
       <nldd-list-item>
         <nldd-icon-cell icon={TYPE_ICONS[link.link_type]} size="16" />
-        <nldd-text-cell width="full">
+        <nldd-cell width="full">
           <Input
             type="text"
             value={editingTitle}
             onChange={(e) => onEditingTitleChange(e.target.value)}
             autoFocus
           />
-        </nldd-text-cell>
+        </nldd-cell>
         <NlddIconButton icon="check-mark" accessibleLabel="Opslaan" variant="neutral-transparent" size="sm" onClick={onSaveEdit} />
         <NlddIconButton icon="close" accessibleLabel="Annuleren" variant="neutral-transparent" size="sm" onClick={onCancelEdit} />
       </nldd-list-item>

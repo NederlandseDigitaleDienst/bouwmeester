@@ -30,11 +30,6 @@ function isSafeHref(href: string): boolean {
 interface RichTextDisplayProps {
   content: string | null | undefined;
   fallback?: string;
-  /**
-   * `inherit` lets text and links follow the surrounding color, for content on
-   * a filled surface such as your own message bubble. Passed to nldd-rich-text.
-   */
-  color?: 'content' | 'inherit';
 }
 
 interface TipTapNode {
@@ -92,7 +87,6 @@ function isTipTapJson(value: string): TipTapNode | null {
 export function RichTextDisplay({
   content,
   fallback = 'Geen beschrijving beschikbaar.',
-  color = 'content',
 }: RichTextDisplayProps) {
   const navigate = useNavigate();
   const { openTaskDetail } = useTaskDetail();
@@ -101,15 +95,13 @@ export function RichTextDisplay({
   // Mention clicks are MarkdownRenderer's own business. Handling them here, in
   // a wrapper, would leave inert mention buttons in every caller that renders
   // MarkdownRenderer directly.
-  const markdown = (value: string) => <MarkdownRenderer content={value} color={color} />;
+  const markdown = (value: string) => <MarkdownRenderer content={value} />;
 
-  // nldd-text has no content channel on a filled surface, so `inherit` there.
-  const plainColor = color === 'inherit' ? 'inherit' : 'secondary';
 
   if (!content) {
     return (
-      <nldd-text size="sm" color={plainColor}>
-        {fallback}
+      <nldd-text size="sm" color="secondary">
+        <p>{fallback}</p>
       </nldd-text>
     );
   }
@@ -131,7 +123,7 @@ export function RichTextDisplay({
     // component's template has around its slot then renders too: every plain
     // description opened with an indent of a few words.
     return (
-      <nldd-text size="sm" color={plainColor}>
+      <nldd-text size="sm" color="secondary">
         <span style={{ whiteSpace: 'pre-wrap' }}>{linkifyText(content)}</span>
       </nldd-text>
     );
@@ -149,7 +141,7 @@ export function RichTextDisplay({
   // of the cases below carry classes any more.
   const handlers: MentionHandlers = { openTaskDetail, openNodeDetail, navigate };
   return (
-    <nldd-rich-text spacing="tight" color={color}>
+    <nldd-rich-text spacing="tight">
       {renderNodes(doc.content ?? [], handlers)}
     </nldd-rich-text>
   );

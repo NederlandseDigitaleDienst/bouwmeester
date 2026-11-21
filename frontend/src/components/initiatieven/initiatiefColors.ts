@@ -55,11 +55,11 @@ export function initiatiefTagColor(kleur: string | null | undefined): NlddTagCol
 /**
  * The same name for `nldd-icon`, which takes the 18 rijkskleuren and the
  * functional semantics but has no 'neutral': grey there is
- * 'secondary-content'.
+ * 'secondary'.
  */
 export function initiatiefIconColor(kleur: string | null | undefined): NlddIconColor {
   const color = initiatiefTagColor(kleur);
-  return color === 'neutral' ? 'secondary-content' : (color as NlddIconColor);
+  return color === 'neutral' ? 'secondary' : (color as NlddIconColor);
 }
 
 /**

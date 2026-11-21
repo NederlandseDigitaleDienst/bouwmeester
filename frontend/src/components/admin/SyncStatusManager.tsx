@@ -110,10 +110,12 @@ export function SyncStatusManager() {
     <nldd-container gap="16">
       <nldd-container layout="row" gap="16" horizontal-alignment="left">
         <nldd-container width="fit-content" className="row-fill" gap="4">
-          <nldd-title size={3}><h2>Sync-status overheidsorganisaties</h2></nldd-title>
+          <nldd-title size="display-3"><h2>Sync-status overheidsorganisaties</h2></nldd-title>
           <nldd-text size="sm" color="secondary">
-            Per externe bron: laatste sync-tijdstip + handmatige trigger. Worker draait dagelijks
-            (TK + kabinet + ABD) en wekelijks (TOOI + RIO + CSV + organogram).
+            <p>
+              Per externe bron: laatste sync-tijdstip + handmatige trigger. Worker draait dagelijks
+              (TK + kabinet + ABD) en wekelijks (TOOI + RIO + CSV + organogram).
+            </p>
           </nldd-text>
         </nldd-container>
         <NlddButton
@@ -131,15 +133,15 @@ export function SyncStatusManager() {
           {Object.entries(data.actief_per_bron).map(([bron, count]) => (
             <Card key={bron}>
               <nldd-container gap="0">
-                <nldd-text size="xs" color="secondary">Actief — {bron}</nldd-text>
-                <nldd-text size="lg" weight="bold">{count}</nldd-text>
+                <nldd-text size="xs" color="secondary"><p>Actief — {bron}</p></nldd-text>
+                <nldd-text size="lg" weight="bold"><p>{count}</p></nldd-text>
               </nldd-container>
             </Card>
           ))}
           <Card>
             <nldd-container gap="0">
-              <nldd-text size="xs" color="secondary">Open conflicten</nldd-text>
-              <nldd-text size="lg" weight="bold">{data.open_reconciliations}</nldd-text>
+              <nldd-text size="xs" color="secondary"><p>Open conflicten</p></nldd-text>
+              <nldd-text size="lg" weight="bold"><p>{data.open_reconciliations}</p></nldd-text>
             </nldd-container>
           </Card>
         </nldd-container>
@@ -160,7 +162,7 @@ export function SyncStatusManager() {
           const isExpanded = expandedBron === bron;
           return (
             <nldd-table-row key={ep}>
-              <nldd-text-cell>
+              <nldd-cell>
                 <NlddButton
                   variant="neutral-transparent"
                   size="sm"
@@ -168,7 +170,7 @@ export function SyncStatusManager() {
                   startIcon={isExpanded ? 'chevron-down' : 'chevron-right'}
                   onClick={() => setExpandedBron(isExpanded ? null : bron)}
                 />
-              </nldd-text-cell>
+              </nldd-cell>
               <nldd-text-cell
                 text={
                   laatste
@@ -177,7 +179,7 @@ export function SyncStatusManager() {
                 }
                 color="secondary"
               />
-              <nldd-text-cell>
+              <nldd-cell>
                 <NlddButton
                   variant="secondary"
                   size="sm"
@@ -187,21 +189,21 @@ export function SyncStatusManager() {
                   onClick={() => runMutation.mutate(ep)}
                   disabled={busyEndpoint !== null}
                 />
-              </nldd-text-cell>
+              </nldd-cell>
               {isExpanded && (
                 <div style={{ gridColumn: '1 / -1' }}>
                   <nldd-box>
                     <nldd-container padding="12" gap="8">
-                      <nldd-text size="xs" color="secondary">Recente log-entries (laatste 30):</nldd-text>
+                      <nldd-text size="xs" color="secondary"><p>Recente log-entries (laatste 30):</p></nldd-text>
                       {logEntries.length === 0 ? (
-                        <nldd-text size="xs" color="secondary">Geen entries.</nldd-text>
+                        <nldd-text size="xs" color="secondary"><p>Geen entries.</p></nldd-text>
                       ) : (
                         <nldd-container gap="4" style={{ maxHeight: '240px', overflowY: 'auto' }}>
                           {logEntries.map((entry) => (
                             <nldd-container key={entry.id} layout="row" gap="8" vertical-alignment="top">
                               <nldd-container width="128px">
                                 <nldd-text size="xs" color="secondary">
-                                  {new Date(entry.created_at).toLocaleString('nl-NL')}
+                                  <p>{new Date(entry.created_at).toLocaleString('nl-NL')}</p>
                                 </nldd-text>
                               </nldd-container>
                               <nldd-tag
@@ -210,10 +212,12 @@ export function SyncStatusManager() {
                                 size="sm"
                               />
                               <nldd-text size="xs">
-                                {entry.note ||
-                                  (entry.after && typeof entry.after.naam === 'string'
-                                    ? entry.after.naam
-                                    : entry.tooi_uri || '—')}
+                                <p>
+                                  {entry.note ||
+                                    (entry.after && typeof entry.after.naam === 'string'
+                                      ? entry.after.naam
+                                      : entry.tooi_uri || '—')}
+                                </p>
                               </nldd-text>
                             </nldd-container>
                           ))}

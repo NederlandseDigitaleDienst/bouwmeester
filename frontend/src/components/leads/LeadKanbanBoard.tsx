@@ -222,7 +222,7 @@ export function LeadKanbanBoard({
                 <nldd-container layout="row" gap="8" vertical-alignment="center" padding="12" padding-block="10">
                   <nldd-tag text={col.name} color={leadColumnTagColor(col.color)} size="sm" />
                   <nldd-text size="xs" color="secondary" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {leadsByStage[col.slug]?.length ?? 0}
+                    <p>{leadsByStage[col.slug]?.length ?? 0}</p>
                   </nldd-text>
                 </nldd-container>
 
@@ -282,7 +282,7 @@ export function LeadKanbanBoard({
                   ) : (
                     <nldd-container padding-block="24">
                       <nldd-text size="xs" color="secondary" horizontal-alignment="center">
-                        Sleep leads hierheen
+                        <p>Sleep leads hierheen</p>
                       </nldd-text>
                     </nldd-container>
                   )}

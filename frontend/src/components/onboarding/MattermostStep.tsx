@@ -32,10 +32,12 @@ export function MattermostStep({ onComplete }: { onComplete: () => void }) {
   return (
     <nldd-container gap="16">
       <nldd-container gap="4">
-        <nldd-text weight="medium">Koppel Mattermost</nldd-text>
+        <nldd-text weight="medium"><p>Koppel Mattermost</p></nldd-text>
         <nldd-text size="sm" color="secondary">
-          Koppel je Mattermost-account om notificaties over taken en dossiers direct te ontvangen. Je kunt
-          dit ook later doen via Instellingen.
+          <p>
+            Koppel je Mattermost-account om notificaties over taken en dossiers direct te ontvangen. Je kunt
+            dit ook later doen via Instellingen.
+          </p>
         </nldd-text>
       </nldd-container>
       <MattermostLinkSection compact />

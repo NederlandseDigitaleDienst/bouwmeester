@@ -84,15 +84,16 @@ export function TaskCommentsSection({ taskId }: { taskId: string }) {
                     borderRadius: '9999px',
                     backgroundColor: 'var(--primitives-color-neutral-100)',
                     color: 'var(--primitives-color-neutral-600)',
+                    '--context-content-color': 'var(--primitives-color-neutral-600)',
                     flexShrink: 0,
-                  }}
+                  } as React.CSSProperties}
                 >
                   <nldd-icon icon="person" size="16" aria-hidden="true" />
                 </div>
                 <nldd-container gap="2" width="full">
                   <nldd-container layout="row" gap="8" vertical-alignment="center">
-                    <nldd-text size="xs" weight="medium">{c.author_naam ?? 'Onbekend'}</nldd-text>
-                    <nldd-text size="xs" color="secondary">{timeAgo(c.created_at)}</nldd-text>
+                    <nldd-text size="xs" weight="medium"><p>{c.author_naam ?? 'Onbekend'}</p></nldd-text>
+                    <nldd-text size="xs" color="secondary"><p>{timeAgo(c.created_at)}</p></nldd-text>
                     {magWeg && (
                       <NlddIconButton
                         icon="trash"

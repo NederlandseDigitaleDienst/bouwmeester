@@ -118,7 +118,7 @@ export function StakeholderTab({
     <nldd-container gap="12">
       {assessments.length === 0 ? (
         <nldd-text size="sm" color="secondary">
-          Nog geen stakeholders geregistreerd.
+          <p>Nog geen stakeholders geregistreerd.</p>
         </nldd-text>
       ) : (
         <nldd-list type="form" appearance="box-tinted" accessible-label="Stakeholders">
@@ -131,7 +131,7 @@ export function StakeholderTab({
               <nldd-cell width="full">
                 <nldd-container gap="8" padding-block="4">
                   <nldd-container layout="row" gap="8" vertical-alignment="center">
-                    <nldd-text weight="medium" size="sm">{a.person_naam}</nldd-text>
+                    <nldd-text weight="medium" size="sm"><p>{a.person_naam}</p></nldd-text>
                     <nldd-spacer size="flexible" />
                     {!readOnly && (
                       <NlddIconButton
@@ -232,13 +232,13 @@ function HoudingSelect({
   if (disabled) {
     return (
       <nldd-container gap="2">
-        <nldd-text size="xs" color="secondary">Houding</nldd-text>
+        <nldd-text size="xs" color="secondary"><p>Houding</p></nldd-text>
         {value ? (
           <Badge color={HOUDING_BADGE_COLOR[value]}>
             {STAKEHOLDER_HOUDING_LABELS[value]}
           </Badge>
         ) : (
-          <nldd-text size="sm" color="secondary">—</nldd-text>
+          <nldd-text size="sm" color="secondary"><p>—</p></nldd-text>
         )}
       </nldd-container>
     );

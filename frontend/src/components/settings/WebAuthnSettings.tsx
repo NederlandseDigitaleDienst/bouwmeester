@@ -65,10 +65,12 @@ export function WebAuthnSettings() {
     return (
       <nldd-card>
         <nldd-container padding="24" gap="4">
-          <nldd-text weight="medium">Passkeys</nldd-text>
+          <nldd-text weight="medium"><p>Passkeys</p></nldd-text>
           <nldd-text size="sm" color="secondary">
-            Je browser ondersteunt geen passkeys (WebAuthn). Gebruik een moderne browser om deze
-            functie te gebruiken.
+            <p>
+              Je browser ondersteunt geen passkeys (WebAuthn). Gebruik een moderne browser om deze
+              functie te gebruiken.
+            </p>
           </nldd-text>
         </nldd-container>
       </nldd-card>
@@ -81,9 +83,9 @@ export function WebAuthnSettings() {
         <nldd-container layout="row" gap="12" vertical-alignment="center">
           <Icon name="key" size="lg" />
           <nldd-container gap="2">
-            <nldd-text weight="medium">Passkeys</nldd-text>
+            <nldd-text weight="medium"><p>Passkeys</p></nldd-text>
             <nldd-text size="sm" color="secondary">
-              Log snel opnieuw in met een passkey. Je ontgrendelt hem met Face ID, je vingerafdruk, je pincode of een beveiligingssleutel.
+              <p>Log snel opnieuw in met een passkey. Je ontgrendelt hem met Face ID, je vingerafdruk, je pincode of een beveiligingssleutel.</p>
             </nldd-text>
           </nldd-container>
         </nldd-container>

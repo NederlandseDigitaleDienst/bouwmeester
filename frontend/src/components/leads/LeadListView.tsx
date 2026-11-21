@@ -197,8 +197,10 @@ export function LeadListView({
         >
           <nldd-container gap="16">
             <nldd-text size="sm" color="secondary">
-              Kies de lead die je wilt behouden. De andere lead wordt hierin samengevoegd
-              (activiteiten, contacten, tags en bijlagen worden overgenomen).
+              <p>
+                Kies de lead die je wilt behouden. De andere lead wordt hierin samengevoegd
+                (activiteiten, contacten, tags en bijlagen worden overgenomen).
+              </p>
             </nldd-text>
             {Array.from(selectedIds).map((id) => {
               const lead = allLeads.find((l) => l.id === id);
@@ -264,48 +266,48 @@ function LeadListRow({ lead, column, selected, onToggleSelect, onOpen }: LeadLis
 
   return (
     <nldd-table-row>
-      <nldd-text-cell>
+      <nldd-cell>
         <nldd-checkbox ref={checkboxRef} checked={orUndef(selected)} accessible-label={`Selecteer ${lead.title}`} />
-      </nldd-text-cell>
+      </nldd-cell>
       <nldd-title-cell ref={rowRef} text={lead.title} style={{ cursor: 'pointer' }} />
       <nldd-text-cell text={lead.organisatie_eenheid?.naam ?? lead.organization ?? '-'} hide-below="md" />
-      <nldd-text-cell hide-below="lg">
-        {lead.initiatief ? (
+      {lead.initiatief ? (
+        <nldd-cell hide-below="lg">
           <nldd-tag
             text={lead.initiatief.naam}
             color={initiatiefTagColor(lead.initiatief.kleur)}
             size="sm"
           />
-        ) : (
-          '-'
-        )}
-      </nldd-text-cell>
-      <nldd-text-cell hide-below="lg">
+        </nldd-cell>
+      ) : (
+        <nldd-text-cell text="-" hide-below="lg" />
+      )}
+      <nldd-cell hide-below="lg">
         <nldd-tag text={column?.name ?? lead.stage} color={leadColumnTagColor(column?.color ?? 'neutral')} size="sm" />
-      </nldd-text-cell>
+      </nldd-cell>
       <nldd-text-cell text={lead.assignee?.naam ?? '-'} hide-below="lg" />
-      <nldd-text-cell hide-below="lg">
-        {lead.next_action_date ? (
+      {lead.next_action_date ? (
+        <nldd-cell hide-below="lg">
           <nldd-container layout="row" gap="4" vertical-alignment="center">
             <nldd-icon icon="calendar" size="16" aria-hidden="true" />
             <nldd-text size="sm" color={overdue ? 'critical' : 'content'} weight={overdue ? 'medium' : 'regular'}>
-              {formatDateShort(lead.next_action_date)}
+              <span>{formatDateShort(lead.next_action_date)}</span>
             </nldd-text>
           </nldd-container>
-        ) : (
-          '-'
-        )}
-      </nldd-text-cell>
-      <nldd-text-cell hide-below="lg">
+        </nldd-cell>
+      ) : (
+        <nldd-text-cell text="-" hide-below="lg" />
+      )}
+      <nldd-cell hide-below="lg">
         <nldd-container layout="wrap" gap="4">
           {lead.tags.slice(0, 3).map((tag) => (
             <nldd-tag key={tag} text={tag} color="neutral" size="sm" />
           ))}
           {lead.tags.length > 3 && (
-            <nldd-text size="xs" color="secondary">+{lead.tags.length - 3}</nldd-text>
+            <nldd-text size="xs" color="secondary"><p>+{lead.tags.length - 3}</p></nldd-text>
           )}
         </nldd-container>
-      </nldd-text-cell>
+      </nldd-cell>
       <nldd-text-cell hide-below="lg" title={formatDateShort(lead.created_at)}>
         {timeAgo(lead.created_at)}
       </nldd-text-cell>
@@ -350,7 +352,7 @@ function MergeCandidateCard({ lead, stageName, disabled, onPick }: MergeCandidat
           text={lead.title}
           supporting-text={`${lead.organization ?? 'geen organisatie'} - ${stageName}`}
         />
-        <nldd-text size="xs" color="accent">← Deze behouden</nldd-text>
+        <nldd-text size="xs" color="accent"><p>← Deze behouden</p></nldd-text>
       </nldd-container>
     </nldd-card>
   );

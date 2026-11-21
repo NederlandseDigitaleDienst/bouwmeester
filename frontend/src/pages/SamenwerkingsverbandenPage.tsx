@@ -66,13 +66,13 @@ function SamenwerkingsverbandCard({ swv }: SamenwerkingsverbandCardProps) {
           </Badge>
           <nldd-container layout="row" gap="4" vertical-alignment="center">
             <Icon name="users" size="xs" />
-            <nldd-text size="xs" color="secondary">{swv.aantal_leden}</nldd-text>
+            <nldd-text size="xs" color="secondary"><p>{swv.aantal_leden}</p></nldd-text>
           </nldd-container>
         </nldd-container>
-        <nldd-text size="sm" weight="bold">{swv.naam}</nldd-text>
+        <nldd-text size="sm" weight="bold"><p>{swv.naam}</p></nldd-text>
         {swv.eind_datum && (
           <nldd-text size="xs" color="secondary">
-            Eindigt {new Date(swv.eind_datum).toLocaleDateString('nl-NL')}
+            <p>Eindigt {new Date(swv.eind_datum).toLocaleDateString('nl-NL')}</p>
           </nldd-text>
         )}
       </nldd-container>
@@ -177,7 +177,7 @@ export function SamenwerkingsverbandenPage() {
         <nldd-card>
           <nldd-container gap="16" padding="24">
             <nldd-container layout="row" gap="8" vertical-alignment="center">
-              <nldd-title size={4}><h3>Nieuw samenwerkingsverband</h3></nldd-title>
+              <nldd-title size="display-4"><h3>Nieuw samenwerkingsverband</h3></nldd-title>
               <nldd-spacer size="flexible" direction="horizontal" />
               <NlddIconButton
                 icon="close"
@@ -225,7 +225,7 @@ export function SamenwerkingsverbandenPage() {
                   onChange={(v) => setForm((f) => ({ ...f, beschrijving: v }))}
                   rows={3}
                 />
-                {error && <nldd-text size="sm" color="critical">{error}</nldd-text>}
+                {error && <nldd-text size="sm" color="critical"><p>{error}</p></nldd-text>}
                 <nldd-container layout="row" gap="8" horizontal-alignment="right">
                   <NlddButton variant="secondary" onClick={resetForm} type="button" text="Annuleren" />
                   <NlddButton type="submit" loading={createMutation.isPending} text="Aanmaken" />
@@ -242,7 +242,7 @@ export function SamenwerkingsverbandenPage() {
       ) : data.length === 0 ? (
         <nldd-container padding="48" horizontal-alignment="center">
           <nldd-text size="sm" color="secondary" horizontal-alignment="center">
-            Geen samenwerkingsverbanden gevonden.
+            <p>Geen samenwerkingsverbanden gevonden.</p>
           </nldd-text>
         </nldd-container>
       ) : (

@@ -94,9 +94,11 @@ export function EdgeSchemaManager() {
   return (
     <nldd-container gap="16">
       <nldd-text size="sm" color="secondary">
-        Beheer welke relatiestypes zijn toegestaan tussen knooppunttypen. Als er geen regels zijn
-        gedefinieerd, zijn alle verbindingen toegestaan. Momenteel {ruleCount}{' '}
-        {ruleCount === 1 ? 'regel' : 'regels'} actief.
+        <p>
+          Beheer welke relatiestypes zijn toegestaan tussen knooppunttypen. Als er geen regels zijn
+          gedefinieerd, zijn alle verbindingen toegestaan. Momenteel {ruleCount}{' '}
+          {ruleCount === 1 ? 'regel' : 'regels'} actief.
+        </p>
       </nldd-text>
 
       {/* Edge type selector */}

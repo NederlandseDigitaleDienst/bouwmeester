@@ -60,8 +60,10 @@ function Formulier({ casus, fase, onClose }: { casus: Casus; fase: { id: string;
     >
       <nldd-container gap="16">
         <nldd-text size="sm" color="secondary">
-          Loop de eindeisen van de soorten van deze casus na. Vink aan wat af is en licht toe waar dat helpt. De
-          casus gaat ook door als niet alles af is.
+          <p>
+            Loop de eindeisen van de soorten van deze casus na. Vink aan wat af is en licht toe waar dat helpt. De
+            casus gaat ook door als niet alles af is.
+          </p>
         </nldd-text>
         <EisenNalopen
           soorten={soorten}

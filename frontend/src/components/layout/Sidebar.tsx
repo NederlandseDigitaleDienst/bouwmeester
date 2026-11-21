@@ -212,7 +212,7 @@ export function Sidebar({ mobile }: SidebarProps) {
         {expanded && (
           <div style={{ flex: 1, minWidth: 0 }}>
             <nldd-text size="md" weight="bold" className="truncate tracking-tight">
-              Bouwmeester
+              <span>Bouwmeester</span>
             </nldd-text>
           </div>
         )}

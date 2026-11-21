@@ -65,7 +65,7 @@ export function AdminPage() {
   // behind one overflow button, so the visible labels stay whole.
   //
   // Its items are buttons, so the click comes off the item rather than a
-  // `tabchange` event. The listener sits on the bar and reads the id back off
+  // `tab-change` event. The listener sits on the bar and reads the id back off
   // the item, which keeps working when items move into the overflow menu.
   const menuBarRef = useRef<HTMLElement>(null);
   useNlddEvent(

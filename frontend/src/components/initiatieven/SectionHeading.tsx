@@ -13,7 +13,7 @@ export function SectionHeading({ icon, text }: { icon: string; text: string }) {
   return (
     <nldd-container layout="row" gap="6" vertical-alignment="center">
       <Icon name={icon} size="sm" />
-      <nldd-title size={4}>
+      <nldd-title size="display-4">
         <h3>{text}</h3>
       </nldd-title>
     </nldd-container>

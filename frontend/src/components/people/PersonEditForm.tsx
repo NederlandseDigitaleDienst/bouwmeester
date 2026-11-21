@@ -608,18 +608,17 @@ export function PersonEditForm({
                 text={`Domein wijst naar ${emailMatch.organisatie_naam}`}
                 horizontal-alignment="left"
               >
-                <div slot="actions">
-                  <NlddButton
-                    text="Koppel als organisatie"
-                    variant="neutral-transparent"
-                    size="sm"
-                    onClick={() => {
-                      setOrgEenheidId(emailMatch.organisatie_eenheid_id);
-                      setDienstverband('extern');
-                      setEmailMatch(null);
-                    }}
-                  />
-                </div>
+                <NlddButton
+                  slot="actions"
+                  text="Koppel als organisatie"
+                  variant="neutral-transparent"
+                  size="sm"
+                  onClick={() => {
+                    setOrgEenheidId(emailMatch.organisatie_eenheid_id);
+                    setDienstverband('extern');
+                    setEmailMatch(null);
+                  }}
+                />
               </nldd-inline-dialog>
             )}
           </>
@@ -628,9 +627,9 @@ export function PersonEditForm({
         {/* Email management — edit mode, non-agent */}
         {!isAgent && isEditMode && (
           <nldd-container gap="8">
-            <nldd-text weight="medium">E-mailadressen</nldd-text>
+            <nldd-text weight="medium"><p>E-mailadressen</p></nldd-text>
             {personEmails.length === 0 ? (
-              <nldd-text size="sm" color="secondary">Geen e-mailadressen</nldd-text>
+              <nldd-text size="sm" color="secondary"><p>Geen e-mailadressen</p></nldd-text>
             ) : (
               <nldd-list appearance="box-tinted" accessible-label="E-mailadressen">
                 {personEmails.map((em) => (
@@ -664,7 +663,7 @@ export function PersonEditForm({
               />
             </nldd-container>
             {newEmailError && (
-              <nldd-text size="xs" color="critical">{newEmailError}</nldd-text>
+              <nldd-text size="xs" color="critical"><p>{newEmailError}</p></nldd-text>
             )}
           </nldd-container>
         )}
@@ -672,9 +671,9 @@ export function PersonEditForm({
         {/* Phone management — edit mode, non-agent */}
         {!isAgent && isEditMode && (
           <nldd-container gap="8">
-            <nldd-text weight="medium">Telefoonnummers</nldd-text>
+            <nldd-text weight="medium"><p>Telefoonnummers</p></nldd-text>
             {personPhones.length === 0 ? (
-              <nldd-text size="sm" color="secondary">Geen telefoonnummers</nldd-text>
+              <nldd-text size="sm" color="secondary"><p>Geen telefoonnummers</p></nldd-text>
             ) : (
               <nldd-list appearance="box-tinted" accessible-label="Telefoonnummers">
                 {personPhones.map((ph) => (
@@ -716,7 +715,7 @@ export function PersonEditForm({
               />
             </nldd-container>
             {newPhoneError && (
-              <nldd-text size="xs" color="critical">{newPhoneError}</nldd-text>
+              <nldd-text size="xs" color="critical"><p>{newPhoneError}</p></nldd-text>
             )}
           </nldd-container>
         )}
@@ -724,7 +723,7 @@ export function PersonEditForm({
         {isAgent && (
           <>
             <nldd-container gap="4">
-              <nldd-text size="sm" weight="medium">API Key</nldd-text>
+              <nldd-text size="sm" weight="medium"><p>API Key</p></nldd-text>
               {displayApiKey ? (
                 <>
                   <nldd-container layout="row" gap="8" vertical-alignment="center">
@@ -736,8 +735,10 @@ export function PersonEditForm({
                       value={displayApiKey}
                       masked={!showKey}
                       accessible-label="API key"
-                      show-button-accessible-label="Toon API key"
-                      hide-button-accessible-label="Verberg API key"
+                      translations={{
+                        'components.password-field.show-accessible-label': 'Toon API key',
+                        'components.password-field.hide-accessible-label': 'Verberg API key',
+                      }}
                     />
                     <NlddIconButton
                       icon={copied ? 'check-mark' : 'copy'}
@@ -747,7 +748,7 @@ export function PersonEditForm({
                     />
                   </nldd-container>
                   <nldd-text size="xs" weight="bold" color="warning">
-                    Deze sleutel wordt slechts eenmaal getoond. Kopieer en bewaar deze veilig.
+                    <p>Deze sleutel wordt slechts eenmaal getoond. Kopieer en bewaar deze veilig.</p>
                   </nldd-text>
                 </>
               ) : editData ? (
@@ -790,7 +791,7 @@ export function PersonEditForm({
                 </nldd-container>
               ) : (
                 <nldd-text size="sm" color="secondary">
-                  API key wordt automatisch gegenereerd na aanmaken.
+                  <p>API key wordt automatisch gegenereerd na aanmaken.</p>
                 </nldd-text>
               )}
             </nldd-container>

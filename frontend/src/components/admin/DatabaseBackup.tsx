@@ -33,13 +33,13 @@ function SectionHeader({
 }) {
   return (
     <nldd-container layout="row" gap="12" vertical-alignment="top">
-      <nldd-icon icon={icon} size="24" color={color} box className="shrink-0" />
+      <nldd-icon icon={icon} size="24" color={color} tile className="shrink-0" />
       <nldd-container width="fit-content" className="row-fill" gap="2">
-        <nldd-title size={5}>
+        <nldd-title size="display-5">
           <h2>{title}</h2>
         </nldd-title>
         <nldd-text size="sm" color="secondary">
-          {description}
+          <p>{description}</p>
         </nldd-text>
       </nldd-container>
     </nldd-container>
@@ -163,12 +163,14 @@ export function DatabaseBackup() {
               <nldd-activity-indicator size="16" />
             ) : info ? (
               <nldd-text size="xs" color="secondary">
-                versie <code>{info.alembic_revision}</code>
-                {info.encrypted ? ' · age-versleuteld' : ''}
+                <p>
+                  versie <code>{info.alembic_revision}</code>
+                  {info.encrypted ? ' · age-versleuteld' : ''}
+                </p>
               </nldd-text>
             ) : (
               <nldd-text size="xs" color="warning">
-                Kon database-informatie niet ophalen
+                <p>Kon database-informatie niet ophalen</p>
               </nldd-text>
             )}
           </nldd-container>

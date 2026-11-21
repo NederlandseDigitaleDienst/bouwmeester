@@ -14,6 +14,7 @@ import { useEenheidOverview } from '@/hooks/useTasks';
 import { formatCurrencyCompact } from '@/utils/format';
 import type { InboxItem } from '@/types';
 import { NlddButton } from '@/components/nldd/NlddButton';
+import { surfaceTextColor } from '@/components/nldd/surface';
 
 const NOTIFICATION_TYPE_MAP: Record<string, string> = {
   task_assigned: 'task',
@@ -117,7 +118,7 @@ export function InboxPage() {
           style={{
             borderRadius: '16px',
             padding: '24px',
-            color: 'white',
+            ...surfaceTextColor('white'),
             background:
               'linear-gradient(to bottom right, var(--primitives-color-lintblauw-900), var(--primitives-color-lintblauw-700))',
           }}
@@ -127,15 +128,13 @@ export function InboxPage() {
               here, set larger than that h1, put the loudest text on the page
               outside the document outline entirely.
 
-              It has to be an element, not bare text. The component styles its
-              title through `::slotted(:not([slot]))`, which only matches
-              elements, so a loose text node drops to the surrounding 18px and
-              the banner stops reading as a banner. */}
-          <nldd-title size={5} color="inherit">
+              Since 0.22.0 an nldd-title without a level shows as body text,
+              so the large letters come from nldd-text with a display size. */}
+          <nldd-text size="display-5">
             <span>Welkom bij Bouwmeester</span>
-          </nldd-title>
-          <nldd-text color="inherit" style={{ opacity: 0.7 }}>
-            Je werkplek voor beleid, taken en samenwerking.
+          </nldd-text>
+          <nldd-text style={{ opacity: 0.7 }}>
+            <p>Je werkplek voor beleid, taken en samenwerking.</p>
           </nldd-text>
         </div>
 
@@ -146,30 +145,30 @@ export function InboxPage() {
         <nldd-collection layout="grid" item-min-width="200px" gap="16">
           <Card actionLabel="Corpus nodes bekijken" onClick={() => navigate('/corpus')}>
             <nldd-container layout="row" gap="12" vertical-alignment="center">
-              <nldd-icon icon="network-structure" size="40" color="lintblauw" box />
+              <nldd-icon icon="network-structure" size="40" color="lintblauw" tile />
               <nldd-container gap="0">
-                <nldd-text size="lg" weight="bold">{stats?.corpus_node_count ?? '-'}</nldd-text>
-                <nldd-text size="xs" color="secondary">Corpus nodes</nldd-text>
+                <nldd-text size="lg" weight="bold"><p>{stats?.corpus_node_count ?? '-'}</p></nldd-text>
+                <nldd-text size="xs" color="secondary"><p>Corpus nodes</p></nldd-text>
               </nldd-container>
             </nldd-container>
           </Card>
 
           <Card actionLabel="Open taken bekijken" onClick={() => navigate('/tasks')}>
             <nldd-container layout="row" gap="12" vertical-alignment="center">
-              <nldd-icon icon="check-list" size="40" color="geel" box />
+              <nldd-icon icon="check-list" size="40" color="geel" tile />
               <nldd-container gap="0">
-                <nldd-text size="lg" weight="bold">{stats?.open_task_count ?? '-'}</nldd-text>
-                <nldd-text size="xs" color="secondary">Open taken</nldd-text>
+                <nldd-text size="lg" weight="bold"><p>{stats?.open_task_count ?? '-'}</p></nldd-text>
+                <nldd-text size="xs" color="secondary"><p>Open taken</p></nldd-text>
               </nldd-container>
             </nldd-container>
           </Card>
 
           <Card actionLabel="Achterstallige taken bekijken" onClick={() => navigate('/tasks')}>
             <nldd-container layout="row" gap="12" vertical-alignment="center">
-              <nldd-icon icon="chart-x-y-axis-line" size="40" color="robijnrood" box />
+              <nldd-icon icon="chart-x-y-axis-line" size="40" color="robijnrood" tile />
               <nldd-container gap="0">
-                <nldd-text size="lg" weight="bold">{stats?.overdue_task_count ?? '-'}</nldd-text>
-                <nldd-text size="xs" color="secondary">Achterstallig</nldd-text>
+                <nldd-text size="lg" weight="bold"><p>{stats?.overdue_task_count ?? '-'}</p></nldd-text>
+                <nldd-text size="xs" color="secondary"><p>Achterstallig</p></nldd-text>
               </nldd-container>
             </nldd-container>
           </Card>
@@ -182,12 +181,12 @@ export function InboxPage() {
             }}
           >
             <nldd-container layout="row" gap="12" vertical-alignment="center">
-              <nldd-icon icon="euro-sign" size="40" color="mosgroen" box />
+              <nldd-icon icon="euro-sign" size="40" color="mosgroen" tile />
               <nldd-container gap="0">
                 <nldd-text size="lg" weight="bold" style={{ whiteSpace: 'nowrap' }}>
-                  {stats?.active_opdracht_budget != null ? formatCurrencyCompact(stats.active_opdracht_budget) : '-'}
+                  <p>{stats?.active_opdracht_budget != null ? formatCurrencyCompact(stats.active_opdracht_budget) : '-'}</p>
                 </nldd-text>
-                <nldd-text size="xs" color="secondary">Actief budget</nldd-text>
+                <nldd-text size="xs" color="secondary"><p>Actief budget</p></nldd-text>
               </nldd-container>
             </nldd-container>
           </Card>
@@ -197,13 +196,13 @@ export function InboxPage() {
         {managedEenheidId && visibleUnassignedCount > 0 && (
           <Card actionLabel="Onverdeelde taken verdelen" onClick={() => navigate('/eenheid-overzicht')}>
             <nldd-container layout="row" gap="12" vertical-alignment="center">
-              <nldd-icon icon="users" size="40" color="violet" box />
+              <nldd-icon icon="users" size="40" color="violet" tile />
               <nldd-container gap="0" width="full">
                 <nldd-text size="sm" weight="medium">
-                  {visibleUnassignedCount} onverdeelde {visibleUnassignedCount === 1 ? 'taak' : 'taken'}
+                  <p>{visibleUnassignedCount} onverdeelde {visibleUnassignedCount === 1 ? 'taak' : 'taken'}</p>
                 </nldd-text>
                 <nldd-text size="xs" color="secondary">
-                  In jouw eenheid - klik om te verdelen
+                  <p>In jouw eenheid - klik om te verdelen</p>
                 </nldd-text>
               </nldd-container>
             </nldd-container>
@@ -228,13 +227,13 @@ export function InboxPage() {
               gap="8"
               vertical-alignment="center"
             >
-              <nldd-title size={6}><h2>Meldingen</h2></nldd-title>
+              <nldd-title size="display-6"><h2>Meldingen</h2></nldd-title>
               {/* The count belongs to the heading, not to a second label under
                   it. Unread is the number that asks for something; the total
                   is visible by scrolling. */}
               {hasUnread && (
                 <nldd-text size="sm" color="secondary">
-                  {unreadCount} ongelezen
+                  <p>{unreadCount} ongelezen</p>
                 </nldd-text>
               )}
             </nldd-container>

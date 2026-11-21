@@ -93,8 +93,8 @@ function Formulier({ soort, initiatiefId, onClose }: { soort: CasusSoort; initia
         />
         <nldd-container gap="8">
           <nldd-container gap="2">
-            <nldd-text size="sm" weight="bold">Starteisen</nldd-text>
-            <nldd-text size="xs" color="secondary">Wat ga je na als je een casus van deze soort start?</nldd-text>
+            <nldd-text size="sm" weight="bold"><p>Starteisen</p></nldd-text>
+            <nldd-text size="xs" color="secondary"><p>Wat ga je na als je een casus van deze soort start?</p></nldd-text>
           </nldd-container>
           <EisenLijst
             items={startEisen}
@@ -107,8 +107,8 @@ function Formulier({ soort, initiatiefId, onClose }: { soort: CasusSoort; initia
         </nldd-container>
         <nldd-container gap="8">
           <nldd-container gap="2">
-            <nldd-text size="sm" weight="bold">Eindeisen</nldd-text>
-            <nldd-text size="xs" color="secondary">Wat is er af als een casus van deze soort zo ver is?</nldd-text>
+            <nldd-text size="sm" weight="bold"><p>Eindeisen</p></nldd-text>
+            <nldd-text size="xs" color="secondary"><p>Wat is er af als een casus van deze soort zo ver is?</p></nldd-text>
           </nldd-container>
           <EisenLijst
             items={eindEisen}

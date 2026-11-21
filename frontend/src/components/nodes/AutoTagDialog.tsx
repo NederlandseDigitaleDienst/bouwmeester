@@ -67,12 +67,12 @@ export function AutoTagDialog({
     >
       <nldd-container gap="12">
         <nldd-text size="sm" color="secondary">
-          Deze node heeft weinig tags. Wil je de volgende suggesties toevoegen?
+          <p>Deze node heeft weinig tags. Wil je de volgende suggesties toevoegen?</p>
         </nldd-text>
 
         {matchedTags.length > 0 && (
           <nldd-container gap="6">
-            <nldd-text size="xs" weight="medium" color="secondary">Bestaande tags</nldd-text>
+            <nldd-text size="xs" weight="medium" color="secondary"><p>Bestaande tags</p></nldd-text>
             <nldd-container layout="wrap" gap="6">
               {matchedTags.map((tag) => (
                 <TagChip
@@ -88,7 +88,7 @@ export function AutoTagDialog({
 
         {suggestedNewTags.length > 0 && (
           <nldd-container gap="6">
-            <nldd-text size="xs" weight="medium" color="secondary">Nieuwe tags</nldd-text>
+            <nldd-text size="xs" weight="medium" color="secondary"><p>Nieuwe tags</p></nldd-text>
             <nldd-container layout="wrap" gap="6">
               {suggestedNewTags.map((tag) => (
                 <TagChip
