@@ -1240,3 +1240,125 @@ async def test_worker_pakt_op_wat_bleef_hangen(db_session, client, casus):
     assert bewaard[oud["id"]]["status"] == "verstuurd"
     assert bewaard[vers["id"]]["status"] == "wacht"
     assert await kanaal.verstuur_blijven_hangen(db_session, mm) == 0
+
+
+async def test_opnieuw_alleen_naar_de_kanalen_van_nu(db_session, client, casus):
+    # Het bericht onthoudt de kanalen van toen. Is er sindsdien een
+    # ontkoppeld, dan mag het daar niet alsnog heen.
+    eerste = await _koppel(client, casus, "eerste")
+    tweede = await _koppel(client, casus, "tweede")
+    bericht = await _bericht_met_status(db_session, client, casus, "mislukt")
+    assert sorted(bericht["kanalen"]) == ["Eerste", "Tweede"]
+    resp = await client.delete(f"/api/mattermost-channels/{tweede['id']}")
+    assert resp.status_code == 204, resp.text
+    _MM_GEPLAATST.clear()
+    resp = await client.post(
+        f"/api/casussen/{casus['id']}/kanaalberichten/{bericht['id']}/opnieuw"
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "verstuurd"
+    assert _MM_GEPLAATST == [(eerste["channel_id"], bericht["tekst"])]
+
+
+async def test_opnieuw_gaat_nergens_heen_zonder_kanaal_van_nu(
+    db_session, client, casus, initiatief
+):
+    link = await _koppel(client, casus)
+    pad = f"/api/casussen/{casus['id']}/kanaalberichten/{{}}/opnieuw"
+
+    # Voortgang uit: het team wil dit kanaal (even) niet meer.
+    uit = await _bericht_met_status(db_session, client, casus, "mislukt", fase=1)
+    resp = await client.patch(
+        f"/api/mattermost-channels/{link['id']}", json={"casus_updates_enabled": False}
+    )
+    assert resp.status_code == 200, resp.text
+    _MM_GEPLAATST.clear()
+    resp = await client.post(pad.format(uit["id"]))
+    assert resp.status_code == 400, resp.text
+    assert "voortgang" in resp.json()["detail"]
+    assert _MM_GEPLAATST == []
+
+    # Ontkoppeld, en het kanaal hangt inmiddels aan een andere lead.
+    resp = await client.patch(
+        f"/api/mattermost-channels/{link['id']}", json={"casus_updates_enabled": True}
+    )
+    assert resp.status_code == 200, resp.text
+    weg = await _bericht_met_status(db_session, client, casus, "mislukt", fase=2)
+    resp = await client.delete(f"/api/mattermost-channels/{link['id']}")
+    assert resp.status_code == 204, resp.text
+    andere = Lead(
+        id=uuid.uuid4(),
+        title="Andere lead",
+        stage="in_the_pocket",
+        initiatief_id=initiatief.id,
+    )
+    db_session.add(andere)
+    await db_session.flush()
+    resp = await client.post(
+        f"/api/leads/{andere.id}/mattermost-channels",
+        json={
+            "channel_id": link["channel_id"],
+            "channel_name": link["channel_name"],
+            "channel_display_name": link["channel_display_name"],
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    resp = await client.post(pad.format(weg["id"]))
+    assert resp.status_code == 400, resp.text
+    assert _MM_GEPLAATST == []
+    bewaard = {b["id"]: b for b in await _bewaard(client, casus)}
+    assert bewaard[weg["id"]]["status"] == "mislukt"
+
+
+async def test_worker_laat_een_ontkoppeld_kanaal_met_rust(db_session, client, casus):
+    link = await _koppel(client, casus)
+    oud = await _bericht_met_status(db_session, client, casus, "wacht")
+    await db_session.execute(
+        update(CasusKanaalbericht)
+        .where(CasusKanaalbericht.id == uuid.UUID(oud["id"]))
+        .values(created_at=datetime.now(UTC) - timedelta(minutes=11))
+    )
+    resp = await client.delete(f"/api/mattermost-channels/{link['id']}")
+    assert resp.status_code == 204, resp.text
+    mm = _NepMattermost()
+    assert await kanaal.verstuur_blijven_hangen(db_session, mm) == 1
+    assert mm.geplaatst == []
+    bewaard = {b["id"]: b for b in await _bewaard(client, casus)}
+    assert bewaard[oud["id"]]["status"] == "mislukt"
+
+
+async def test_vers_bericht_op_wacht_gaat_niet_opnieuw(db_session, client, casus):
+    # Nog onderweg: nog een keer versturen zou het dubbel laten aankomen.
+    await _koppel(client, casus)
+    vers = await _bericht_met_status(db_session, client, casus, "wacht")
+    resp = await client.post(
+        f"/api/casussen/{casus['id']}/kanaalberichten/{vers['id']}/opnieuw"
+    )
+    assert resp.status_code == 400, resp.text
+    assert "onderweg" in resp.json()["detail"]
+
+
+async def test_kijker_krijgt_403_voor_de_inhoud_van_het_verzoek(
+    db_session, client, casus, kijker
+):
+    # Eerst de rechten, dan pas de 400 over schakelaars die niet bij een
+    # casus horen.
+    link = await _koppel(client, casus)
+    async with client_as(db_session, kijker) as c:
+        resp = await c.patch(
+            f"/api/mattermost-channels/{link['id']}", json={"auto_note_enabled": True}
+        )
+    assert resp.status_code == 403, resp.text
+
+
+async def test_weer_aanzetten_staat_in_het_log(db_session, client, casus):
+    link = await _koppel(client, casus)
+    resp = await client.patch(
+        f"/api/mattermost-channels/{link['id']}", json={"reenable": True}
+    )
+    assert resp.status_code == 200, resp.text
+    rows = await db_session.execute(
+        select(Activity).where(Activity.event_type == "casus.kanaal_weer_aan")
+    )
+    (activiteit,) = rows.scalars().all()
+    assert activiteit.details["casus_id"] == casus["id"]

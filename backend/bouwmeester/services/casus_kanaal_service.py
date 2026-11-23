@@ -149,6 +149,11 @@ def _na_commit_versturen(session: AsyncSession) -> None:
     Daarom luisteren we niet eenmalig (`once`), maar laten we een savepoint
     voorbijgaan en wachten we op de commit van de buitenste transactie.
     Eén keer per sessie aanhaken is genoeg; de wachtrij wordt leeggehaald.
+
+    Aanname: `meld` wordt niet binnen een savepoint aangeroepen dat daarna
+    terugrolt. Zo'n bericht zou in de wachtrij blijven en bij de buitenste
+    commit toch weggaan, terwijl zijn rij er niet is. Nu meldt alleen een
+    route, buiten elk savepoint.
     """
     if session.info.get(_LUISTERT):
         return
@@ -256,24 +261,59 @@ def kanaal_kort(kanaal: Any) -> dict[str, Any] | None:
     return {k: kanaal.get(k) for k in ("id", "type", "delete_at", "team_id")}
 
 
-# Een bericht dat niet (zeker) is aangekomen mag opnieuw.
-OPNIEUW_STATUSSEN = (STATUS_WACHT, STATUS_MISLUKT, STATUS_UIT)
-
 # Na zo lang is "wacht" niet meer onderweg maar blijven hangen: de taak
 # liep stuk of het proces is herstart tussen de commit en het versturen.
 BLIJFT_HANGEN_NA = timedelta(minutes=10)
 
 
+def blijft_hangen(bericht: CasusKanaalbericht) -> bool:
+    """Staat al zo lang op "wacht" dat het niet meer onderweg kan zijn."""
+    return (
+        bericht.status == STATUS_WACHT
+        and bericht.created_at < datetime.now(UTC) - BLIJFT_HANGEN_NA
+    )
+
+
+def mag_opnieuw(bericht: CasusKanaalbericht) -> bool:
+    """Niet (zeker) aangekomen: mislukt, Mattermost uit, of blijven hangen.
+
+    Een vers bericht op "wacht" is nog onderweg; dat gaat niet nog een keer,
+    anders komt het twee keer aan.
+    """
+    return bericht.status in (STATUS_MISLUKT, STATUS_UIT) or blijft_hangen(bericht)
+
+
+async def kanalen_voor_opnieuw(
+    session: AsyncSession, bericht: CasusKanaalbericht
+) -> tuple[str, ...]:
+    """De kanalen van toen die nu nog aan de casus hangen met de voortgang aan.
+
+    Het bericht bewaart de kanalen van het moment zelf. Is een kanaal sinds
+    die tijd ontkoppeld of staat de voortgang uit, bijvoorbeeld omdat de
+    verkeerde mensen erin bleken te zitten, dan mag het bericht daar niet
+    alsnog heen. Na ontkoppelen kan het kanaal zelfs aan een andere lead of
+    initiatief hangen.
+    """
+    van_nu = await kanalen_van_casus(session, bericht.casus_id)
+    nu = {kanaal_id for kanaal_id, _ in van_nu}
+    return tuple(k["id"] for k in bericht.kanalen if k["id"] in nu)
+
+
 async def opnieuw(session: AsyncSession, mm: Any, bericht: CasusKanaalbericht) -> str:
     """Bied een bewaard bericht nog een keer aan zijn kanalen aan.
 
-    Naar de kanalen van toen, met dezelfde controles als de eerste keer.
-    Geeft de nieuwe status terug en zet die bij het bericht.
+    Alleen naar de kanalen van toen die er nu nog aan hangen, met dezelfde
+    controles als de eerste keer. Hangt er geen meer aan, dan gaat er niets
+    heen en is het bericht mislukt. Geeft de nieuwe status terug en zet die
+    bij het bericht. Een bericht komt zo minstens één keer aan, en soms
+    twee keer: valt het proces weg tussen versturen en status zetten, dan
+    staat het nog op "wacht" en gaat het later nog eens.
     """
-    te_versturen = Bericht(
-        bericht.id, tuple(k["id"] for k in bericht.kanalen), bericht.tekst
-    )
-    statussen = await plaats(mm, [te_versturen])
+    kanalen = await kanalen_voor_opnieuw(session, bericht)
+    if not kanalen:
+        statussen = {bericht.id: STATUS_MISLUKT}
+    else:
+        statussen = await plaats(mm, [Bericht(bericht.id, kanalen, bericht.tekst)])
     await zet_status(session, statussen)
     return statussen[bericht.id]
 

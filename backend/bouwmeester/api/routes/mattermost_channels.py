@@ -53,9 +53,10 @@ from bouwmeester.schema.mattermost_channel_link import (
 )
 from bouwmeester.services.activity_service import log_activity
 from bouwmeester.services.casus_kanaal_service import (
-    OPNIEUW_STATUSSEN,
     berichten_van_casus,
     kanaal_kort,
+    kanalen_voor_opnieuw,
+    mag_opnieuw,
     opnieuw,
 )
 from bouwmeester.services.mattermost_service import vul_teamnaam_aan
@@ -543,10 +544,15 @@ async def casus_kanaalbericht_opnieuw(
     bericht = await db.get(CasusKanaalbericht, bericht_id)
     if bericht is None or bericht.casus_id != casus.id:
         raise _not_found()
-    if bericht.status not in OPNIEUW_STATUSSEN:
+    if not mag_opnieuw(bericht):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Dit bericht is al verstuurd of had geen kanaal",
+            detail="Dit bericht is al verstuurd, nog onderweg, of had geen kanaal",
+        )
+    if not await kanalen_voor_opnieuw(db, bericht):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=("Geen van die kanalen hangt nog aan de casus met de voortgang aan"),
         )
     service = MattermostService(db)
     try:
@@ -629,14 +635,15 @@ async def update_channel_link(
         data.nieuws_alerts_enabled,
     )
     if link.scope_type == SCOPE_CASUS:
+        # Eerst de rechten, dan pas de inhoud van het verzoek.
+        casus = await db.get(Casus, link.scope_id)
+        if casus is not None:
+            await _mag_casuskanaal_beheren(db, casus, current_user, perm_ctx)
         if any(v is not None for v in meelezen):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Een kanaal aan een casus leest niet mee",
             )
-        casus = await db.get(Casus, link.scope_id)
-        if casus is not None:
-            await _mag_casuskanaal_beheren(db, casus, current_user, perm_ctx)
         # Voortgang aan kan alleen in een privékanaal. Een kanaal dat van
         # de lead is meegekomen, kan open zijn.
         if data.casus_updates_enabled:
@@ -698,6 +705,8 @@ async def update_channel_link(
     )
     if link.scope_type == SCOPE_CASUS and data.casus_updates_enabled is not None:
         await _log_casuskanaal(db, current_user, "casus.kanaal_voortgang", updated)
+    if link.scope_type == SCOPE_CASUS and data.reenable:
+        await _log_casuskanaal(db, current_user, "casus.kanaal_weer_aan", updated)
     return MattermostChannelLinkResponse.model_validate(updated)
 
 
