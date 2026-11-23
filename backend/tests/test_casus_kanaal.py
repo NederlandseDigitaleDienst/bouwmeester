@@ -1258,6 +1258,15 @@ async def test_opnieuw_alleen_naar_de_kanalen_van_nu(db_session, client, casus):
     assert resp.status_code == 200, resp.text
     assert resp.json()["status"] == "verstuurd"
     assert _MM_GEPLAATST == [(eerste["channel_id"], bericht["tekst"])]
+    # Bij de casus en in het log staat waar het echt heen ging.
+    assert resp.json()["kanalen"] == ["Eerste"]
+    bewaard = {b["id"]: b for b in await _bewaard(client, casus)}
+    assert bewaard[bericht["id"]]["kanalen"] == ["Eerste"]
+    rows = await db_session.execute(
+        select(Activity).where(Activity.event_type == "casus.kanaalbericht_opnieuw")
+    )
+    (activiteit,) = rows.scalars().all()
+    assert activiteit.details["kanalen"] == ["Eerste"]
 
 
 async def test_opnieuw_gaat_nergens_heen_zonder_kanaal_van_nu(

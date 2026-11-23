@@ -285,18 +285,21 @@ def mag_opnieuw(bericht: CasusKanaalbericht) -> bool:
 
 async def kanalen_voor_opnieuw(
     session: AsyncSession, bericht: CasusKanaalbericht
-) -> tuple[str, ...]:
+) -> list[dict[str, str]]:
     """De kanalen van toen die nu nog aan de casus hangen met de voortgang aan.
 
     Het bericht bewaart de kanalen van het moment zelf. Is een kanaal sinds
     die tijd ontkoppeld of staat de voortgang uit, bijvoorbeeld omdat de
     verkeerde mensen erin bleken te zitten, dan mag het bericht daar niet
     alsnog heen. Na ontkoppelen kan het kanaal zelfs aan een andere lead of
-    initiatief hangen.
+    initiatief hangen. Geeft `[{id, naam}]`, met de naam van nu.
     """
-    van_nu = await kanalen_van_casus(session, bericht.casus_id)
-    nu = {kanaal_id for kanaal_id, _ in van_nu}
-    return tuple(k["id"] for k in bericht.kanalen if k["id"] in nu)
+    van_nu = dict(await kanalen_van_casus(session, bericht.casus_id))
+    return [
+        {"id": k["id"], "naam": van_nu[k["id"]]}
+        for k in bericht.kanalen
+        if k["id"] in van_nu
+    ]
 
 
 async def opnieuw(session: AsyncSession, mm: Any, bericht: CasusKanaalbericht) -> str:
@@ -304,24 +307,34 @@ async def opnieuw(session: AsyncSession, mm: Any, bericht: CasusKanaalbericht) -
 
     Alleen naar de kanalen van toen die er nu nog aan hangen, met dezelfde
     controles als de eerste keer. Hangt er geen meer aan, dan gaat er niets
-    heen en is het bericht mislukt. Geeft de nieuwe status terug en zet die
-    bij het bericht. Een bericht komt zo minstens één keer aan, en soms
-    twee keer: valt het proces weg tussen versturen en status zetten, dan
-    staat het nog op "wacht" en gaat het later nog eens.
+    heen en is het bericht mislukt. Ging het wel ergens heen, dan bewaart
+    het bericht voortaan die kanalen, zodat bij de casus en in het log staat
+    waar het echt naartoe ging. Geeft de nieuwe status terug en zet die bij
+    het bericht. Een bericht komt zo minstens één keer aan, en soms twee
+    keer: valt het proces weg tussen versturen en status zetten, dan staat
+    het nog op "wacht" en gaat het later nog eens. De knop en de worker
+    houden de rij vast (`FOR UPDATE`), zodat ze het niet tegelijk doen.
     """
     kanalen = await kanalen_voor_opnieuw(session, bericht)
     if not kanalen:
-        statussen = {bericht.id: STATUS_MISLUKT}
+        bericht.status = STATUS_MISLUKT
     else:
-        statussen = await plaats(mm, [Bericht(bericht.id, kanalen, bericht.tekst)])
-    await zet_status(session, statussen)
-    return statussen[bericht.id]
+        ids = tuple(k["id"] for k in kanalen)
+        statussen = await plaats(mm, [Bericht(bericht.id, ids, bericht.tekst)])
+        bericht.status = statussen[bericht.id]
+        bericht.kanalen = kanalen
+    await session.flush()
+    return bericht.status
 
 
 async def blijven_hangen(
     session: AsyncSession, ouder_dan: timedelta = BLIJFT_HANGEN_NA
 ) -> list[CasusKanaalbericht]:
-    """Berichten die op "wacht" staan terwijl dat allang niet meer kan."""
+    """Berichten die op "wacht" staan terwijl dat allang niet meer kan.
+
+    Vergrendeld tot de commit, en wat al vergrendeld is (de knop) wordt
+    overgeslagen: zo gaat een bericht niet twee keer tegelijk weg.
+    """
     grens = datetime.now(UTC) - ouder_dan
     stmt = (
         select(CasusKanaalbericht)
@@ -330,6 +343,7 @@ async def blijven_hangen(
             CasusKanaalbericht.created_at < grens,
         )
         .order_by(CasusKanaalbericht.created_at)
+        .with_for_update(skip_locked=True)
     )
     return list((await session.execute(stmt)).scalars().all())
 

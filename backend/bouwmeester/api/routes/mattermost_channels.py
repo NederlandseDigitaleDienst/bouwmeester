@@ -541,7 +541,14 @@ async def casus_kanaalbericht_opnieuw(
 
     casus = await _resolve_casus(db, casus_id, init_ctx)
     await _mag_casuskanaal_beheren(db, casus, current_user, perm_ctx)
-    bericht = await db.get(CasusKanaalbericht, bericht_id)
+    # Vergrendeld tot de commit, zodat de worker het niet tegelijk oppakt.
+    bericht = (
+        await db.execute(
+            select(CasusKanaalbericht)
+            .where(CasusKanaalbericht.id == bericht_id)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
     if bericht is None or bericht.casus_id != casus.id:
         raise _not_found()
     if not mag_opnieuw(bericht):
@@ -559,6 +566,7 @@ async def casus_kanaalbericht_opnieuw(
         nieuw = await opnieuw(db, service, bericht)
     finally:
         await service.close()
+    # De kanalen waar het nu echt heen ging, niet die van toen.
     await log_activity(
         db,
         current_user,
@@ -571,7 +579,6 @@ async def casus_kanaalbericht_opnieuw(
             "status": nieuw,
         },
     )
-    await db.refresh(bericht)
     return CasusKanaalberichtResponse.model_validate(bericht)
 
 
