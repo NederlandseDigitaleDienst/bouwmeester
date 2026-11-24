@@ -1,7 +1,7 @@
 """regelritme per initiatief: overleggen, open punten en wensen
 
 Revision ID: 4519258668a9
-Revises: e5c1a7d93b20
+Revises: f3a8c5e1d927
 Create Date: 2026-11-18
 
 Alleen toevoegingen, drie lijsten op initiatief, standaard leeg: de vaste
@@ -16,7 +16,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "4519258668a9"
-down_revision: str | None = "e5c1a7d93b20"
+down_revision: str | None = "f3a8c5e1d927"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
