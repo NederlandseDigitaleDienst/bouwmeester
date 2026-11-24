@@ -20,9 +20,11 @@ from bouwmeester.core.query_utils import normalize_email
 from bouwmeester.core.whitelist import refresh_whitelist_cache, seed_admins_from_file
 from bouwmeester.models.access_request import AccessRequest
 from bouwmeester.models.app_config import AppConfig
+from bouwmeester.models.casus import Casus
 from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.models.lead import Lead
 from bouwmeester.models.mattermost_channel_link import (
+    SCOPE_CASUS,
     SCOPE_INITIATIEF,
     SCOPE_LEAD,
     MattermostChannelLink,
@@ -836,6 +838,7 @@ def _worker_expected_cadence_sec() -> dict[str, float]:
         "opdracht_task": float(settings.OPDRACHT_TASK_INTERVAL_SECONDS),
         "fcc_sync": float(settings.FCC_POLL_INTERVAL_SECONDS),
         "mattermost_retry": float(settings.MATTERMOST_RETRY_INTERVAL_SECONDS),
+        "casus_kanaal": float(settings.MATTERMOST_RETRY_INTERVAL_SECONDS),
         "overheidsorganisaties_daily": float(
             settings.OVERHEIDSORG_DAILY_INTERVAL_SECONDS
         ),
@@ -996,11 +999,13 @@ async def mattermost_channel_overview(
         .all()
     )
 
-    # Bulk-resolve scope-labels in twee queries (1× per scope-type) ipv N+1.
+    # Bulk-resolve scope-labels in één query per scope-type ipv N+1.
     lead_ids = [r.scope_id for r in rows if r.scope_type == SCOPE_LEAD]
     init_ids = [r.scope_id for r in rows if r.scope_type == SCOPE_INITIATIEF]
+    casus_ids = [r.scope_id for r in rows if r.scope_type == SCOPE_CASUS]
     lead_titles: dict[UUID, str] = {}
     init_names: dict[UUID, str] = {}
+    casus_titles: dict[UUID, str] = {}
     if lead_ids:
         result = await db.execute(
             select(Lead.id, Lead.title).where(Lead.id.in_(lead_ids))
@@ -1011,6 +1016,11 @@ async def mattermost_channel_overview(
             select(Initiatief.id, Initiatief.naam).where(Initiatief.id.in_(init_ids))
         )
         init_names = {r.id: r.naam for r in result.all()}
+    if casus_ids:
+        result = await db.execute(
+            select(Casus.id, Casus.title).where(Casus.id.in_(casus_ids))
+        )
+        casus_titles = {r.id: r.title for r in result.all()}
 
     out: list[MattermostChannelOverview] = []
     for r in rows:
@@ -1018,6 +1028,8 @@ async def mattermost_channel_overview(
             label = lead_titles.get(r.scope_id)
         elif r.scope_type == SCOPE_INITIATIEF:
             label = init_names.get(r.scope_id)
+        elif r.scope_type == SCOPE_CASUS:
+            label = casus_titles.get(r.scope_id)
         else:
             label = None
         last_seen = None
@@ -1037,6 +1049,7 @@ async def mattermost_channel_overview(
                 suggest_leads_enabled=r.suggest_leads_enabled,
                 parlementaire_alerts_enabled=r.parlementaire_alerts_enabled,
                 nieuws_alerts_enabled=r.nieuws_alerts_enabled,
+                casus_updates_enabled=r.casus_updates_enabled,
                 last_seen_post_at=last_seen,
                 disabled_at=r.disabled_at,
                 created_at=r.created_at,

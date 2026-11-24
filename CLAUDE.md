@@ -155,7 +155,9 @@ Lead ── 1:1 ──> Casus (start vanuit de kolom in_the_pocket; de lead is d
 │   ├── Task (casus_id, losse taak op de casus, zonder issue)
 │   │   ├── TaskComment (task_id CASCADE, author_id SET NULL; content; @-vermeldingen via mention_helper)
 │   │   └── TaskAttachment (task_id CASCADE; bestand via core.storage onder taken/)
-│   └── ResourcePermission (resource_type=casus; rol trekker/teamlid, alleen wie het initiatief kan zien)
+│   ├── ResourcePermission (resource_type=casus; rol trekker/teamlid, alleen wie het initiatief kan zien)
+│   ├── MattermostChannelLink (scope_type=casus, scope_id zonder DB-FK; alleen een privékanaal met de bot erin; `casus_updates_enabled` zet de voortgang aan, `van_de_lead` als het kanaal bij de start van de lead meekwam en bij het weghalen van de casus teruggaat). Koppelen, wijzigen en ontkoppelen volgt `require_can_change_casus`; de rollenmatrix staat in `tests/test_casus_kanaal.py`, niet in `test_casus_toegang.py`.
+│   └── CasusKanaalbericht (casus_id CASCADE; elk voortgangsbericht met status geen_kanaal/wacht/verstuurd/mislukt/uit, ook zonder kanaal; `services/casus_kanaal_service.py` maakt en verstuurt ze na de commit, de worker pakt op wat bleef hangen, `POST …/kanaalberichten/{id}/opnieuw` doet het met de hand)
 
 Backlog: `GET /casussen/backlog?initiatief_id=` geeft `{issues, losse_taken}`: alle issues van alle casussen van een initiatief met hun casus en hoofdtaken (subtaken op het kaartje), plus de taken zonder issue (tab Backlog, met een mini-kanban per issue; een kaartje opent het taakdetail met opmerkingen en bijlagen via `/tasks/{id}/comments` en `/tasks/{id}/attachments` in `api/routes/task_comments.py`). Zichtbaarheid loopt via de casus, net als `GET /tasks?casus_id=`: buiten een zichtbaar initiatief 404 (`require_initiatief_visible` in `core/initiatief_context.py`).
 

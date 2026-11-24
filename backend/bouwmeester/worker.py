@@ -175,6 +175,39 @@ async def _mattermost_retry_loop(settings) -> None:  # type: ignore[no-untyped-d
         await asyncio.sleep(interval_seconds)
 
 
+async def _casus_kanaal_loop(settings) -> None:  # type: ignore[no-untyped-def]
+    """Verstuur casusberichten die op "wacht" bleven staan.
+
+    Een voortgangsbericht gaat na de commit uit een achtergrondtaak in het
+    API-proces naar Mattermost. Loopt die taak stuk of herstart het proces
+    ertussen, dan blijft het bericht op "wacht" staan en gaat het nooit
+    meer weg. Deze loop pakt wat langer dan tien minuten wacht alsnog op,
+    met dezelfde controles als de eerste keer.
+    """
+    interval_seconds = settings.MATTERMOST_RETRY_INTERVAL_SECONDS
+    await health_tick("casus_kanaal", status="starting")
+    while True:
+        try:
+            from bouwmeester.services.casus_kanaal_service import (
+                verstuur_blijven_hangen,
+            )
+            from bouwmeester.services.mattermost_service import MattermostService
+
+            async with async_session() as session:
+                mm = MattermostService(session)
+                try:
+                    aantal = await verstuur_blijven_hangen(session, mm)
+                finally:
+                    await mm.close()
+                await session.commit()
+            await health_tick("casus_kanaal", detail=f"{aantal} alsnog verstuurd")
+        except Exception as exc:
+            logger.exception("Error in casus kanaal cycle")
+            await health_tick("casus_kanaal", status="error", detail=_short_error(exc))
+
+        await asyncio.sleep(interval_seconds)
+
+
 async def _fcc_sync_loop(settings) -> None:  # type: ignore[no-untyped-def]
     """Bidirectional sync with Fortes Change Cloud."""
     await health_tick("fcc_sync", status="starting")
@@ -619,6 +652,7 @@ async def main() -> None:
         asyncio.create_task(_opdracht_task_loop(settings)),
         asyncio.create_task(_fcc_sync_loop(settings)),
         asyncio.create_task(_mattermost_retry_loop(settings)),
+        asyncio.create_task(_casus_kanaal_loop(settings)),
         asyncio.create_task(_overheidsorganisaties_dagelijks_loop(settings)),
         asyncio.create_task(_overheidsorganisaties_wekelijks_loop(settings)),
         asyncio.create_task(_debat_tijdlijn_loop(settings)),
