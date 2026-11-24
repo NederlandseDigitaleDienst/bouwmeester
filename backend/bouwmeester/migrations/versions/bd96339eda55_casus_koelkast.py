@@ -1,7 +1,7 @@
 """de koelkast op de RegelReis: een casus die even stilligt
 
 Revision ID: bd96339eda55
-Revises: e5c1a7d93b20
+Revises: 4519258668a9
 Create Date: 2026-11-18
 
 Alleen toevoegingen: drie lege kolommen op casus. In de koelkast is
@@ -16,7 +16,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "bd96339eda55"
-down_revision: str | None = "e5c1a7d93b20"
+down_revision: str | None = "4519258668a9"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
