@@ -54,6 +54,7 @@ from bouwmeester.schema.mattermost_channel_link import (
 from bouwmeester.services.activity_service import log_activity
 from bouwmeester.services.casus_kanaal_service import (
     berichten_van_casus,
+    is_gearchiveerd,
     kanaal_kort,
     kanalen_voor_opnieuw,
     mag_opnieuw,
@@ -158,7 +159,7 @@ async def _privekanaal(db: AsyncSession, channel_id: str) -> dict:
                 detail="Mattermost is niet geconfigureerd",
             )
         kanaal = await service.get_channel(channel_id)
-        if not kanaal or kanaal.get("delete_at"):
+        if not kanaal or is_gearchiveerd(kanaal):
             # Met wat Mattermost zei: een nieuwere versie dan de 9.5 van
             # lokaal kan een ander antwoord geven, en dan staat het hier.
             logger.warning(

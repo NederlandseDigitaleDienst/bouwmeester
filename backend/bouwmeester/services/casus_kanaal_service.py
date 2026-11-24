@@ -245,12 +245,25 @@ async def zet_status(session: AsyncSession, statussen: dict[UUID, str]) -> None:
         )
 
 
+def is_gearchiveerd(kanaal: Any) -> bool:
+    """Alleen een tijdstip groter dan 0 betekent gearchiveerd.
+
+    Mattermost 9.5 geeft 0 voor een kanaal dat er nog is; een andere versie
+    kan -1 geven. Dat is geen archivering, en daar mag koppelen en
+    versturen niet op stuklopen.
+    """
+    if not isinstance(kanaal, dict):
+        return False
+    delete_at = kanaal.get("delete_at")
+    return isinstance(delete_at, int) and delete_at > 0
+
+
 def is_privekanaal(kanaal: Any) -> bool:
     """Een bestaand, niet gearchiveerd privékanaal, zoals Mattermost het geeft."""
     return (
         isinstance(kanaal, dict)
         and kanaal.get("type") == "P"
-        and not kanaal.get("delete_at")
+        and not is_gearchiveerd(kanaal)
     )
 
 

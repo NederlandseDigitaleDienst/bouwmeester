@@ -80,7 +80,13 @@ def _channel_id() -> str:
 _MM_KANALEN: dict[str, dict] = {}
 
 
-def _kanaal(naam: str = "casus-kanaal", *, soort: str = "P", bot: bool = True) -> dict:
+def _kanaal(
+    naam: str = "casus-kanaal",
+    *,
+    soort: str = "P",
+    bot: bool = True,
+    delete_at: int = 0,
+) -> dict:
     """Een kanaal in Mattermost, en het verzoek om het te koppelen."""
     channel_id = _channel_id()
     weergave = naam.replace("-", " ").capitalize()
@@ -90,7 +96,7 @@ def _kanaal(naam: str = "casus-kanaal", *, soort: str = "P", bot: bool = True) -
         "display_name": weergave,
         "type": soort,
         "team_id": "",
-        "delete_at": 0,
+        "delete_at": delete_at,
         "bot": bot,
     }
     return {
@@ -611,6 +617,7 @@ async def test_ook_niet_via_het_slash_commando(db_session, casus, lead, lid):
     [
         ({"soort": "O"}, "privékanaal"),
         ({"bot": False}, "bot zit niet"),
+        ({"delete_at": 1_700_000_000_000}, "niet te vinden"),
     ],
 )
 async def test_alleen_een_privekanaal_met_de_bot_erin(
@@ -622,6 +629,27 @@ async def test_alleen_een_privekanaal_met_de_bot_erin(
     )
     assert resp.status_code == 400
     assert reden in resp.json()["detail"]
+
+
+async def test_delete_at_min_een_is_niet_gearchiveerd(db_session, client, casus):
+    # De Mattermost van productie gaf bij teamlidmaatschap -1 waar 9.5 een 0
+    # geeft. Alleen een tijdstip groter dan 0 betekent gearchiveerd; anders
+    # mislukt elk koppelen en elk bericht zodra dat ook bij een kanaal gebeurt.
+    link = _kanaal("min-een", delete_at=-1)
+    resp = await client.post(
+        f"/api/casussen/{casus['id']}/mattermost-channels", json=link
+    )
+    assert resp.status_code == 201, resp.text
+
+    # En plaatsen gaat gewoon door, net als bij 0.
+    bericht = await _bericht_met_status(db_session, client, casus, "mislukt")
+    _MM_GEPLAATST.clear()
+    resp = await client.post(
+        f"/api/casussen/{casus['id']}/kanaalberichten/{bericht['id']}/opnieuw"
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "verstuurd"
+    assert _MM_GEPLAATST == [(link["channel_id"], bericht["tekst"])]
 
 
 async def test_onbekend_kanaal_wordt_niet_gekoppeld(client, casus):
