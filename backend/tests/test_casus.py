@@ -296,6 +296,54 @@ async def test_lead_blijft_bewerkbaar_na_start(client, lead_gewonnen, sample_per
     assert "verwijder eerst de casus" in resp.json()["detail"]
 
 
+async def test_lead_met_casus_niet_naar_buiten(client, lead_gewonnen):
+    """Leadroutes vragen geen rol, dus ook een kijker kan ze aanroepen. Met
+    een casus blijft daarom vast wat de lead naar de publieke pagina brengt:
+    de publieke velden en een update met publieke tekst. Eraf halen mag."""
+    lid = lead_gewonnen.id
+    resp = await client.put(
+        f"/api/leads/{lid}",
+        json={"public_visible": True, "public_title": "Zorgtoeslag publiek"},
+    )
+    assert resp.status_code == 200, resp.text
+    resp = await client.post(
+        f"/api/leads/{lid}/updates",
+        json={"titel": "Stand", "body_public": "Wat buiten mag"},
+    )
+    assert resp.status_code == 201, resp.text
+    post_id = resp.json()["id"]
+    resp = await client.post(f"/api/leads/{lid}/updates", json={"titel": "Concept"})
+    concept_id = resp.json()["id"]
+    assert (await _start(client, lead_gewonnen)).status_code == 201
+
+    for body in (
+        {"public_title": "Iets anders"},
+        {"public_summary": "Nieuw"},
+        {"public_visible": True, "title": "Zelfde publiek, andere titel"},
+    ):
+        resp = await client.put(f"/api/leads/{lid}", json=body)
+        if "public_visible" in body:
+            # public_visible verandert niet: de rest mag dan gewoon.
+            assert resp.status_code == 200, (body, resp.text)
+        else:
+            assert resp.status_code == 409, (body, resp.text)
+            assert "naar buiten" in resp.json()["detail"]
+
+    # Publiceren met publieke tekst niet; zonder publieke tekst wel.
+    pad = f"/api/leads/{lid}/updates"
+    assert (await client.post(f"{pad}/{post_id}/publish")).status_code == 409
+    assert (await client.post(f"{pad}/{concept_id}/publish")).status_code == 200
+    resp = await client.put(f"{pad}/{concept_id}", json={"body_public": "Toch"})
+    assert resp.status_code == 409, resp.text
+    resp = await client.put(f"{pad}/{concept_id}", json={"titel": "Ander"})
+    assert resp.status_code == 200, resp.text
+
+    # Eraf halen mag.
+    resp = await client.put(f"/api/leads/{lid}", json={"public_visible": False})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["public_visible"] is False
+
+
 async def test_lead_editable_again_after_casus_deleted(client, lead_gewonnen):
     casus_id = (await _start(client, lead_gewonnen)).json()["id"]
     assert (await client.delete(f"/api/casussen/{casus_id}")).status_code == 204

@@ -15,6 +15,7 @@ from sqlalchemy.orm import selectinload
 from bouwmeester.api.deps import require_found
 from bouwmeester.api.routes.leads import (
     _check_lead_access,
+    _require_lead_niet_publiek,
     _robust_parse_json,
 )
 from bouwmeester.core.auth import OptionalUser
@@ -465,6 +466,13 @@ async def edit_update(
 
     post = require_found(await _load_post(db, lead_id, post_id), "Update")
     payload = data.model_dump(exclude_unset=True)
+    if (
+        post.published_at is not None
+        and "body_public" in payload
+        and payload["body_public"] != post.body_public
+    ):
+        # Een gepubliceerde update toont body_public op de publieke pagina.
+        await _require_lead_niet_publiek(db, lead)
     for key, value in payload.items():
         if key in {"mail_to", "mail_cc"} and value is not None:
             value = list(value)
@@ -492,6 +500,8 @@ async def publish_update(
     _check_lead_access(lead, init_ctx)
 
     post = require_found(await _load_post(db, lead_id, post_id), "Update")
+    if post.body_public:
+        await _require_lead_niet_publiek(db, lead)
     post.published_at = datetime.now(UTC)
     post.published_by_id = current_user.id if current_user else None
     await db.flush()

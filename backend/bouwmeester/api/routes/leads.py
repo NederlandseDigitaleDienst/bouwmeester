@@ -146,6 +146,31 @@ async def _require_lead_open(db: AsyncSession, lead: Lead) -> None:
         )
 
 
+# Wat van een lead naar de publieke pagina gaat (public_initiatief.py).
+LEAD_PUBLIEKE_VELDEN = ("public_visible", "public_title", "public_summary")
+
+
+async def _require_lead_niet_publiek(db: AsyncSession, lead: Lead) -> None:
+    """409 als uit deze lead een casus is gestart en iemand zou zetten wat
+    de lead naar buiten brengt: de publieke velden of een publieke update.
+
+    Leadroutes vragen alleen of je het initiatief ziet, geen rol. Zolang de
+    lead alleen-lezen was, kon een kijker zo'n lead daarom niet publiek
+    maken; nu de lead bewerkbaar blijft, houdt deze regel dat dicht. Van de
+    pagina halen mag wel. Een rolcheck voor alle leadmutaties is een eigen
+    wijziging.
+    """
+    stmt = select(Casus.id).where(Casus.lead_id == lead.id)
+    if (await db.execute(stmt.limit(1))).first() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Uit deze lead is een casus gestart: wat hij naar buiten "
+                "brengt, ligt vast."
+            ),
+        )
+
+
 def _check_initiatief_access(
     initiatief_id: UUID | None, init_ctx: InitiatiefContext
 ) -> None:
@@ -440,6 +465,13 @@ async def update_lead(
         # Met een casus blijft de lead in zijn kolom en bij zijn initiatief
         # (dat van de casus); de rest mag.
         await _require_lead_open(db, old_lead)
+    publiek_anders = any(
+        veld in data.model_fields_set and getattr(data, veld) != getattr(old_lead, veld)
+        for veld in LEAD_PUBLIEKE_VELDEN
+    )
+    # Van de pagina halen mag altijd; iets naar buiten zetten niet meer.
+    if publiek_anders and data.public_visible is not False:
+        await _require_lead_niet_publiek(db, old_lead)
     old_assignee_id = old_lead.assignee_id
     old_stage = old_lead.stage
 
