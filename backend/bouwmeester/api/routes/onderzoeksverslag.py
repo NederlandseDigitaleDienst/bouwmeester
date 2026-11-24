@@ -173,8 +173,6 @@ def maak_router(prefix: str, plek_dep: PlekDep) -> APIRouter:
         verslag.openbaar_op = None
         verslag.openbaar_door_id = None
         await db.flush()
-        if oud_pad:
-            await delete_blob(oud_pad)
         verslag = await _verplicht(db, issue_id)
         await log_activity(
             db,
@@ -183,7 +181,13 @@ def maak_router(prefix: str, plek_dep: PlekDep) -> APIRouter:
             "onderzoeksverslag.replaced" if oud_pad else "onderzoeksverslag.uploaded",
             details=_details(casus, issue, verslag),
         )
-        return _response(verslag)
+        antwoord = _response(verslag)
+        if oud_pad:
+            # Eerst vastleggen, dan het oude bestand weg: mislukt de commit,
+            # dan wijst de rij niet naar een verdwenen bestand.
+            await db.commit()
+            await delete_blob(oud_pad)
+        return antwoord
 
     @router.delete("", status_code=status.HTTP_204_NO_CONTENT)
     async def delete_verslag(
@@ -202,10 +206,12 @@ def maak_router(prefix: str, plek_dep: PlekDep) -> APIRouter:
         details = _details(casus, issue, verslag)
         await db.delete(verslag)
         await db.flush()
-        await delete_blob(pad)
         await log_activity(
             db, current_user, None, "onderzoeksverslag.deleted", details=details
         )
+        # Eerst vastleggen, dan het bestand weg.
+        await db.commit()
+        await delete_blob(pad)
 
     @router.get("/download")
     async def download_verslag(

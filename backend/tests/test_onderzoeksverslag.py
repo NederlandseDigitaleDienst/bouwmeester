@@ -183,12 +183,16 @@ async def test_weghalen(client, casus, blob_root):
     assert _bestanden(blob_root) == []
 
 
-async def test_vraag_weg_dan_verslag_weg(client, db_session, casus):
+async def test_vraag_weg_dan_verslag_weg(client, db_session, casus, blob_root):
     from bouwmeester.models.onderzoeksverslag import Onderzoeksverslag
 
     vraag = await _vraag(client, casus)
+    voor = set(_bestanden(blob_root))
     await _upload(client, casus, vraag)
+    assert set(_bestanden(blob_root)) - voor
     await client.delete(f"/api/casussen/{casus.id}/issues/{vraag['id']}")
+    # Ook het bestand in de opslag, niet alleen de rij.
+    assert set(_bestanden(blob_root)) - voor == set()
     db_session.expire_all()
     assert await db_session.get(Onderzoeksverslag, uuid.UUID(vraag["id"])) is None
     from sqlalchemy import func, select
@@ -197,6 +201,28 @@ async def test_vraag_weg_dan_verslag_weg(client, db_session, casus):
         select(func.count()).select_from(Onderzoeksverslag)
     )
     assert aantal == 0
+
+
+async def test_casus_weg_dan_verslagbestand_weg(client, casus, blob_root):
+    vraag = await _vraag(client, casus)
+    voor = set(_bestanden(blob_root))
+    await _upload(client, casus, vraag)
+    assert set(_bestanden(blob_root)) - voor
+    resp = await client.delete(f"/api/casussen/{casus.id}")
+    assert resp.status_code == 204, resp.text
+    assert set(_bestanden(blob_root)) - voor == set()
+
+
+async def test_initiatief_weg_dan_verslagbestand_weg(
+    client, casus, initiatief, blob_root
+):
+    vraag = await _vraag(client, casus)
+    voor = set(_bestanden(blob_root))
+    await _upload(client, casus, vraag)
+    assert set(_bestanden(blob_root)) - voor
+    resp = await client.delete(f"/api/initiatieven/{initiatief.id}")
+    assert resp.status_code == 204, resp.text
+    assert set(_bestanden(blob_root)) - voor == set()
 
 
 async def test_akkoord_moet_expliciet(client, casus):

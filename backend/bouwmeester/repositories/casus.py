@@ -181,3 +181,39 @@ async def bijlage_paden_van_casussen(session, casus_ids: list[UUID]) -> list[str
         .where(Task.casus_id.in_(casus_ids))
     )
     return list((await session.execute(stmt)).scalars().all())
+
+
+async def verslag_paden(
+    session,
+    *,
+    casus_ids: list[UUID] | None = None,
+    initiatief_id: UUID | None = None,
+    issue_id: UUID | None = None,
+) -> list[str]:
+    """Paden van de onderzoeksverslagen onder deze casussen, dit initiatief
+    of deze vraag.
+
+    Net als bij bijlagen: de rij gaat via de cascade mee met de vraag, het
+    bestand in de opslag niet. Haal de paden op vóór het verwijderen en ruim
+    ze op na de commit.
+    """
+    from sqlalchemy import or_
+
+    from bouwmeester.models.issue import Issue
+    from bouwmeester.models.onderzoeksverslag import Onderzoeksverslag
+
+    voorwaarden = []
+    if casus_ids:
+        voorwaarden.append(Issue.casus_id.in_(casus_ids))
+    if initiatief_id is not None:
+        voorwaarden.append(Issue.initiatief_id == initiatief_id)
+    if issue_id is not None:
+        voorwaarden.append(Issue.id == issue_id)
+    if not voorwaarden:
+        return []
+    stmt = (
+        select(Onderzoeksverslag.pad)
+        .join(Issue, Issue.id == Onderzoeksverslag.issue_id)
+        .where(or_(*voorwaarden))
+    )
+    return list((await session.execute(stmt)).scalars().all())

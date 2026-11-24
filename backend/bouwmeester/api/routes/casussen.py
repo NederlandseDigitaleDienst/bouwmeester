@@ -38,7 +38,11 @@ from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.models.lead import Lead
 from bouwmeester.models.mattermost_channel_link import SCOPE_CASUS, SCOPE_LEAD
 from bouwmeester.models.resource_permission import ResourcePermission
-from bouwmeester.repositories.casus import CasusRepository, bijlage_paden_van_casussen
+from bouwmeester.repositories.casus import (
+    CasusRepository,
+    bijlage_paden_van_casussen,
+    verslag_paden,
+)
 from bouwmeester.repositories.casus_soort import CasusSoortRepository
 from bouwmeester.repositories.issue import IssueRepository
 from bouwmeester.repositories.mattermost_channel_link import (
@@ -564,6 +568,7 @@ async def delete_casus(
     # Bijlagen van de taken gaan in de database mee (CASCADE), hun bestanden
     # niet: die ruimen we na de commit op, anders blijven ze staan.
     bijlage_paden = await bijlage_paden_van_casussen(db, [casus_id])
+    bijlage_paden += await verslag_paden(db, casus_ids=[casus_id])
     # Het kanaal van de lead gaat terug naar de lead, die weer bewerkbaar
     # wordt. Wat het team zelf aan de casus hing, wordt ontkoppeld.
     await MattermostChannelLinkRepository(db).casus_weg(casus_id, casus.lead_id)

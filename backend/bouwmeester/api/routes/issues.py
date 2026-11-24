@@ -43,9 +43,11 @@ from bouwmeester.core.initiatief_context import (
     require_initiatief_visible,
 )
 from bouwmeester.core.permissions import PermissionContext, get_permission_context
+from bouwmeester.core.storage import delete_blob
 from bouwmeester.core.werkplek import InitiatiefWerk, Werkplek
 from bouwmeester.models.casus import Casus
 from bouwmeester.models.initiatief import Initiatief
+from bouwmeester.repositories.casus import verslag_paden
 from bouwmeester.repositories.issue import IssueRepository
 from bouwmeester.schema.issue import (
     IssueCreate,
@@ -364,6 +366,9 @@ def maak_router(prefix: str, plek_dep: PlekDep, *, met_volgorde: bool) -> APIRou
                 ),
             )
         title = existing.title
+        # Het verslag gaat via de cascade mee, het bestand niet: dat ruimen
+        # we na de commit op.
+        paden = await verslag_paden(db, issue_id=existing.id)
         require_deleted(await repo.delete(issue_id), "Issue")
         await log_activity(
             db,
@@ -372,6 +377,10 @@ def maak_router(prefix: str, plek_dep: PlekDep, *, met_volgorde: bool) -> APIRou
             "issue.deleted",
             details={**plek_details(plek), "title": title},
         )
+        if paden:
+            await db.commit()
+            for pad in paden:
+                await delete_blob(pad)
 
     return router
 
