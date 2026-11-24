@@ -1,7 +1,7 @@
 """onderzoeksvraag zonder casus, met een intern antwoord
 
 Revision ID: 0162015de145
-Revises: e5c1a7d93b20
+Revises: bd96339eda55
 Create Date: 2026-11-18
 
 Een onderzoeksvraag hoort altijd bij een initiatief en hoeft niet bij een
@@ -19,7 +19,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "0162015de145"
-down_revision: str | None = "e5c1a7d93b20"
+down_revision: str | None = "bd96339eda55"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
