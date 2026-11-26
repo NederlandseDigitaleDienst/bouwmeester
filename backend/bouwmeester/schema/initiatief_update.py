@@ -50,6 +50,7 @@ class KlaarVraag(BaseModel):
     public_answer: str | None = None
     published_at: datetime | None = None
     in_gepubliceerde_update: bool = False
+    # Nu buiten, en in een gepubliceerde update: daar staat hij nu te lezen.
     verslag_openbaar: bool = False
 
 
@@ -65,6 +66,7 @@ class KlaarCasus(BaseModel):
     public_lessen: str | None = None
     published_at: datetime | None = None
     in_gepubliceerde_update: bool = False
+    # Nu buiten, en in een gepubliceerde update: daar staat hij nu te lezen.
     afgerond_op: datetime | None = None
 
 

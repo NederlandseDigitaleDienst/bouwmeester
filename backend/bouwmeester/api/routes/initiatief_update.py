@@ -191,7 +191,10 @@ async def list_vrijgegeven_vragen(
 
 
 async def _al_gemeld(db: AsyncSession, initiatief_id: UUID, kolom) -> set[UUID]:
-    """De vragen of casussen die al in een gepubliceerde update stonden.
+    """De vragen of casussen die aan een gepubliceerde update hangen.
+
+    Of ze daar nu ook nog te zien zijn, hangt af van of ze buiten zijn; dat
+    toetst de aanroeper.
 
     `kolom` is InitiatiefUpdateVraag.issue_id of InitiatiefUpdateCasus.casus_id.
     """
@@ -236,7 +239,7 @@ async def klaar_om_te_delen(
                 Issue.is_onderzoeksvraag.is_(True),
                 Issue.status == "done",
             )
-            .options(selectinload(Issue.verslag))
+            .options(selectinload(Issue.verslag), selectinload(Issue.casus))
             .order_by(Issue.updated_at.desc().nulls_last(), Issue.created_at.desc())
         )
     ).all()
@@ -271,7 +274,11 @@ async def klaar_om_te_delen(
                 public_title=v.public_title,
                 public_answer=v.public_answer,
                 published_at=v.published_at,
-                in_gepubliceerde_update=v.id in gemelde_vragen,
+                # Alleen zolang hij nog buiten is: na intrekken staat hij in
+                # geen enkele update meer (die tonen alleen wat buiten is).
+                in_gepubliceerde_update=(
+                    v.id in gemelde_vragen and is_buiten_bij(v, initiatief_id)
+                ),
                 verslag_openbaar=(
                     v.verslag is not None and v.verslag.openbaar_op is not None
                 ),
@@ -287,7 +294,10 @@ async def klaar_om_te_delen(
                 public_resultaat=c.public_resultaat,
                 public_lessen=c.public_lessen,
                 published_at=c.published_at,
-                in_gepubliceerde_update=c.id in gemelde_casussen,
+                in_gepubliceerde_update=(
+                    c.id in gemelde_casussen
+                    and is_casus_buiten_bij(c, initiatief_id, laatste)
+                ),
                 afgerond_op=c.updated_at,
             )
             for c in casussen
