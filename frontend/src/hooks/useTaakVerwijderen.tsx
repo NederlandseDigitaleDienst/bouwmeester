@@ -7,6 +7,17 @@ import { useDeleteTask } from '@/hooks/useTasks';
 interface Taak {
   id: string;
   title: string;
+  /**
+   * Hoeveel subtaken er mee weggaan. Alleen een taak aan een node kan ze
+   * hebben; in een casus zijn er geen, dan blijft dit leeg.
+   */
+  subtaken?: number;
+}
+
+/** Wat er met de taak mee verdwijnt; subtaken alleen als ze er zijn. */
+function watErMeeGaat(subtaken = 0): string {
+  if (subtaken === 0) return 'met opmerkingen en bijlagen';
+  return `met ${subtaken === 1 ? '1 subtaak' : `${subtaken} subtaken`}, opmerkingen en bijlagen`;
 }
 
 interface MenuStand {
@@ -87,7 +98,7 @@ export function useTaakVerwijderen({ onVerwijderd }: { onVerwijderd?: (id: strin
         variant="danger"
         loading={deleteTask.isPending}
       >
-        {`"${bevestig?.title ?? ''}" wordt definitief verwijderd, met subtaken, opmerkingen en bijlagen.`}
+        {`"${bevestig?.title ?? ''}" wordt definitief verwijderd, ${watErMeeGaat(bevestig?.subtaken)}.`}
       </ConfirmDialog>
     </>
   );

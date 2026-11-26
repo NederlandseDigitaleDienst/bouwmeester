@@ -25,8 +25,8 @@ import { useCasusSoorten, useZetCasusSoorten } from '@/hooks/useCasusSoorten';
 
 /**
  * De gegevens van een casus naast het werk: fase, team, startvoorwaarden en
- * herkomst. Staat inline in het casusoverzicht, uitklapbaar; geen eigen
- * venster, want taakdetail en issue bewerken openen al een venster.
+ * herkomst. Staat in het paneel achter de drie puntjes in de kop van het
+ * casusoverzicht (CasusOverzicht).
  */
 export function CasusInfo({ casus }: { casus: CasusDetail }) {
   const updateCasus = useUpdateCasus();
