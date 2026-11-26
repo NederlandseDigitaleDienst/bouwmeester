@@ -608,13 +608,17 @@ export function TaakKaart({
   onOpen,
   onContextMenu,
   vraagTitel,
+  losOpCasus,
 }: {
   task: BacklogTask;
   onOpen: (waar: TaskDetailPlacement) => void;
   onContextMenu: (e: React.MouseEvent) => void;
   /** Op het bord met alle taken: de vraag waar de taak onder hangt, kort. */
   vraagTitel?: string;
+  /** Op het bord met alle taken: de casus van een taak zonder vraag. */
+  losOpCasus?: string;
 }) {
+  const herkomst = vraagTitel ? `Vraag: ${vraagTitel}` : losOpCasus ? `Zonder vraag, in casus ${losOpCasus}` : null;
   const ref = useRef<HTMLDivElement>(null);
   const open = () => {
     const rect = ref.current?.getBoundingClientRect();
@@ -647,9 +651,9 @@ export function TaakKaart({
       <nldd-container gap="4">
         {/* Afgerond blijft gewoon leesbaar: de kolom zegt al dat het af is. */}
         <nldd-text size="sm">{task.title}</nldd-text>
-        {vraagTitel && (
-          <nldd-text size="xs" color="secondary" className="bord-vraagregel" title={vraagTitel}>
-            {`Vraag: ${vraagTitel}`}
+        {herkomst && (
+          <nldd-text size="xs" color="secondary" className="bord-vraagregel" title={herkomst}>
+            {herkomst}
           </nldd-text>
         )}
         <nldd-container layout="row" gap="6" vertical-alignment="center">
