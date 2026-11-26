@@ -148,8 +148,9 @@ ParlementairItem (tracks imported parliamentary items: moties, kamervragen, toez
 └── type discriminator (motie, kamervraag, toezegging, amendement, ...)
 
 Lead ── 1:1 ──> Casus (start vanuit de kolom in_the_pocket; de lead is daarna alleen-lezen, 409 op mutaties)
-├── Casus (lead_id RESTRICT, initiatief_id, fase (dummy), startvoorwaarden JSON (dummy), nooit publiek)
+├── Casus (lead_id RESTRICT, initiatief_id, fase (dummy), startvoorwaarden JSON (dummy), lessen (intern); de casus zelf gaat nooit naar buiten, alleen public_title/public_resultaat/public_lessen na vrijgeven (published_at), zolang hij in de laatste fase staat, zie "Naar buiten")
 │   ├── Issue (casus_id, leeg bij een vraag van het initiatief zelf (`/initiatieven/{id}/vragen`, `core/werkplek.py`); initiatief_id; antwoord (intern); title, toelichting, is_onderzoeksvraag, assignee_id SET NULL (eigenaar, lid van het initiatief), status open/in_progress/done, sort_order, dod_checked JSON). Er is geen story-laag: issue > taak > subtaken. De status volgt de hoofdtaken eronder via `IssueRepository.sync_status` na elke taakwijziging (iets loopt of is af, ook alles af: in_progress; alles open: open als het done was, anders blijft hij staan). Afgerond wordt een issue alleen met de hand, via de Definition of Done (`DodModal.tsx`, ook vanuit het bewerkvenster); een afgerond issue blijft afgerond zolang alle taken af zijn. Subtaken en geannuleerde taken tellen niet mee.
+│   │   ├── Onderzoeksverslag (issue_id CASCADE, uniek; bestand via core.storage onder verslagen/; openbaar_op = akkoord om naar buiten te gaan, vervalt bij een nieuw bestand en bij intrekken of heropenen van de vraag). Een onderzoeksvraag heeft ook public_title/public_answer/published_at: alleen die tekst gaat naar buiten, zolang de vraag af is.
 │   │   └── Task (issue_id SET NULL; casus_id wordt uit het issue gevuld)
 │   │       └── Task (parent_id: subtaak, staat als opsomming onder de hoofdtaak, nooit als eigen taak of kaartje)
 │   ├── Task (casus_id, losse taak op de casus, zonder issue)
@@ -168,6 +169,8 @@ Initiatief
 ├── Lead (initiatief_id) — funnel-stage tracking
 ├── ResourcePermission (eigenaar/contributor/viewer per persoon of eenheid)
 ├── InitiatiefUpdatePost (publication posts; published_at IS NULL = concept)
+│   ├── InitiatiefUpdateVraag (vrijgegeven onderzoeksvragen die de update meeneemt)
+│   └── InitiatiefUpdateCasus (vrijgegeven afgeronde casussen die de update meeneemt)
 └── slug (unique URL-segment, eenmalig instelbaar via /settings)
 
 StakeholderAssessment (belang/houding/invloed per persoon op een scope)
@@ -187,12 +190,26 @@ Per-initiatief feature-toggles (eigenaar-only via `PUT /api/initiatieven/{id}/se
 
 Slug-rules in `backend/bouwmeester/core/slug.py`: lowercase, `[a-z0-9-]`, niet leeg, niet in `RESERVED_SLUGS`. Eenmalig instelbaar via UI (immutable na save in v1).
 
-Publieke endpoint `GET /api/public/initiatieven/by-slug/{slug}`:
-- Zit in `_PUBLIC_PREFIXES` van `auth_required.py` — geen auth nodig
-- Returnt 404 als slug niet bestaat OF `public_page_enabled=false` (geen 403 om bestaan niet te lekken)
+Publieke endpoints (`api/routes/public_initiatief.py`):
+- `GET /api/public/initiatieven/by-slug/{slug}` en `GET /api/public/initiatieven/by-slug/{slug}/verslagen/{verslag_id}` (download, altijd als bijlage)
+- Zitten in `_PUBLIC_PREFIXES` van `auth_required.py` — geen auth nodig
+- Returnen 404 als slug niet bestaat OF `public_page_enabled=false` (geen 403 om bestaan niet te lekken); de download ook als het verslag niet buiten mag, zonder onderscheid
 - Two-step query (lookup zonder relations, daarna eager-load) om timing-side-channel te beperken
-- Toont alleen naam/beschrijving/kleur + gepubliceerde `InitiatiefUpdatePost` records (`published_at IS NOT NULL`)
+- Toont naam/beschrijving/kleur, gepubliceerde `InitiatiefUpdatePost` records (`published_at IS NOT NULL`) met de vragen en casussen die ze meenemen, lopende casussen van leads die daarvoor zijn opengezet, en de beantwoorde vragen en afgeronde casussen die nu buiten mogen
+- Elke tekst gaat door `verwijzingen_als_tekst` (`schema/publieke_tekst.py`): een @- of #-verwijzing wordt gewone tekst, zonder id
 - Frontend route `/c/:slug` in `App.tsx` zit buiten `AuthGate`; `<meta name="robots" content="noindex">` op de pagina, plus blanket `Disallow: /` in `frontend/public/robots.txt`
+
+### Naar buiten
+
+Wat van binnen naar buiten mag, bepalen alleen `services/publieke_vragen.py` (onderzoeksvragen en hun verslag) en `services/publieke_casussen.py` (afgeronde casussen). De tab Updates, de publieke pagina en de mailbrief lezen daar.
+
+- Naar buiten gaat alleen tekst die iemand daarvoor schreef: `public_title`/`public_answer` van een afgeronde onderzoeksvraag, `public_title`/`public_resultaat`/`public_lessen` van een casus in de laatste fase van de funnel. Titel, toelichting, intern antwoord, team en lessen blijven binnen.
+- Vrijgeven (`PUT …/publiek`) is een eigen handeling van een bijdrager of eigenaar van het initiatief (`require_can_publish_issue`); intrekken (`DELETE …/publiek`) mag iedereen die de casus wijzigt. Een statuswijziging publiceert niets.
+- Niet meer af is niet meer buiten: een vraag die heropend wordt of geen onderzoeksvraag meer is, en een casus die niet meer in de laatste fase staat (ook als de funnel verandert, bv. een fase erachter), krijgt `published_at` leeg. De tekst blijft bewaard; opnieuw vrijgeven is weer een eigen handeling.
+- Het onderzoeksverslag gaat pas mee na een expliciet akkoord (`openbaar_op`) en als de vraag buiten is. Het akkoord vervalt bij een nieuw bestand en bij intrekken of heropenen. Buiten heet het bestand naar de publieke vraag (`publieke_verslagnaam`), en een upload moet beginnen met de signatuur van zijn type (`validate_upload(..., signatuur_verplicht=True)`).
+- Publieke tekst (vraag, casus, titel en tekst van een update) weigert een @- of #-verwijzing (`geen_verwijzingen`) en wordt gestript; een concept van daarvoor publiceert pas als de verwijzing eruit is.
+- Een gepubliceerde update is als mailbrief te downloaden (`GET …/updates/{id}/eml`): een concept voor Outlook zonder ontvangers, alleen met wat ook op de publieke pagina staat.
+- Tests: `test_beantwoorde_vragen.py`, `test_afgeronde_casussen.py`, `test_onderzoeksverslag.py`; de 404's voor de publieke routes en voor buitenstaanders in `test_casus_toegang.py`.
 
 ## Seed data and PII
 
