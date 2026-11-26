@@ -33,8 +33,14 @@ const ISSUE_KEYS = [queryKeys.issues.all, queryKeys.tasks.lists(), queryKeys.cas
 
 // Een vraag die naar buiten gaat of terugkomt, verandert ook wat de tab
 // Updates kan meenemen en wat de updates tonen. Een gewone wijziging kan dat
-// ook (heropenen trekt in), dus die ververst deze lijsten mee.
-const PUBLIEK_KEYS = [['vrijgegeven-vragen'], ['initiatief-updates'], ['klaar-om-te-delen']];
+// ook (heropenen trekt in), dus die ververst deze lijsten mee. Intrekken laat
+// ook het akkoord op het verslag vervallen.
+const PUBLIEK_KEYS = [
+  ['vrijgegeven-vragen'],
+  ['initiatief-updates'],
+  ['klaar-om-te-delen'],
+  ['onderzoeksverslag'],
+];
 
 export function useCreateIssue() {
   return useMutationWithError({

@@ -25,9 +25,16 @@ const ACCEPT = '.pdf,.doc,.docx,.odt';
  *
  * Naar buiten gaat het pas na een akkoord ("Dit verslag verschijnt op de
  * publieke pagina. Akkoord?"), en dan nog alleen als de vraag zelf onder
- * Naar buiten is vrijgegeven. Een nieuw bestand vraagt een nieuw akkoord.
+ * Naar buiten is vrijgegeven. Een nieuw bestand vraagt een nieuw akkoord, en
+ * zo ook een vraag die is ingetrokken of heropend. Buiten heet het bestand
+ * naar de publieke vraag; het akkoordvenster noemt het bestand dat het
+ * betreft.
+ *
+ * Openbaar maken en terughalen staan er alleen voor wie mag vrijgeven
+ * (`kanVrijgeven`: bijdrager of eigenaar van het initiatief), zoals de
+ * backend het controleert.
  */
-export function OnderzoeksverslagBlok({ issue }: { issue: VraagVoorBuiten }) {
+export function OnderzoeksverslagBlok({ issue, kanVrijgeven }: { issue: VraagVoorBuiten; kanVrijgeven: boolean }) {
   const { data: verslag } = useVerslag(issue, issue.id);
   const upload = useUploadVerslag();
   const weghalen = useDeleteVerslag();
@@ -103,17 +110,18 @@ export function OnderzoeksverslagBlok({ issue }: { issue: VraagVoorBuiten }) {
               onClick={() => fileRef.current?.click()}
               text="Vervangen"
             />
-            {verslag.openbaar_op ? (
-              <NlddButton
-                variant="secondary"
-                size="sm"
-                loading={nietOpenbaar.isPending}
-                onClick={() => nietOpenbaar.mutate(ids)}
-                text="Niet meer openbaar"
-              />
-            ) : (
-              <NlddButton size="sm" onClick={() => setVraagAkkoord(true)} text="Openbaar maken" />
-            )}
+            {kanVrijgeven &&
+              (verslag.openbaar_op ? (
+                <NlddButton
+                  variant="secondary"
+                  size="sm"
+                  loading={nietOpenbaar.isPending}
+                  onClick={() => nietOpenbaar.mutate(ids)}
+                  text="Niet meer openbaar"
+                />
+              ) : (
+                <NlddButton size="sm" onClick={() => setVraagAkkoord(true)} text="Openbaar maken" />
+              ))}
           </nldd-container>
         </>
       ) : (
@@ -148,9 +156,17 @@ export function OnderzoeksverslagBlok({ issue }: { issue: VraagVoorBuiten }) {
         confirmLabel="Akkoord"
         loading={openbaar.isPending}
       >
-        {vraagBuiten
-          ? 'Dit verslag verschijnt op de publieke pagina. Akkoord?'
-          : 'Dit verslag verschijnt op de publieke pagina zodra de vraag is vrijgegeven onder Naar buiten. Akkoord?'}
+        <nldd-container gap="8">
+          <nldd-text size="sm">
+            {vraagBuiten
+              ? `Het verslag "${verslag?.bestandsnaam ?? ''}" verschijnt op de publieke pagina. Akkoord?`
+              : `Het verslag "${verslag?.bestandsnaam ?? ''}" verschijnt op de publieke pagina zodra de vraag is vrijgegeven onder Naar buiten. Akkoord?`}
+          </nldd-text>
+          <nldd-text size="sm" color="secondary">
+            Buiten krijgt het bestand een naam naar de vraag voor buiten. De inhoud gaat zoals hij is: lees hem na op
+            namen en interne details, ook in de documenteigenschappen zoals de auteur.
+          </nldd-text>
+        </nldd-container>
       </ConfirmDialog>
       <ConfirmDialog
         open={vraagWeg}

@@ -22,8 +22,13 @@ function telling(items: { published_at: string | null }[]): string {
   return `${items.length} afgerond${vrij ? ` · ${vrij} vrijgegeven` : ''}`;
 }
 
+/**
+ * De stand van een vraag of casus. "In een update" alleen zolang hij buiten
+ * is: na intrekken staat hij in geen update meer te lezen. De backend zegt
+ * dat ook al (`in_gepubliceerde_update`), dit houdt het scherm gelijk.
+ */
 function Stand({ item }: { item: { published_at: string | null; in_gepubliceerde_update: boolean } }) {
-  if (item.in_gepubliceerde_update) return <Badge color="groen">In een update</Badge>;
+  if (item.published_at && item.in_gepubliceerde_update) return <Badge color="groen">In een update</Badge>;
   if (item.published_at) return <Badge color="groen">Vrijgegeven</Badge>;
   return <Badge color="coolgray">Binnen</Badge>;
 }
@@ -36,7 +41,8 @@ function Stand({ item }: { item: { published_at: string | null; in_gepubliceerde
  * een nieuwe update meenemen.
  *
  * Hier staan interne titels en lessen: alleen leden zien deze tab. Naar
- * buiten gaat alleen wat iemand in het paneel schrijft en vrijgeeft.
+ * buiten gaat alleen wat iemand in het paneel schrijft en vrijgeeft, en
+ * vrijgeven kan alleen wie `canEdit` heeft (bijdrager of eigenaar).
  */
 export function KlaarOmTeDelen({ initiatief, canEdit }: { initiatief: InitiatiefDetail; canEdit: boolean }) {
   const { data, isLoading } = useKlaarOmTeDelen(initiatief.id);
@@ -98,7 +104,7 @@ export function KlaarOmTeDelen({ initiatief, canEdit }: { initiatief: Initiatief
         >
           {data.casussen.length === 0 ? (
             <nldd-text size="sm" color="secondary">
-              Nog geen afgeronde casussen. Een casus is af als hij in de laatste fase van de RegelReis staat.
+              Nog geen afgeronde casussen. Een casus is af als hij in de laatste fase van de casusfunnel staat.
             </nldd-text>
           ) : (
             <Lijst>
@@ -126,8 +132,8 @@ export function KlaarOmTeDelen({ initiatief, canEdit }: { initiatief: Initiatief
         >
           <nldd-container gap="24">
             <nldd-text size="sm" color="secondary">{vraag.casus_titel ? `Casus: ${vraag.casus_titel}` : 'Zonder casus'}</nldd-text>
-            <OnderzoeksverslagBlok issue={alsVraag(vraag, initiatief.id)} />
-            <NaarBuiten key={vraag.id} issue={alsVraag(vraag, initiatief.id)} />
+            <OnderzoeksverslagBlok issue={alsVraag(vraag, initiatief.id)} kanVrijgeven={canEdit} />
+            <NaarBuiten key={vraag.id} issue={alsVraag(vraag, initiatief.id)} kanVrijgeven={canEdit} />
           </nldd-container>
         </Modal>
       )}

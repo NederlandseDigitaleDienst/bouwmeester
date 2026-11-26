@@ -46,6 +46,16 @@ export function useInitiatief(id: string | undefined) {
   });
 }
 
+/**
+ * Mag de ingelogde persoon iets van dit initiatief naar buiten brengen? Een
+ * bijdrager of eigenaar, dezelfde regel als `require_can_publish_issue` in de
+ * backend. Zolang het initiatief laadt: nee.
+ */
+export function useKanVrijgeven(initiatiefId: string | null | undefined): boolean {
+  const { data } = useInitiatief(initiatiefId ?? undefined);
+  return data?.access_level === 'eigenaar' || data?.access_level === 'contributor';
+}
+
 /** Wie het initiatief kan zien: de kandidaten voor een casusteam. */
 export function useInitiatiefPersonen(id: string | undefined) {
   return useQuery({
@@ -196,6 +206,9 @@ export function useUpdateInitiatiefSettings() {
       updateInitiatiefSettings(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.initiatieven.all });
+      // Een andere laatste fase trekt vrijgegeven casussen in.
+      qc.invalidateQueries({ queryKey: ['klaar-om-te-delen'] });
+      qc.invalidateQueries({ queryKey: ['initiatief-updates'] });
     },
   });
 }

@@ -8,6 +8,7 @@ import { NlddButton } from '@/components/nldd/NlddButton';
 import { NlddIconButton } from '@/components/nldd/NlddIconButton';
 import { useCasussen } from '@/hooks/useCasussen';
 import { useDodItems } from '@/hooks/useDodItems';
+import { useKanVrijgeven } from '@/hooks/useInitiatieven';
 import { InitiatiefIdContext, useInitiatiefPersonOptions } from '@/hooks/useInitiatiefPersonOptions';
 import { useDeleteIssue, useUpdateIssue } from '@/hooks/useIssues';
 import {
@@ -57,6 +58,8 @@ function Paneel({ issue, onClose }: { issue: BacklogIssue; onClose: () => void }
   const personOptions = useInitiatiefPersonOptions(issue.assignee ?? null);
   const { data: casussen, isSuccess: casussenGeladen } = useCasussen(initiatiefId ?? undefined);
   const dodItems = useDodItems(issue.casus_id, issue.initiatief_id ?? initiatiefId) ?? [];
+  // Naar buiten brengen kan een bijdrager of eigenaar van het initiatief.
+  const kanVrijgeven = useKanVrijgeven(issue.initiatief_id ?? initiatiefId);
   const [titelOpen, setTitelOpen] = useState(false);
   const [dod, setDod] = useState<'afronden' | 'bekijken' | null>(null);
   const [verwijderen, setVerwijderen] = useState(false);
@@ -202,10 +205,10 @@ function Paneel({ issue, onClose }: { issue: BacklogIssue; onClose: () => void }
 
           {/* De externe versie: een afgeronde vraag gaat met een eigen tekst
               naar buiten. */}
-          <NaarBuiten issue={issue} />
+          <NaarBuiten issue={issue} kanVrijgeven={kanVrijgeven} />
 
           {/* Het verslag als bestand; naar buiten alleen na een akkoord. */}
-          {issue.is_onderzoeksvraag && <OnderzoeksverslagBlok issue={issue} />}
+          {issue.is_onderzoeksvraag && <OnderzoeksverslagBlok issue={issue} kanVrijgeven={kanVrijgeven} />}
 
           {/* Onderaan, los van de rest: verwijderen is niet terug te draaien. */}
           <div>

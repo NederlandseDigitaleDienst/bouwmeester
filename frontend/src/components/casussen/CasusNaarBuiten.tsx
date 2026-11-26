@@ -3,20 +3,24 @@ import { useState } from 'react';
 import { Badge } from '@/components/common/Badge';
 import { TekstVeld } from '@/components/common/DetailVelden';
 import { Input } from '@/components/common/Input';
+import { RichTextDisplay } from '@/components/common/RichTextDisplay';
 import { RichTextFormField } from '@/components/common/RichTextFormField';
 import { NlddButton } from '@/components/nldd/NlddButton';
 import { usePublishCasus, useUnpublishCasus, useUpdateCasus } from '@/hooks/useCasussen';
 import type { KlaarCasus } from '@/types';
+import { heeftVerwijzing, VERWIJZING_MELDING } from '@/utils/publiekeTekst';
 import { richTextToPlain } from '@/utils/richtext';
 
-/** Een @- of #-verwijzing uit de editor; de backend weigert hem in een publieke tekst. */
-const VERWIJZING = /\]\((?:user|org|node|task):/i;
-
 /**
- * Een afgeronde casus: de lessen (binnen) en de tekst voor buiten. Casussen
- * zijn nooit publiek; alleen de naam, het resultaat en de lessen die je hier
- * voor buiten schrijft gaan naar buiten, en pas na Vrijgeven. Haalt iemand
- * de casus uit de laatste fase, dan is hij niet meer vrijgegeven.
+ * Een afgeronde casus: de lessen (binnen) en de tekst voor buiten. De casus
+ * zelf gaat nooit naar buiten; alleen de naam, het resultaat en de lessen
+ * die je hier voor buiten schrijft, en pas na Vrijgeven. Haalt iemand de
+ * casus uit de laatste fase, of komt er een fase achter, dan is hij niet
+ * meer vrijgegeven.
+ *
+ * Wijzigen en vrijgeven staan er alleen voor een bijdrager of eigenaar van
+ * het initiatief (`kanWijzigen`), zoals de backend het controleert. Een
+ * ander ziet de lessen en wat er buiten staat, zonder velden en knoppen.
  */
 export function CasusNaarBuiten({ casus, kanWijzigen }: { casus: KlaarCasus; kanWijzigen: boolean }) {
   const update = useUpdateCasus();
@@ -33,7 +37,7 @@ export function CasusNaarBuiten({ casus, kanWijzigen }: { casus: KlaarCasus; kan
     concept.titel !== opgeslagen.titel ||
     concept.resultaat !== opgeslagen.resultaat ||
     concept.lessen !== opgeslagen.lessen;
-  const verwijzing = [concept.titel, concept.resultaat, concept.lessen].some((t) => VERWIJZING.test(t));
+  const verwijzing = heeftVerwijzing(concept.titel, concept.resultaat, concept.lessen);
   const compleet = concept.titel.trim() !== '' && richTextToPlain(concept.resultaat).trim() !== '' && !verwijzing;
 
   const bewaarLessen = async (lessen: string | null) => {
@@ -59,6 +63,8 @@ export function CasusNaarBuiten({ casus, kanWijzigen }: { casus: KlaarCasus; kan
     }
   };
 
+  if (!kanWijzigen) return <AlleenLezen casus={casus} />;
+
   return (
     <nldd-container gap="24">
       <TekstVeld
@@ -70,16 +76,7 @@ export function CasusNaarBuiten({ casus, kanWijzigen }: { casus: KlaarCasus; kan
       />
 
       <nldd-container gap="8">
-        <nldd-container layout="row" gap="8" vertical-alignment="center">
-          <nldd-text size="md" weight="medium">
-            Naar buiten
-          </nldd-text>
-          {vrijgegeven ? (
-            <Badge color="groen">{`Vrijgegeven op ${new Date(casus.published_at!).toLocaleDateString('nl-NL')}`}</Badge>
-          ) : (
-            <Badge color="coolgray">Binnen</Badge>
-          )}
-        </nldd-container>
+        <Kop casus={casus} />
         <nldd-text size="sm" color="secondary">
           Alleen wat je hieronder schrijft gaat naar buiten, op de publieke pagina en in de mailbrief van een update. De
           casus zelf, zijn naam binnen, het team en de lessen hierboven blijven binnen. Schrijf voor iemand die de casus
@@ -109,42 +106,89 @@ export function CasusNaarBuiten({ casus, kanWijzigen }: { casus: KlaarCasus; kan
         />
         {verwijzing && (
           <nldd-text size="xs" color="critical">
-            Haal de verwijzingen met @ of # weg. Die noemen een persoon, organisatie of intern werk, en dat gaat niet
-            naar buiten.
+            {VERWIJZING_MELDING}
           </nldd-text>
         )}
-        {kanWijzigen && (
-          <nldd-container layout="row" gap="8" horizontal-alignment="right">
-            {vrijgegeven && (
-              <NlddButton
-                variant="neutral-transparent"
-                size="sm"
-                loading={unpublish.isPending}
-                onClick={() => unpublish.mutate({ id: casus.id })}
-                text="Intrekken"
-              />
-            )}
-            {vrijgegeven ? (
-              gewijzigd && (
-                <NlddButton
-                  size="sm"
-                  loading={publish.isPending}
-                  disabled={!compleet}
-                  onClick={geefVrij}
-                  text="Tekst opslaan"
-                />
-              )
-            ) : (
+        <nldd-container layout="row" gap="8" horizontal-alignment="right">
+          {vrijgegeven && (
+            <NlddButton
+              variant="neutral-transparent"
+              size="sm"
+              loading={unpublish.isPending}
+              onClick={() => unpublish.mutate({ id: casus.id })}
+              text="Intrekken"
+            />
+          )}
+          {vrijgegeven ? (
+            gewijzigd && (
               <NlddButton
                 size="sm"
                 loading={publish.isPending}
                 disabled={!compleet}
                 onClick={geefVrij}
-                text="Vrijgeven"
+                text="Tekst opslaan"
               />
-            )}
+            )
+          ) : (
+            <NlddButton
+              size="sm"
+              loading={publish.isPending}
+              disabled={!compleet}
+              onClick={geefVrij}
+              text="Vrijgeven"
+            />
+          )}
+        </nldd-container>
+      </nldd-container>
+    </nldd-container>
+  );
+}
+
+function Kop({ casus }: { casus: KlaarCasus }) {
+  return (
+    <nldd-container layout="row" gap="8" vertical-alignment="center">
+      <nldd-text size="md" weight="medium">
+        Naar buiten
+      </nldd-text>
+      {casus.published_at ? (
+        <Badge color="groen">{`Vrijgegeven op ${new Date(casus.published_at).toLocaleDateString('nl-NL')}`}</Badge>
+      ) : (
+        <Badge color="coolgray">Binnen</Badge>
+      )}
+    </nldd-container>
+  );
+}
+
+/** Voor wie niet mag vrijgeven: de lessen en wat er buiten staat, zonder knoppen. */
+function AlleenLezen({ casus }: { casus: KlaarCasus }) {
+  return (
+    <nldd-container gap="24">
+      <nldd-container gap="4">
+        <nldd-text size="sm" weight="medium">
+          Wat hebben we geleerd? (blijft binnen)
+        </nldd-text>
+        {casus.lessen ? (
+          <RichTextDisplay content={casus.lessen} />
+        ) : (
+          <nldd-text size="sm" color="secondary">
+            Nog geen lessen vastgelegd.
+          </nldd-text>
+        )}
+      </nldd-container>
+      <nldd-container gap="8">
+        <Kop casus={casus} />
+        {casus.published_at && (
+          <nldd-container gap="4">
+            <nldd-text size="sm" weight="medium">
+              {casus.public_title ?? ''}
+            </nldd-text>
+            <RichTextDisplay content={casus.public_resultaat} />
+            {casus.public_lessen && <RichTextDisplay content={casus.public_lessen} />}
           </nldd-container>
         )}
+        <nldd-text size="sm" color="secondary">
+          Vrijgeven voor buiten kan een bijdrager of eigenaar van het initiatief.
+        </nldd-text>
       </nldd-container>
     </nldd-container>
   );

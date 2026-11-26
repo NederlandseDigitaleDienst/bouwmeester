@@ -17,6 +17,7 @@ import {
   useDeleteInitiatiefUpdate,
 } from '@/hooks/useInitiatieven';
 import type { InitiatiefDetail, InitiatiefUpdatePost, PubliekeCasus, PubliekeVraag } from '@/types';
+import { heeftVerwijzing, VERWIJZING_MELDING } from '@/utils/publiekeTekst';
 import { KlaarOmTeDelen } from './KlaarOmTeDelen';
 import { SectionHeading } from './SectionHeading';
 import { NlddButton } from '@/components/nldd/NlddButton';
@@ -64,6 +65,11 @@ export function InitiatiefUpdates({ initiatief }: { initiatief: InitiatiefDetail
   });
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
+  // Titel en tekst gaan naar buiten: geen @- of #-verwijzing (de backend
+  // weigert hem ook).
+  const verwijzing = heeftVerwijzing(draft.titel, draft.body);
+  const kanOpslaan = !!draft.titel.trim() && !verwijzing;
+
   const concepts = posts.filter((p) => !p.published_at);
   const published = posts.filter((p) => p.published_at);
 
@@ -86,7 +92,7 @@ export function InitiatiefUpdates({ initiatief }: { initiatief: InitiatiefDetail
   };
 
   const handleSave = async (publish: boolean) => {
-    if (!draft.titel.trim()) return;
+    if (!kanOpslaan) return;
     if (editingId) {
       await editMutation.mutateAsync({
         initiatiefId: initiatief.id,
@@ -163,7 +169,13 @@ export function InitiatiefUpdates({ initiatief }: { initiatief: InitiatiefDetail
               value={draft.body}
               onChange={(value) => setDraft({ ...draft, body: value })}
               rows={4}
+              placeholder="Wat is er nieuw? Deze tekst gaat naar buiten: geen namen of verwijzingen met @ of #."
             />
+            {verwijzing && (
+              <nldd-text size="xs" color="critical">
+                {VERWIJZING_MELDING}
+              </nldd-text>
+            )}
             <Kiezen
               titel="Beantwoorde onderzoeksvragen"
               leeg="Nog geen vrijgegeven vragen. Geef een afgeronde vraag vrij onder Klaar om te delen."
@@ -192,13 +204,13 @@ export function InitiatiefUpdates({ initiatief }: { initiatief: InitiatiefDetail
                 variant="secondary"
                 size="sm"
                 onClick={() => handleSave(false)}
-                disabled={!draft.titel.trim()}
+                disabled={!kanOpslaan}
                 text="Opslaan als concept"
               />
               <NlddButton
                 size="sm"
                 onClick={() => handleSave(true)}
-                disabled={!draft.titel.trim()}
+                disabled={!kanOpslaan}
                 text={editingId ? 'Opslaan + publiceren' : 'Direct publiceren'}
               />
             </nldd-container>
