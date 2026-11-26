@@ -1,12 +1,13 @@
 """Afgeronde casussen en hun lessen naar buiten, via Updates.
 
-Casussen zijn nooit publiek. Van een afgeronde casus (in de laatste fase van
-de funnel) gaat alleen een tekst naar buiten die iemand daarvoor schreef en
-vrijgaf. Dekt: lessen vastleggen (binnen), vrijgeven alleen voor een
-afgeronde casus en alleen door een bijdrager of eigenaar, uit de laatste
-fase trekt in, de publieke pagina en de mailbrief tonen alleen de tekst voor
-buiten, een update neemt alleen vrijgegeven casussen van het eigen
-initiatief mee, en het overzicht "klaar om te delen" in de tab Updates.
+De casus zelf gaat nooit naar buiten. Van een afgeronde casus (in de laatste
+fase van de funnel) gaat alleen een tekst naar buiten die iemand daarvoor
+schreef en vrijgaf. Dekt: lessen vastleggen (binnen), vrijgeven alleen voor
+een afgeronde casus en alleen door een bijdrager of eigenaar, uit de laatste
+fase trekt in (ook als de funnel verandert), de publieke pagina en de
+mailbrief tonen alleen de tekst voor buiten, een update neemt alleen
+vrijgegeven casussen van het eigen initiatief mee, en het overzicht "klaar
+om te delen" in de tab Updates.
 """
 
 import email
@@ -318,3 +319,63 @@ async def test_klaar_om_te_delen_niet_voor_buitenstaanders(
     async with client_as(db_session, buiten) as c:
         resp = await c.get(f"/api/initiatieven/{initiatief.id}/klaar-om-te-delen")
     assert resp.status_code in (403, 404)
+
+
+# --- Na de review van #461 ----------------------------------------------------
+
+
+def _funnel(*extra):
+    return [f.model_dump() for f in DEFAULT_CASUS_FASES] + list(extra)
+
+
+NAZORG = {"id": "nazorg", "naam": "Nazorg", "kleur": "lintblauw"}
+
+
+async def test_fase_achter_de_laatste_trekt_in(client, casus, initiatief):
+    """Een fase achter de laatste: de casus staat niet meer in de laatste
+    fase, dus is hij ingetrokken. Hij komt niet vanzelf terug als hij later
+    in de nieuwe laatste fase staat."""
+    await _vrijgeven(client, casus)
+    resp = await client.put(
+        f"/api/initiatieven/{initiatief.id}/settings",
+        json={"casus_fases": _funnel(NAZORG)},
+    )
+    assert resp.status_code == 200, resp.text
+    detail = (await client.get(f"/api/casussen/{casus.id}")).json()
+    assert detail["published_at"] is None
+    assert detail["public_title"] == NAAM, "de tekst blijft bewaard"
+    assert (await _publiek(client))["afgeronde_casussen"] == []
+
+    resp = await client.put(f"/api/casussen/{casus.id}", json={"fase": "nazorg"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["published_at"] is None
+    assert (await _publiek(client))["afgeronde_casussen"] == []
+
+
+async def test_funnel_wijzigen_laat_casus_in_laatste_fase_staan(
+    client, casus, initiatief
+):
+    """Een andere omschrijving of kleur, dezelfde laatste fase: de casus blijft
+    buiten."""
+    await _vrijgeven(client, casus)
+    funnel = _funnel()
+    funnel[0]["naam"] = "Beginnen"
+    resp = await client.put(
+        f"/api/initiatieven/{initiatief.id}/settings", json={"casus_fases": funnel}
+    )
+    assert resp.status_code == 200, resp.text
+    (buiten,) = (await _publiek(client))["afgeronde_casussen"]
+    assert buiten["titel"] == NAAM
+
+
+async def test_in_een_update_volgt_of_de_casus_buiten_is(client, casus, initiatief):
+    await _vrijgeven(client, casus)
+    await _update(client, initiatief, [casus.id])
+    pad = f"/api/initiatieven/{initiatief.id}/klaar-om-te-delen"
+    (klaar,) = (await client.get(pad)).json()["casussen"]
+    assert klaar["in_gepubliceerde_update"] is True
+
+    await client.delete(f"/api/casussen/{casus.id}/publiek")
+    (klaar,) = (await client.get(pad)).json()["casussen"]
+    assert klaar["published_at"] is None
+    assert klaar["in_gepubliceerde_update"] is False

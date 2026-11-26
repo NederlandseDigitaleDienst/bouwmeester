@@ -289,16 +289,23 @@ async def update_initiatief_settings(
     if "casus_fases" in data.model_fields_set:
         await _geen_casussen_in_weggehaalde_fase(db, id, data.casus_fases or [])
     initiatief = require_found(await repo.update_settings(id, data), "Initiatief")
+    details = {
+        "initiatief_id": str(initiatief.id),
+        "fields": list(data.model_dump(exclude_unset=True).keys()),
+    }
+    if "casus_fases" in data.model_fields_set:
+        # Een andere laatste fase: wat daar niet meer staat, is niet meer
+        # afgerond en gaat terug naar binnen.
+        from bouwmeester.services.publieke_casussen import (
+            trek_casussen_in_buiten_laatste_fase,
+        )
+
+        ingetrokken = await trek_casussen_in_buiten_laatste_fase(db, initiatief)
+        if ingetrokken:
+            details["casussen_niet_meer_vrijgegeven"] = ingetrokken
 
     await log_activity(
-        db,
-        current_user,
-        None,
-        "initiatief.settings_updated",
-        details={
-            "initiatief_id": str(initiatief.id),
-            "fields": list(data.model_dump(exclude_unset=True).keys()),
-        },
+        db, current_user, None, "initiatief.settings_updated", details=details
     )
 
     return InitiatiefResponse.model_validate(initiatief)

@@ -1,6 +1,6 @@
 """Beantwoorde onderzoeksvragen die naar buiten mogen.
 
-Casussen zijn nooit publiek. Wat van een onderzoeksvraag naar buiten gaat, is
+De casus gaat nooit naar buiten. Wat van een onderzoeksvraag naar buiten gaat, is
 alleen de publieke tekst (vraag en antwoord) die iemand bewust vrijgaf, en
 alleen zolang de vraag afgerond is. Deze module is de enige plek die bepaalt
 welke vragen dat zijn; de tab Updates, de publieke pagina en de mailbrief

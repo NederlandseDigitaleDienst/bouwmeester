@@ -1,8 +1,9 @@
 """API routes voor casussen.
 
 Een casus start vanuit een lead die de trechter uit is en leeft daarna los van
-de lead. Toegang loopt via de initiatief-context, net als bij leads. Casussen
-zijn nooit publiek.
+de lead. Toegang loopt via de initiatief-context, net als bij leads. De casus
+zelf gaat nooit naar buiten; van een afgeronde casus alleen de tekst die
+iemand vrijgaf (`/publiek`, zie services/publieke_casussen.py).
 """
 
 from datetime import UTC, date, datetime

@@ -5,10 +5,10 @@ loopt. Een casus is wat daarna begint: eigen fases, eigen team en
 issues (onderzoeksvragen en ander werk) met taken. Eén lead levert hooguit één casus
 op; de lead blijft daarna als geschiedenis staan, alleen-lezen.
 
-Casussen bevatten de vertrouwelijkste informatie en zijn nooit publiek. Van
-een afgeronde casus gaat alleen een tekst naar buiten die iemand daarvoor
-schreef en vrijgaf (public_title, public_resultaat, public_lessen); zie
-services/publieke_casussen.py.
+Casussen bevatten de vertrouwelijkste informatie: de casus zelf gaat nooit
+naar buiten. Van een afgeronde casus gaat alleen een tekst naar buiten die
+iemand daarvoor schreef en vrijgaf (public_title, public_resultaat,
+public_lessen); zie services/publieke_casussen.py.
 """
 
 import uuid
@@ -88,7 +88,8 @@ class Casus(Base):
     # Naar buiten: een afgeronde casus in gewone taal (een naam, wat het
     # opleverde, en de lessen voor buiten). Alleen deze teksten gaan ooit naar
     # buiten, als iemand ze vrijgeeft (published_at); de rest van de casus
-    # blijft binnen. Uit de laatste fase gehaald is niet meer vrijgegeven.
+    # blijft binnen. Niet meer in de laatste fase (een fasewijziging, of een
+    # fase erachter in de funnel) is niet meer vrijgegeven.
     public_title: Mapped[str | None] = mapped_column(Text, nullable=True)
     public_resultaat: Mapped[str | None] = mapped_column(Text, nullable=True)
     public_lessen: Mapped[str | None] = mapped_column(Text, nullable=True)

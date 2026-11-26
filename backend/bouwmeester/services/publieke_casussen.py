@@ -1,26 +1,29 @@
 """Afgeronde casussen die naar buiten mogen, met hun lessen.
 
-Casussen zijn nooit publiek. Van een afgeronde casus gaat alleen een tekst
-naar buiten die iemand daarvoor schreef en bewust vrijgaf (public_title,
-public_resultaat, public_lessen), en alleen zolang de casus in de laatste
-fase van de funnel staat. Deze module is de enige plek die bepaalt welke
-casussen dat zijn, net als services/publieke_vragen.py voor de vragen.
+De casus zelf gaat nooit naar buiten. Van een afgeronde casus gaat alleen een
+tekst naar buiten die iemand daarvoor schreef en bewust vrijgaf
+(public_title, public_resultaat, public_lessen), en alleen zolang de casus in
+de laatste fase van de funnel staat. Gaat hij daaruit, door een fasewijziging
+van de casus of doordat de funnel verandert (een fase erachter, een andere
+volgorde), dan is hij ingetrokken: published_at leeg, zodat hij niet vanzelf
+terugkomt. Deze module is de enige plek die bepaalt welke casussen dat zijn,
+net als services/publieke_vragen.py voor de vragen.
 """
 
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bouwmeester.models.casus import Casus
 from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.schema.casus_fases import geldende_casus_fases
 from bouwmeester.schema.initiatief_update import PubliekeCasus, PubliekeCasusBuiten
+from bouwmeester.schema.publieke_tekst import verwijzingen_als_tekst
 
 
 def laatste_fase(initiatief: Initiatief | None) -> str | None:
-from bouwmeester.schema.publieke_tekst import verwijzingen_als_tekst
     """De id van de laatste fase van de funnel: daar is een casus afgerond."""
     if initiatief is None:
         return None
@@ -55,6 +58,25 @@ def trek_casus_in_als_niet_af(casus: Casus, laatste: str | None) -> bool:
         return False
     casus.published_at = None
     return True
+
+
+async def trek_casussen_in_buiten_laatste_fase(
+    db: AsyncSession, initiatief: Initiatief
+) -> int:
+    """Na een wijziging van de funnel: elke vrijgegeven casus die nu niet in
+    de laatste fase staat, gaat terug naar binnen. Geeft het aantal."""
+    laatste = laatste_fase(initiatief)
+    stmt = (
+        update(Casus)
+        .where(
+            Casus.initiatief_id == initiatief.id,
+            Casus.published_at.is_not(None),
+            Casus.fase != (laatste or ""),
+        )
+        .values(published_at=None)
+        .execution_options(synchronize_session="fetch")
+    )
+    return (await db.execute(stmt)).rowcount or 0
 
 
 def _buiten_filter(initiatief: Initiatief):
