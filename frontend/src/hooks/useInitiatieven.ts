@@ -19,6 +19,8 @@ import {
   publishInitiatiefUpdate,
   unpublishInitiatiefUpdate,
   deleteInitiatiefUpdate,
+  getVrijgegevenVragen,
+  getKlaarOmTeDelen,
 } from '@/api/initiatieven';
 import { queryKeys } from '@/hooks/queryKeys';
 import type {
@@ -42,6 +44,16 @@ export function useInitiatief(id: string | undefined) {
     queryFn: () => getInitiatief(id!),
     enabled: !!id,
   });
+}
+
+/**
+ * Mag de ingelogde persoon iets van dit initiatief naar buiten brengen? Een
+ * bijdrager of eigenaar, dezelfde regel als `require_can_publish_issue` in de
+ * backend. Zolang het initiatief laadt: nee.
+ */
+export function useKanVrijgeven(initiatiefId: string | null | undefined): boolean {
+  const { data } = useInitiatief(initiatiefId ?? undefined);
+  return data?.access_level === 'eigenaar' || data?.access_level === 'contributor';
 }
 
 /** Wie het initiatief kan zien: de kandidaten voor een casusteam. */
@@ -194,6 +206,9 @@ export function useUpdateInitiatiefSettings() {
       updateInitiatiefSettings(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.initiatieven.all });
+      // Een andere laatste fase trekt vrijgegeven casussen in.
+      qc.invalidateQueries({ queryKey: ['klaar-om-te-delen'] });
+      qc.invalidateQueries({ queryKey: ['initiatief-updates'] });
     },
   });
 }
@@ -204,6 +219,29 @@ export function useUpdateInitiatiefSettings() {
 
 const initiatiefUpdatesKey = (initiatiefId: string | undefined) =>
   ['initiatief-updates', initiatiefId] as const;
+
+const vrijgegevenVragenKey = (initiatiefId: string | undefined) =>
+  ['vrijgegeven-vragen', initiatiefId] as const;
+
+const klaarKey = (initiatiefId: string | undefined) => ['klaar-om-te-delen', initiatiefId] as const;
+
+/** Afgeronde onderzoeksvragen en casussen: waar een update op voortbouwt. */
+export function useKlaarOmTeDelen(initiatiefId: string | undefined) {
+  return useQuery({
+    queryKey: klaarKey(initiatiefId),
+    queryFn: () => getKlaarOmTeDelen(initiatiefId!),
+    enabled: !!initiatiefId,
+  });
+}
+
+/** De beantwoorde onderzoeksvragen die een update kan meenemen, nieuwste eerst. */
+export function useVrijgegevenVragen(initiatiefId: string | undefined) {
+  return useQuery({
+    queryKey: vrijgegevenVragenKey(initiatiefId),
+    queryFn: () => getVrijgegevenVragen(initiatiefId!),
+    enabled: !!initiatiefId,
+  });
+}
 
 export function useInitiatiefUpdates(initiatiefId: string | undefined) {
   return useQuery({
@@ -225,6 +263,8 @@ export function useCreateInitiatiefUpdate() {
     }) => createInitiatiefUpdate(initiatiefId, data),
     onSuccess: (_data, { initiatiefId }) => {
       qc.invalidateQueries({ queryKey: initiatiefUpdatesKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: vrijgegevenVragenKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: klaarKey(initiatiefId) });
     },
   });
 }
@@ -243,6 +283,8 @@ export function useEditInitiatiefUpdate() {
     }) => editInitiatiefUpdate(initiatiefId, postId, data),
     onSuccess: (_data, { initiatiefId }) => {
       qc.invalidateQueries({ queryKey: initiatiefUpdatesKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: vrijgegevenVragenKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: klaarKey(initiatiefId) });
     },
   });
 }
@@ -259,6 +301,8 @@ export function usePublishInitiatiefUpdate() {
     }) => publishInitiatiefUpdate(initiatiefId, postId),
     onSuccess: (_data, { initiatiefId }) => {
       qc.invalidateQueries({ queryKey: initiatiefUpdatesKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: vrijgegevenVragenKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: klaarKey(initiatiefId) });
     },
   });
 }
@@ -275,6 +319,8 @@ export function useUnpublishInitiatiefUpdate() {
     }) => unpublishInitiatiefUpdate(initiatiefId, postId),
     onSuccess: (_data, { initiatiefId }) => {
       qc.invalidateQueries({ queryKey: initiatiefUpdatesKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: vrijgegevenVragenKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: klaarKey(initiatiefId) });
     },
   });
 }
@@ -291,6 +337,8 @@ export function useDeleteInitiatiefUpdate() {
     }) => deleteInitiatiefUpdate(initiatiefId, postId),
     onSuccess: (_data, { initiatiefId }) => {
       qc.invalidateQueries({ queryKey: initiatiefUpdatesKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: vrijgegevenVragenKey(initiatiefId) });
+      qc.invalidateQueries({ queryKey: klaarKey(initiatiefId) });
     },
   });
 }

@@ -48,6 +48,7 @@ export function DodModal({ issue, mode, onClose }: Props) {
   const [checked, setChecked] = useState<Set<string>>(new Set());
 
   // Bij afronden van een onderzoeksvraag: het antwoord, interne versie, voor het team.
+  // De externe versie volgt daarna in het vraagpaneel (Naar buiten).
   const metAntwoord = mode === 'afronden' && !!issue?.is_onderzoeksvraag;
   const [antwoord, setAntwoord] = useState(issue?.antwoord ?? '');
   useEffect(() => {

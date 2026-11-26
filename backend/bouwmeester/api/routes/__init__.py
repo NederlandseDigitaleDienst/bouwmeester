@@ -38,6 +38,10 @@ from bouwmeester.api.routes.mattermost_channels import (
 from bouwmeester.api.routes.mentions import router as mentions_router
 from bouwmeester.api.routes.nodes import router as nodes_router
 from bouwmeester.api.routes.notifications import router as notifications_router
+from bouwmeester.api.routes.onderzoeksverslag import (
+    initiatief_router as initiatief_verslag_router,
+)
+from bouwmeester.api.routes.onderzoeksverslag import router as onderzoeksverslag_router
 from bouwmeester.api.routes.opdrachten import router as opdrachten_router
 from bouwmeester.api.routes.org_placements import router as org_placements_router
 from bouwmeester.api.routes.organisatie import router as organisatie_router
@@ -92,7 +96,9 @@ api_router.include_router(lead_updates_router)
 api_router.include_router(casussen_router)
 api_router.include_router(casus_soorten_router)
 api_router.include_router(issues_router)
+api_router.include_router(onderzoeksverslag_router)
 api_router.include_router(initiatief_vragen_router)
+api_router.include_router(initiatief_verslag_router)
 api_router.include_router(task_comments_router)
 api_router.include_router(llm_router)
 api_router.include_router(mattermost_router)

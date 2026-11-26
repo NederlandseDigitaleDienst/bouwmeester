@@ -1,9 +1,11 @@
 import { useState } from 'react';
 
 import { Modal } from '@/components/common/Modal';
+import { RichTextFormField } from '@/components/common/RichTextFormField';
 import { NlddButton } from '@/components/nldd/NlddButton';
 import { useUpdateCasus } from '@/hooks/useCasussen';
 import type { Casus } from '@/types';
+import { richTextToPlain } from '@/utils/richtext';
 import { EisenNalopen } from './EisenNalopen';
 import { naarSoortEisen, uitMomentopname, zetEis, type EisWaarden } from './eisen';
 
@@ -21,6 +23,9 @@ interface Props {
  * gaat ook door als niet alles af is. De casus bewaart wat het team invulde;
  * wie later opnieuw afrondt, begint daarmee. Annuleren laat de fase staan.
  *
+ * Daaronder: wat het team leerde. Dat blijft binnen; in de tab Updates kun je
+ * er een tekst voor buiten van maken.
+ *
  * Staat de casus in de koelkast, dan haalt dezelfde wijziging hem eruit:
  * één call, zodat hij nooit uit de koelkast is zonder de nieuwe fase.
  * Annuleren laat hem in de koelkast.
@@ -34,6 +39,7 @@ function Formulier({ casus, fase, onClose }: { casus: Casus; fase: { id: string;
   const update = useUpdateCasus();
   const soorten = casus.soorten ?? [];
   const [waarden, setWaarden] = useState<EisWaarden>(() => uitMomentopname(casus.eind_eisen));
+  const [lessen, setLessen] = useState(casus.lessen ?? '');
 
   const afronden = async () => {
     try {
@@ -42,6 +48,9 @@ function Formulier({ casus, fase, onClose }: { casus: Casus; fase: { id: string;
         data: {
           fase: fase.id,
           eind_eisen: naarSoortEisen(soorten, 'eind_eisen', waarden),
+          // Alleen meesturen als er iets aan veranderde: zo overschrijft
+          // afronden geen lessen die iemand intussen elders bijwerkte.
+          ...(lessen !== (casus.lessen ?? '') && { lessen: richTextToPlain(lessen).trim() ? lessen : null }),
           ...(casus.koelkast_sinds ? { uit_koelkast: true } : {}),
         },
       });
@@ -77,6 +86,13 @@ function Formulier({ casus, fase, onClose }: { casus: Casus; fase: { id: string;
           lijst="eind_eisen"
           waarden={waarden}
           onChange={(k, deel) => setWaarden((w) => zetEis(w, k, deel))}
+        />
+        <RichTextFormField
+          label="Wat hebben we geleerd?"
+          value={lessen}
+          onChange={setLessen}
+          rows={3}
+          placeholder="Wat nemen we mee naar de volgende casus? Dit blijft binnen; in Updates maak je er een tekst voor buiten van."
         />
       </nldd-container>
     </Modal>

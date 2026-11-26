@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from bouwmeester.schema.casus_fases import FASE_ID_PATROON
 from bouwmeester.schema.casus_soort import CasusSoortSummary, SoortEis
+from bouwmeester.schema.publieke_tekst import geen_verwijzingen, zonder_witruimte
 from bouwmeester.schema.startvragen import StartAntwoord
 
 # De fases van een casus staan per initiatief in de casusfunnel
@@ -121,10 +122,32 @@ class CasusUpdate(BaseModel):
     # De eindeisen van de soorten zoals het team ze naliep, meestal samen met
     # de stap naar de laatste fase. Geen poort: de fase gaat ook zonder.
     eind_eisen: list[SoortEis] | None = Field(None, max_length=300)
+    # Wat het team leerde, meestal ingevuld bij het afronden. Blijft binnen.
+    lessen: str | None = Field(None, max_length=10000)
     # In de koelkast staat de fase vast (409). Met uit_koelkast haalt dezelfde
     # wijziging de casus eruit, in één transactie met de fase en de eindeisen:
     # zo komt hij nooit uit de koelkast zonder de fase waar hij heen ging.
     uit_koelkast: bool = False
+
+
+class CasusPubliek(BaseModel):
+    """Een afgeronde casus vrijgeven voor buiten.
+
+    Alleen deze teksten gaan naar buiten: een naam die buiten te begrijpen
+    is, wat de casus opleverde, en eventueel de lessen. Schrijf voor een
+    lezer die de casus niet kent, zonder namen of interne details.
+    """
+
+    public_title: str = Field(min_length=1, max_length=500)
+    public_resultaat: str = Field(min_length=1, max_length=5000)
+    public_lessen: str | None = Field(None, max_length=5000)
+
+    _strip = field_validator(
+        "public_title", "public_resultaat", "public_lessen", mode="before"
+    )(zonder_witruimte)
+    _verwijzingen = field_validator(
+        "public_title", "public_resultaat", "public_lessen"
+    )(geen_verwijzingen)
 
 
 class CasusKoelkast(BaseModel):
@@ -194,6 +217,13 @@ class CasusResponse(BaseModel):
     koelkast_sinds: datetime | None = None
     koelkast_reden: str | None = None
     koelkast_verwacht_terug: date | None = None
+    # Wat het team leerde (binnen), en de tekst voor buiten met wanneer die
+    # vrijgegeven is (leeg is binnen).
+    lessen: str | None = None
+    public_title: str | None = None
+    public_resultaat: str | None = None
+    public_lessen: str | None = None
+    published_at: datetime | None = None
     started_by_id: UUID | None = None
     trekker_naam: str | None = None
     team_count: int = 0

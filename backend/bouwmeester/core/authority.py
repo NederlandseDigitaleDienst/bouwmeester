@@ -809,6 +809,25 @@ async def require_can_change_casus(
         )
 
 
+async def require_can_publish_issue(
+    db: AsyncSession, perm_ctx: PermissionContext, person: Person | None, casus
+) -> None:
+    """Een onderzoeksvraag of een afgeronde casus vrijgeven voor buiten:
+    bijdrager of eigenaar van het initiatief, net als een update publiceren.
+
+    De trekker alleen is niet genoeg: een kijker kan trekker zijn, en iets
+    naar buiten brengen is een stap verder dan de casus wijzigen. Intrekken
+    mag wel iedereen die de casus wijzigt (require_can_change_casus).
+    """
+    from bouwmeester.schema.initiatief import EENHEID_ROL_RANK
+
+    rang, _ = await _casus_niveau(db, perm_ctx, person, casus)
+    if rang < EENHEID_ROL_RANK["contributor"]:
+        raise _forbidden(
+            "Iets naar buiten brengen kan een bijdrager of eigenaar van het initiatief"
+        )
+
+
 async def require_can_delete_casus(
     db: AsyncSession, perm_ctx: PermissionContext, person: Person | None, casus
 ) -> None:

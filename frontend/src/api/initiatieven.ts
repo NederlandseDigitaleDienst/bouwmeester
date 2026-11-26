@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, apiDelete } from './client';
+import { apiGet, apiPost, apiPut, apiDelete, BASE_URL } from './client';
 import type {
   InitiatiefPersoon,
   Initiatief,
@@ -12,6 +12,8 @@ import type {
   InitiatiefUpdatePost,
   InitiatiefUpdatePostCreate,
   InitiatiefUpdatePostEdit,
+  KlaarOmTeDelen,
+  VrijgegevenVraag,
 } from '@/types';
 
 export async function getInitiatieven(params?: {
@@ -106,6 +108,25 @@ export async function deleteInitiatiefUpdate(
   postId: string,
 ): Promise<void> {
   return apiDelete(`/api/initiatieven/${initiatiefId}/updates/${postId}`);
+}
+
+/** De beantwoorde onderzoeksvragen die een update kan meenemen. */
+export async function getVrijgegevenVragen(
+  initiatiefId: string,
+): Promise<VrijgegevenVraag[]> {
+  return apiGet<VrijgegevenVraag[]>(
+    `/api/initiatieven/${initiatiefId}/vrijgegeven-vragen`,
+  );
+}
+
+/** Waar een update op voortbouwt: afgeronde vragen en casussen, binnen en buiten. */
+export async function getKlaarOmTeDelen(initiatiefId: string): Promise<KlaarOmTeDelen> {
+  return apiGet<KlaarOmTeDelen>(`/api/initiatieven/${initiatiefId}/klaar-om-te-delen`);
+}
+
+/** De mailbrief van een gepubliceerde update: een .eml die Outlook als concept opent. */
+export function getMailbriefUrl(initiatiefId: string, postId: string): string {
+  return `${BASE_URL}/api/initiatieven/${initiatiefId}/updates/${postId}/eml`;
 }
 
 export async function addInitiatiefMember(

@@ -18,6 +18,7 @@ Wat dit bestand bewaakt:
 - Een vraag zonder casus maak je alleen bij een initiatief met casussen aan.
 - Een vraag zonder casus met taken verwijder je niet (400); zonder taken wel.
 - Het interne antwoord staat bij de vraag; een kijker wijzigt het niet.
+- Afgerond en vrijgegeven gaat hij naar buiten, net als een casusvraag.
 - Verwijderen van het initiatief ruimt de taken onder zo'n vraag op.
 """
 
@@ -302,6 +303,23 @@ async def test_intern_antwoord(db_session, initiatief, lid, kijker, vraag):
     async with client_as(db_session, lid) as c:
         resp = await c.put(pad, json={"antwoord": None})
         assert resp.json()["antwoord"] is None
+
+
+async def test_vrijgegeven_vraag_zonder_casus_gaat_naar_buiten(
+    db_session, initiatief, lid, vraag
+):
+    pad = f"/api/initiatieven/{initiatief.id}/vragen/{vraag['id']}"
+    async with client_as(db_session, lid) as c:
+        assert (await c.put(pad, json={"status": "done"})).status_code == 200
+        resp = await c.put(
+            f"{pad}/publiek",
+            json={"public_title": "Werkpakketten", "public_answer": "Zo zit het."},
+        )
+        assert resp.status_code == 200, resp.text
+        vrij = (
+            await c.get(f"/api/initiatieven/{initiatief.id}/vrijgegeven-vragen")
+        ).json()
+    assert vraag["id"] in {v["id"] for v in vrij}
 
 
 async def test_initiatief_verwijderen_ruimt_taken_op(

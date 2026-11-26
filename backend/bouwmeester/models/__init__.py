@@ -37,7 +37,11 @@ from bouwmeester.models.github_link import GitHubLink  # noqa: F401
 from bouwmeester.models.http_session import HttpSession  # noqa: F401
 from bouwmeester.models.import_watermerk import ImportWatermerk  # noqa: F401
 from bouwmeester.models.initiatief import Initiatief  # noqa: F401
-from bouwmeester.models.initiatief_update import InitiatiefUpdatePost  # noqa: F401
+from bouwmeester.models.initiatief_update import (  # noqa: F401
+    InitiatiefUpdateCasus,
+    InitiatiefUpdatePost,
+    InitiatiefUpdateVraag,
+)
 from bouwmeester.models.instrument import Instrument  # noqa: F401
 from bouwmeester.models.issue import Issue  # noqa: F401
 from bouwmeester.models.lead import Lead  # noqa: F401
@@ -60,6 +64,7 @@ from bouwmeester.models.node_status import CorpusNodeStatus  # noqa: F401
 from bouwmeester.models.node_title import CorpusNodeTitle  # noqa: F401
 from bouwmeester.models.notification import Notification  # noqa: F401
 from bouwmeester.models.onboarding_dismissal import OnboardingDismissal  # noqa: F401
+from bouwmeester.models.onderzoeksverslag import Onderzoeksverslag  # noqa: F401
 from bouwmeester.models.opdracht import Opdracht, OpdrachtNode  # noqa: F401
 from bouwmeester.models.org_email_domein import OrganisatieEmailDomein  # noqa: F401
 from bouwmeester.models.org_naam import OrganisatieEenheidNaam  # noqa: F401

@@ -4,6 +4,7 @@ import type {
   Casus,
   CasusDetail,
   CasusKoelkast,
+  CasusPubliek,
   CasusStart,
   CasusTeamlid,
   CasusUpdate,
@@ -54,4 +55,14 @@ export async function removeCasusTeamlid(casusId: string, rpId: string): Promise
 /** Alle issues van alle casussen van een initiatief, met hun taken, plus de losse taken. */
 export async function getBacklog(initiatiefId: string): Promise<BacklogResponse> {
   return apiGet<BacklogResponse>('/api/casussen/backlog', { initiatief_id: initiatiefId });
+}
+
+/** Geef een afgeronde casus vrij voor buiten, of pas de tekst aan. */
+export async function publishCasus(id: string, data: CasusPubliek): Promise<CasusDetail> {
+  return apiPut<CasusDetail>(`/api/casussen/${id}/publiek`, data);
+}
+
+/** Trek een vrijgegeven casus in; de tekst blijft bewaard. */
+export async function unpublishCasus(id: string): Promise<CasusDetail> {
+  return apiDelete<CasusDetail>(`/api/casussen/${id}/publiek`);
 }

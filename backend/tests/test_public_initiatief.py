@@ -85,6 +85,8 @@ async def test_public_initiatief_returns_only_safe_fields(client, db_session):
         "kleur": "#3B82F6",
         "updates": [],
         "casussen": [],
+        "beantwoorde_vragen": [],
+        "afgeronde_casussen": [],
     }
     # Geen interne velden in de response
     for forbidden in (

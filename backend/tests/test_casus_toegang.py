@@ -19,6 +19,12 @@ Dit bestand bewaakt de regels die daarbij horen:
   van een node, de chat-tools en meldingen. Buiten het initiatief is het
   antwoord 404, ook als de taak een eenheid heeft die je niet ziet.
 - De kandidatenlijst van een initiatief laat zien waarom iemand erbij hoort.
+- Naar buiten (#461): de publieke routes geven 404 bij een onbekende slug en
+  bij een uitgeschakelde pagina, met dezelfde melding. Het werk om iets naar
+  buiten te brengen (klaar om te delen, vrijgeven en intrekken, het verslag)
+  is voor een buitenstaander 404. Wat er wel en niet naar buiten gaat, staat
+  in test_beantwoorde_vragen.py, test_afgeronde_casussen.py en
+  test_onderzoeksverslag.py.
 
 Elders bewaakt, met dezelfde regel:
 - de koelkast van een casus (in en uit, 404 buiten het initiatief):
@@ -1046,6 +1052,68 @@ async def test_werktypen_van_casustaken_alleen_voor_leden(
         assert "Geheimwerktype" in (await c.get("/api/tasks/work-types")).json()
     async with client_as(db_session, buitenstaander) as c:
         assert "Geheimwerktype" not in (await c.get("/api/tasks/work-types")).json()
+
+
+# ---------------------------------------------------------------------------
+# Naar buiten (#461): de publieke routes en het werk eromheen
+# ---------------------------------------------------------------------------
+
+
+async def test_publieke_routes_onbekende_slug_en_pagina_uit(client, initiatief):
+    """Een onbekende slug en een pagina die uit staat geven hetzelfde
+    antwoord, zodat niet te zien is welke initiatieven bestaan."""
+    assert initiatief.public_page_enabled is False
+    verslag = uuid.uuid4()
+    antwoorden = []
+    for slug in ("bestaat-niet", initiatief.slug):
+        pagina = await client.get(f"/api/public/initiatieven/by-slug/{slug}")
+        download = await client.get(
+            f"/api/public/initiatieven/by-slug/{slug}/verslagen/{verslag}"
+        )
+        assert pagina.status_code == 404 and download.status_code == 404
+        antwoorden.append((pagina.json(), download.json()))
+    assert antwoorden[0] == antwoorden[1]
+
+
+async def test_buitenstaander_vindt_naar_buiten_werk_niet(
+    client, db_session, initiatief, casus, buitenstaander
+):
+    cid = casus["id"]
+    vraag = (
+        await client.post(f"/api/casussen/{cid}/issues", json={"title": "Vraag"})
+    ).json()
+    await client.put(
+        f"/api/casussen/{cid}/issues/{vraag['id']}", json={"status": "done"}
+    )
+    los = (
+        await client.post(
+            f"/api/initiatieven/{initiatief.id}/vragen", json={"title": "Losse vraag"}
+        )
+    ).json()
+    await client.put(
+        f"/api/initiatieven/{initiatief.id}/vragen/{los['id']}", json={"status": "done"}
+    )
+    tekst = {"public_title": "Vraag buiten", "public_answer": "Antwoord buiten"}
+    casustekst = {"public_title": "Casus buiten", "public_resultaat": "Resultaat"}
+    vraagpaden = [
+        f"/api/casussen/{cid}/issues/{vraag['id']}",
+        f"/api/initiatieven/{initiatief.id}/vragen/{los['id']}",
+    ]
+
+    async with client_as(db_session, buitenstaander) as c:
+        resp = await c.get(f"/api/initiatieven/{initiatief.id}/klaar-om-te-delen")
+        assert resp.status_code == 404
+        for pad in vraagpaden:
+            assert (await c.put(f"{pad}/publiek", json=tekst)).status_code == 404
+            assert (await c.delete(f"{pad}/publiek")).status_code == 404
+            assert (await c.get(f"{pad}/verslag")).status_code == 404
+            assert (await c.get(f"{pad}/verslag/download")).status_code == 404
+            resp = await c.put(f"{pad}/verslag/openbaar", json={"akkoord": True})
+            assert resp.status_code == 404
+            assert (await c.delete(f"{pad}/verslag/openbaar")).status_code == 404
+        resp = await c.put(f"/api/casussen/{cid}/publiek", json=casustekst)
+        assert resp.status_code == 404
+        assert (await c.delete(f"/api/casussen/{cid}/publiek")).status_code == 404
 
 
 # ---------------------------------------------------------------------------

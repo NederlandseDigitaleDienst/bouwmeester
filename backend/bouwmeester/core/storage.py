@@ -128,13 +128,26 @@ BRON_ALLOWED_CONTENT_TYPES = {
 MAX_UPLOAD_SIZE = 20 * 1024 * 1024  # 20 MB
 
 
-def verify_content_type(content: bytes, claimed: str) -> bool:
+def verify_content_type(
+    content: bytes, claimed: str, *, signatuur_verplicht: bool = False
+) -> bool:
     """Check that *content* magic bytes are consistent with *claimed* MIME type.
 
     Returns ``True`` when the content matches (or for ``text/plain`` where
     magic-byte detection is unreliable).  Returns ``False`` when a magic
     signature is found that contradicts the claimed type.
+
+    With ``signatuur_verplicht`` the content must start with a signature of
+    the claimed type: content without a known signature fails, and so does
+    a type without one. For files that go outside (the onderzoeksverslag on
+    the public page), where "unknown passes" is too loose.
     """
+    if signatuur_verplicht:
+        return any(
+            content[: len(sig)] == sig and claimed in allowed_types
+            for sig, allowed_types in _MAGIC_SIGNATURES.items()
+        )
+
     if claimed == "text/plain":
         return True
 
@@ -149,11 +162,14 @@ def validate_upload(
     content: bytes,
     content_type: str,
     allowed: set[str] | None = None,
+    *,
+    signatuur_verplicht: bool = False,
 ) -> None:
     """Validate content type against allowlist and magic bytes.
 
     Raises ``HTTPException`` with 400 status on validation failure.
     Uses *allowed* if given, otherwise falls back to ``ALLOWED_CONTENT_TYPES``.
+    ``signatuur_verplicht``: see ``verify_content_type``.
     """
     if content_type not in (allowed or ALLOWED_CONTENT_TYPES):
         raise HTTPException(
@@ -163,7 +179,9 @@ def validate_upload(
                 "Toegestaan: PDF, Word, ODT, TXT, PNG, JPEG, GIF, WebP."
             ),
         )
-    if not verify_content_type(content, content_type):
+    if not verify_content_type(
+        content, content_type, signatuur_verplicht=signatuur_verplicht
+    ):
         raise HTTPException(
             status_code=400,
             detail="Bestandsinhoud komt niet overeen met het opgegeven bestandstype.",

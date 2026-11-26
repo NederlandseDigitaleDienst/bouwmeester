@@ -4,8 +4,9 @@ import enum
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from bouwmeester.schema.publieke_tekst import geen_verwijzingen, zonder_witruimte
 from bouwmeester.schema.task import TaskAssigneeSummary
 
 
@@ -42,6 +43,25 @@ class IssueReorder(BaseModel):
     issue_ids: list[UUID]
 
 
+class IssuePubliek(BaseModel):
+    """Een afgeronde onderzoeksvraag vrijgeven voor buiten.
+
+    Alleen deze twee teksten gaan naar buiten; schrijf ze voor een lezer die
+    de casus niet kent, zonder namen of interne details. Spaties eromheen
+    gaan eraf vóór de lengtecontrole, dus alleen spaties is leeg. Een @- of
+    #-verwijzing wordt geweigerd: die zet een naam, een taaktitel en een id
+    in de publieke tekst.
+    """
+
+    public_title: str = Field(min_length=1, max_length=1000)
+    public_answer: str = Field(min_length=1, max_length=5000)
+
+    _strip = field_validator("public_title", "public_answer", mode="before")(
+        zonder_witruimte
+    )
+    _verwijzingen = field_validator("public_title", "public_answer")(geen_verwijzingen)
+
+
 class IssueResponse(BaseModel):
     id: UUID
     # Leeg: een vraag van het initiatief zonder casus.
@@ -58,6 +78,10 @@ class IssueResponse(BaseModel):
     antwoord: str | None = None
     task_count: int = 0
     task_done_count: int = 0
+    # Naar buiten: de publieke tekst en wanneer vrijgegeven (leeg is binnen).
+    public_title: str | None = None
+    public_answer: str | None = None
+    published_at: datetime | None = None
     created_at: datetime
     updated_at: datetime | None = None
 

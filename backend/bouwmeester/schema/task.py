@@ -205,6 +205,10 @@ class BacklogIssue(BaseModel):
     dod_checked: list[str] = []
     # Het antwoord, interne versie.
     antwoord: str | None = None
+    # Naar buiten: de publieke tekst en wanneer vrijgegeven (leeg is binnen).
+    public_title: str | None = None
+    public_answer: str | None = None
+    published_at: datetime | None = None
     tasks: list[BacklogTask] = []
     created_at: datetime
 
