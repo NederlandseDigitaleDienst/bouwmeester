@@ -15,6 +15,7 @@ Wat dit bestand bewaakt:
 - Een vraag in een casus met initiatief_id leeg (aangemaakt door een oude
   versie van de app, tijdens een deploy): de ledencontrole en de backlog
   nemen het initiatief van de casus.
+- Een vraag zonder casus maak je alleen bij een initiatief met casussen aan.
 - Een vraag zonder casus met taken verwijder je niet (400); zonder taken wel.
 - Het interne antwoord staat bij de vraag; een kijker wijzigt het niet.
 - Verwijderen van het initiatief ruimt de taken onder zo'n vraag op.
@@ -40,9 +41,12 @@ from tests.factories import (
 )
 
 
-async def _initiatief(db_session, slug):
+async def _initiatief(db_session, slug, casussen_enabled=True):
     init = Initiatief(
-        id=uuid.uuid4(), naam=f"Init {slug}", slug=slug, casussen_enabled=True
+        id=uuid.uuid4(),
+        naam=f"Init {slug}",
+        slug=slug,
+        casussen_enabled=casussen_enabled,
     )
     db_session.add(init)
     await db_session.flush()
@@ -451,6 +455,18 @@ async def test_vraag_zonder_initiatief_id_verhuist(client, db_session, initiatie
         assert uit.status_code == 200, uit.text
         assert uit.json()["casus_id"] is None
         assert uit.json()["initiatief_id"] == str(initiatief.id)
+
+
+async def test_geen_vraag_zonder_casus_als_casussen_uit_staan(db_session, werkeenheid):
+    init = await _initiatief(db_session, "rr-uit", casussen_enabled=False)
+    p = await make_person(db_session, "Bijdrager elders")
+    await grant_role(db_session, p, "editor", werkeenheid)
+    await _lid_van(db_session, init.id, p.id)
+    pad = f"/api/initiatieven/{init.id}/vragen"
+    async with client_as(db_session, p) as c:
+        resp = await c.post(pad, json={"title": "Mag niet"})
+        assert resp.status_code == 400, resp.text
+        assert (await c.get(pad)).json() == []
 
 
 def test_werk_zonder_casus_heeft_altijd_een_initiatief():

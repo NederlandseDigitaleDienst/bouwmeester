@@ -140,6 +140,16 @@ def maak_router(prefix: str, plek_dep: PlekDep, *, met_volgorde: bool) -> APIRou
         perm_ctx: PermissionContext = Depends(get_permission_context),
     ) -> IssueResponse:
         await require_can_change_casus(db, perm_ctx, current_user, plek)
+        if plek.id is None:
+            # Een vraag zonder casus hoort bij een initiatief dat met
+            # casussen werkt, zoals het starten van een casus
+            # (casussen.py). Bestaande vragen blijven te zien en te wijzigen.
+            init = await db.get(Initiatief, plek.initiatief_id)
+            if init is None or not init.casussen_enabled:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Casussen staan niet aan voor dit initiatief",
+                )
         if data.assignee_id is not None:
             await require_initiatief_member(db, plek.initiatief_id, data.assignee_id)
         repo = IssueRepository(db)
