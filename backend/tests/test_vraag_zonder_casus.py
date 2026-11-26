@@ -9,7 +9,9 @@ Wat dit bestand bewaakt:
   zo vertrouwelijk als het initiatief: buiten het initiatief 404 en in geen
   lijst. Wie hem doet, moet lid zijn van het initiatief.
 - Een vraag verhuist uit een casus naar het initiatief en terug, met zijn
-  taken; niet naar een casus van een ander initiatief.
+  taken; niet naar een casus van een ander initiatief. Oude subtaken onder
+  die taken gaan mee en krijgen het issue_id van de vraag, zodat ze
+  verankerd blijven (ck_task_anchor) en buiten het initiatief onvindbaar.
 - Een vraag in een casus met initiatief_id leeg (aangemaakt door een oude
   versie van de app, tijdens een deploy): de ledencontrole en de backlog
   nemen het initiatief van de casus.
@@ -304,6 +306,81 @@ async def test_initiatief_verwijderen_ruimt_taken_op(
     resp = await client.delete(f"/api/initiatieven/{initiatief.id}")
     assert resp.status_code == 204, resp.text
     assert await db_session.get(Task, uuid.UUID(taak["id"])) is None
+
+
+async def test_vraag_met_oude_subtaken_verhuist_uit_casus_en_terug(
+    client, db_session, initiatief, lid, buitenstaander
+):
+    """Een subtaak onder een casustaak kan niet meer ontstaan, maar oude
+    gegevens kunnen hem hebben: alleen casus_id en parent_id gevuld. Uit de
+    casus halen gaf dan een 500 (ck_task_anchor). Nu gaan de subtaken mee,
+    met het issue_id van de vraag, en tellen ze niet mee voor de vraag."""
+    casus = await _casus(client, db_session, initiatief)
+    async with client_as(db_session, lid) as c:
+        v = (
+            await c.post(
+                f"/api/casussen/{casus['id']}/issues", json={"title": "Met subtaken"}
+            )
+        ).json()
+        t = (
+            await c.post("/api/tasks", json={"title": "Hoofd", "issue_id": v["id"]})
+        ).json()
+    sub = Task(
+        id=uuid.uuid4(),
+        title="Oude subtaak",
+        casus_id=uuid.UUID(casus["id"]),
+        parent_id=uuid.UUID(t["id"]),
+    )
+    db_session.add(sub)
+    await db_session.flush()
+    subsub = Task(
+        id=uuid.uuid4(),
+        title="Oude subsubtaak",
+        casus_id=uuid.UUID(casus["id"]),
+        parent_id=sub.id,
+    )
+    db_session.add(subsub)
+    await db_session.flush()
+
+    async with client_as(db_session, lid) as c:
+        uit = await c.put(
+            f"/api/casussen/{casus['id']}/issues/{v['id']}", json={"casus_id": None}
+        )
+        assert uit.status_code == 200, uit.text
+        assert (uit.json()["task_count"], uit.json()["task_done_count"]) == (1, 0)
+
+    db_session.expire_all()
+    for taak_id in (sub.id, subsub.id):
+        rij = await db_session.get(Task, taak_id)
+        assert (rij.casus_id, rij.issue_id) == (None, uuid.UUID(v["id"]))
+
+    async with client_as(db_session, buitenstaander) as c:
+        assert (await c.get(f"/api/tasks/{sub.id}")).status_code == 404
+        alle = {x["id"] for x in (await c.get("/api/tasks")).json()}
+        assert str(sub.id) not in alle and str(subsub.id) not in alle
+
+    async with client_as(db_session, lid) as c:
+        backlog = (
+            await c.get(
+                "/api/casussen/backlog", params={"initiatief_id": str(initiatief.id)}
+            )
+        ).json()
+        item = next(i for i in backlog["issues"] if i["id"] == v["id"])
+        assert [x["id"] for x in item["tasks"]] == [t["id"]]
+
+        terug = await c.put(
+            f"/api/initiatieven/{initiatief.id}/vragen/{v['id']}",
+            json={"casus_id": casus["id"]},
+        )
+        assert terug.status_code == 200, terug.text
+
+    db_session.expire_all()
+    for taak_id in (sub.id, subsub.id):
+        rij = await db_session.get(Task, taak_id)
+        assert (rij.casus_id, rij.issue_id) == (
+            uuid.UUID(casus["id"]),
+            uuid.UUID(v["id"]),
+        )
 
 
 async def _vraag_van_oude_versie(client, db_session, initiatief, lid):

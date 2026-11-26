@@ -111,6 +111,14 @@ class IssueRepository(BaseRepository[Issue]):
         nieuwe casus. Met None gaat de vraag uit de casus naar het
         initiatief; de taken hangen dan alleen nog aan de vraag.
 
+        Subtaken krijgen ook het issue_id van de vraag. Een subtaak zonder
+        node en zonder casus heeft anders geen anker meer (ck_task_anchor),
+        en de toegangsfilters (apply_casus_filter) herkennen werk van een
+        initiatief aan casus_id of issue_id: zonder allebei zou de subtaak
+        als node-taak voor de hele org-scope zichtbaar worden. Een subtaak
+        telt niet mee voor de vraag (counts en sync_status kijken alleen
+        naar hoofdtaken).
+
         Het issue krijgt ook het initiatief van de plek. Een vraag die een
         oude versie van de app aanmaakte, kan initiatief_id leeg hebben;
         zonder casus moet hij gevuld zijn (ck_issue_plek). Het issue komt
@@ -157,6 +165,14 @@ class IssueRepository(BaseRepository[Issue]):
                 update(Task)
                 .where(Task.id.in_(taken + subtaken))
                 .values(casus_id=casus_id)
+            )
+        if subtaken:
+            # Een subtaak aan een node houdt die node als anker; een taak hangt
+            # niet aan een node en een vraag tegelijk.
+            await self.session.execute(
+                update(Task)
+                .where(Task.id.in_(subtaken), Task.node_id.is_(None))
+                .values(issue_id=issue.id)
             )
         if initiatief_id is not None:
             issue.initiatief_id = initiatief_id
