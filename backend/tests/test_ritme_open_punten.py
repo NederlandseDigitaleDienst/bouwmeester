@@ -3,7 +3,8 @@
 Dekt: leeg zolang er niets is ingevuld; instellen, teruglezen en weghalen
 (eigenaar alleen); witruimte eraf, lege regels weg; invoer begrensd; andere
 instellingen laten beide staan; een lid leest ze wel maar wijzigt ze niet;
-buiten het initiatief en op de publieke pagina is niets te zien.
+buiten het initiatief, in het overzicht en op de publieke pagina is niets te
+zien.
 """
 
 import uuid
@@ -155,6 +156,23 @@ async def test_buiten_het_initiatief_niets_te_zien(client, db_session, initiatie
     assert resp.status_code in (403, 404), resp.text
     assert "GitHub" not in resp.text
     assert "volgorde" not in resp.text
+
+
+async def test_het_overzicht_stuurt_ze_niet_mee(client, initiatief):
+    """GET /api/initiatieven geeft per initiatief een kaartje: zonder ritme,
+    open punten en wensen. Die leest alleen de tab RegelRitme, uit de
+    detailrespons, en anders groeit het overzicht met elk team mee."""
+    await _zet(client, initiatief, open_punten=PUNTEN, wensen=[WENS])
+    resp = await client.get("/api/initiatieven")
+    assert resp.status_code == 200, resp.text
+    item = next(i for i in resp.json() if i["id"] == str(initiatief.id))
+    assert "overleggen" not in item
+    assert "open_punten" not in item
+    assert "wensen" not in item
+    assert "volgorde" not in resp.text
+    # De detailrespons en het antwoord op opslaan houden ze wel.
+    detail = (await client.get(f"/api/initiatieven/{initiatief.id}")).json()
+    assert {"overleggen", "open_punten", "wensen"} <= detail.keys()
 
 
 async def test_de_publieke_pagina_toont_ze_niet(client, initiatief):
