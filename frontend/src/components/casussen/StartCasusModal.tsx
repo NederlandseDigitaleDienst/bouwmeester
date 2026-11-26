@@ -283,13 +283,16 @@ export function StartCasusModal({ lead: vasteLead, onClose, onStarted, kiesUit, 
           <nldd-text size="sm" color="secondary">Laden...</nldd-text>
         ) : (
           // Elke vraag een eigen blok om open en dicht te klappen, met het
-          // antwoord in de kop: zo is het venster een overzicht.
+          // antwoord in de kop: zo is het venster een overzicht. Een
+          // verplichte vraag zonder antwoord begint open: zonder die vraag
+          // blijft "Casus starten" uit, en dan moet je zien waarom.
           vragen.map((v) => (
             <InstellingenBlok
               key={v.id}
               icon={v.id === CASUSTYPE_ID ? 'check-mark-circle' : 'question-mark-circle'}
               titel={v.vraag}
               samenvatting={antwoordSamenvatting(v, waarden[v.id])}
+              defaultOpen={v.verplicht && !isBeantwoord(waarden[v.id])}
             >
               <StartvraagVeld zonderLabel vraag={v} waarde={waarden[v.id]} onChange={(w) => setWaarden((a) => ({ ...a, [v.id]: w }))} />
             </InstellingenBlok>
