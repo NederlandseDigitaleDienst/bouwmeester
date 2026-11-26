@@ -48,7 +48,10 @@ from bouwmeester.core.werkplek import InitiatiefWerk, Werkplek
 from bouwmeester.models.casus import Casus
 from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.repositories.casus import verslag_paden
-from bouwmeester.repositories.issue import IssueRepository
+from bouwmeester.repositories.issue import (
+    IssueRepository,
+    verslag_terug_naar_binnen,
+)
 from bouwmeester.schema.issue import (
     IssueCreate,
     IssuePubliek,
@@ -328,12 +331,15 @@ def maak_router(prefix: str, plek_dep: PlekDep, *, met_volgorde: bool) -> APIRou
         db: AsyncSession = Depends(get_db),
         perm_ctx: PermissionContext = Depends(get_permission_context),
     ) -> IssueResponse:
-        """Trek een vrijgegeven vraag in. De tekst blijft bewaard, binnen."""
+        """Trek een vrijgegeven vraag in. De tekst blijft bewaard, binnen; het
+        akkoord op het verslag vervalt."""
         await require_can_change_casus(db, perm_ctx, current_user, plek)
         repo = IssueRepository(db)
         issue = await issue_in_plek(repo, plek, issue_id)
         if issue.published_at is not None:
             issue.published_at = None
+            # Het akkoord op het verslag gold voor de vraag buiten.
+            await verslag_terug_naar_binnen(db, issue.id)
             await _bewaar(db, issue)
             await log_activity(
                 db,

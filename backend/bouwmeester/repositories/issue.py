@@ -12,6 +12,7 @@ from bouwmeester.core.initiatief_context import (
 from bouwmeester.core.org_context import OrgContext, apply_org_filter
 from bouwmeester.models.casus import Casus
 from bouwmeester.models.issue import Issue
+from bouwmeester.models.onderzoeksverslag import Onderzoeksverslag
 from bouwmeester.models.task import Task
 from bouwmeester.repositories.base import BaseRepository
 from bouwmeester.schema.issue import IssueCreate, IssueUpdate
@@ -95,7 +96,8 @@ class IssueRepository(BaseRepository[Issue]):
             return None
         for key, value in data.model_dump(exclude_unset=True).items():
             setattr(issue, key, value)
-        trek_in_als_niet_af(issue)
+        if trek_in_als_niet_af(issue):
+            await verslag_terug_naar_binnen(self.session, issue.id)
         await self.session.flush()
         await self.session.refresh(issue)
         await self.session.refresh(issue, attribute_names=["assignee"])
@@ -262,7 +264,8 @@ class IssueRepository(BaseRepository[Issue]):
             return
         if issue.status != nieuw:
             issue.status = nieuw
-            trek_in_als_niet_af(issue)
+            if trek_in_als_niet_af(issue):
+                await verslag_terug_naar_binnen(self.session, issue.id)
             await self.session.flush()
 
 
@@ -272,7 +275,8 @@ def trek_in_als_niet_af(issue: Issue) -> bool:
     Heropend, door een taak weer open gezet, of geen onderzoeksvraag meer:
     dan klopt "beantwoord" niet meer. De publieke tekst blijft bewaard; wie
     de vraag opnieuw afrondt, geeft hem bewust opnieuw vrij. Geeft True als
-    de vraag nu werd ingetrokken.
+    de vraag nu werd ingetrokken; de aanroeper zet dan met
+    `verslag_terug_naar_binnen` ook het akkoord op het verslag terug.
     """
     if issue.published_at is None:
         return False
@@ -280,3 +284,20 @@ def trek_in_als_niet_af(issue: Issue) -> bool:
         return False
     issue.published_at = None
     return True
+
+
+async def verslag_terug_naar_binnen(session, issue_id: UUID) -> None:
+    """Het akkoord op het verslag van deze vraag vervalt.
+
+    Na intrekken of heropenen van de vraag: het akkoord gold voor een vraag
+    die buiten stond. Wie de vraag opnieuw vrijgeeft, beslist opnieuw over
+    het verslag. Het bestand blijft staan.
+    """
+    await session.execute(
+        update(Onderzoeksverslag)
+        .where(
+            Onderzoeksverslag.issue_id == issue_id,
+            Onderzoeksverslag.openbaar_op.is_not(None),
+        )
+        .values(openbaar_op=None, openbaar_door_id=None)
+    )
