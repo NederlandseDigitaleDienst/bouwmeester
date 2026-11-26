@@ -163,19 +163,21 @@ class IssueRepository(BaseRepository[Issue]):
             )
             subtaken.extend(rand)
 
+        if subtaken:
+            # Eerst het anker, dan de casus: een oude subtaak heeft alleen een
+            # casus_id, en zonder issue_id zou ck_task_anchor de stap uit de
+            # casus weigeren. Een subtaak aan een node houdt die node als
+            # anker; een taak hangt niet aan een node en een vraag tegelijk.
+            await self.session.execute(
+                update(Task)
+                .where(Task.id.in_(subtaken), Task.node_id.is_(None))
+                .values(issue_id=issue.id)
+            )
         if taken or subtaken:
             await self.session.execute(
                 update(Task)
                 .where(Task.id.in_(taken + subtaken))
                 .values(casus_id=casus_id)
-            )
-        if subtaken:
-            # Een subtaak aan een node houdt die node als anker; een taak hangt
-            # niet aan een node en een vraag tegelijk.
-            await self.session.execute(
-                update(Task)
-                .where(Task.id.in_(subtaken), Task.node_id.is_(None))
-                .values(issue_id=issue.id)
             )
         if initiatief_id is not None:
             issue.initiatief_id = initiatief_id
