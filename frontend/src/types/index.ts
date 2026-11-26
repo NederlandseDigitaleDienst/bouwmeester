@@ -2118,6 +2118,8 @@ export interface CasusUpdate {
   startvoorwaarden?: Startvoorwaarden;
   /** De eindeisen zoals het team ze naliep, meestal samen met de laatste fase. */
   eind_eisen?: SoortEis[];
+  /** In de koelkast staat de fase vast; dit haalt hem er in dezelfde wijziging uit. */
+  uit_koelkast?: boolean;
 }
 
 export interface LeadCreate {

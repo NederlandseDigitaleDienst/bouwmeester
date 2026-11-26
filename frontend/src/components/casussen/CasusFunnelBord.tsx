@@ -75,10 +75,12 @@ export function CasusFunnelBord({ casussen, initiatiefId, onOpen }: Props) {
   }, [casussen, fases]);
 
   // Naar de laatste fase met eindeisen: eerst nalopen, de fase gaat mee
-  // met het afronden. Anders meteen.
+  // met het afronden. Anders meteen. Uit de koelkast gaat in dezelfde
+  // wijziging mee (ook in het afrondvenster), zodat de casus nooit uit de
+  // koelkast is zonder zijn nieuwe fase.
   const zetFase = (casus: Casus, fase: string) => {
     if (fase === laatste?.id && heeftEisen(casus.soorten ?? [], 'eind_eisen')) setAfronden(casus);
-    else updateCasus.mutate({ id: casus.id, data: { fase } });
+    else updateCasus.mutate({ id: casus.id, data: { fase, ...(casus.koelkast_sinds ? { uit_koelkast: true } : {}) } });
   };
 
   const naarFase = (casusId: string, fase: string) => {
@@ -88,12 +90,13 @@ export function CasusFunnelBord({ casussen, initiatiefId, onOpen }: Props) {
       if (!casus.koelkast_sinds) setNaarKoelkast(casus);
       return;
     }
-    if (casus.koelkast_sinds) {
-      // Uit de koelkast, en daarna naar de kolom waar je hem neerzette.
-      uitKoelkast.mutate(casus.id, { onSuccess: () => casus.fase !== fase && zetFase(casus, fase) });
+    if (casus.fase === fase) {
+      // Terug in zijn eigen fase: alleen uit de koelkast.
+      if (casus.koelkast_sinds) uitKoelkast.mutate(casus.id);
       return;
     }
-    if (casus.fase === fase) return;
+    // Naar een andere fase, ook vanuit de koelkast: één wijziging. Vraagt de
+    // fase eerst het afrondvenster, dan blijft hij bij annuleren in de koelkast.
     zetFase(casus, fase);
   };
   const faseNaam = (id: string) => fases.find((f) => f.id === id)?.naam ?? id;
