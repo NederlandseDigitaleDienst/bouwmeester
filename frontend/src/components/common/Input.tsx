@@ -105,6 +105,10 @@ export const Input = forwardRef<HTMLElement, InputProps>(
       ...(placeholder ? { placeholder } : {}),
       ...(name ? { name } : {}),
       ...(autoComplete ? { autocomplete: autoComplete } : {}),
+      // Als attribuut: een venster (nldd-window, nldd-sheet) zoekt bij openen
+      // naar [autofocus] en geeft dat veld de focus. Bleef het weg, dan kreeg
+      // het venster zelf de focus.
+      ...(rest.autoFocus ? { autoFocus: true } : {}),
       ...(rest.maxLength !== undefined ? { maxlength: rest.maxLength } : {}),
       ...(rest.minLength !== undefined ? { minlength: rest.minLength } : {}),
     };

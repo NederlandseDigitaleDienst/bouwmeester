@@ -2,7 +2,9 @@ import { useState } from 'react';
 
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { EmptyState } from '@/components/common/EmptyState';
+import { Modal } from '@/components/common/Modal';
 import { NlddButton } from '@/components/nldd/NlddButton';
+import { NlddIconButton } from '@/components/nldd/NlddIconButton';
 import { useLeadDetail } from '@/contexts/LeadDetailContext';
 import { useCasus } from '@/hooks/useCasussen';
 import { useCasusFases } from '@/hooks/useCasusFases';
@@ -20,11 +22,12 @@ interface Props {
 
 /**
  * Eén casus, inline op de tab Casussen: een kop met fase, trekker en team,
- * de casusgegevens om uit te klappen, en daaronder het werk in hetzelfde
- * formaat als de backlog (issues met hun kanban), beperkt tot deze casus.
+ * en daaronder het werk in hetzelfde formaat als de backlog (issues met hun
+ * kanban), beperkt tot deze casus.
  *
- * Geen venster: taakdetail en issue bewerken openen er zelf een, en een
- * venster op een venster werkt niet prettig.
+ * De casusgegevens (fase, soorten, team, startvoorwaarden, herkomst) staan
+ * achter de drie puntjes rechts in de kop, in een paneel aan de rechterkant,
+ * net als bij een onderzoeksvraag. De puntjes staan zo onder elkaar.
  */
 export function CasusOverzicht({ casusId, initiatiefId, filterPlek }: Props) {
   const { data: casus, isLoading, isError } = useCasus(casusId);
@@ -52,14 +55,14 @@ export function CasusOverzicht({ casusId, initiatiefId, filterPlek }: Props) {
             <nldd-title size={4} className="row-fill">
               <h3>{casus.title}</h3>
             </nldd-title>
-            <NlddButton
+            <NlddButton variant="neutral-transparent" size="sm" endIcon="arrow-right" onClick={() => openLeadDetail(casus.lead_id)} text="Lead" />
+            <NlddIconButton
+              icon="ellipsis"
+              accessibleLabel={`${casus.title}: casusgegevens openen`}
               variant="neutral-transparent"
               size="sm"
-              startIcon={gegevensOpen ? 'chevron-up' : 'chevron-down'}
-              onClick={() => setGegevensOpen((v) => !v)}
-              text={gegevensOpen ? 'Casusgegevens verbergen' : 'Casusgegevens'}
+              onClick={() => setGegevensOpen(true)}
             />
-            <NlddButton variant="neutral-transparent" size="sm" endIcon="arrow-right" onClick={() => openLeadDetail(casus.lead_id)} text="Lead" />
           </nldd-container>
           <nldd-container layout="wrap" gap="12" vertical-alignment="center">
             {fase ? (
@@ -73,13 +76,13 @@ export function CasusOverzicht({ casusId, initiatiefId, filterPlek }: Props) {
               {casus.team_count > 1 ? ` · ${casus.team_count - 1} teamleden` : ''}
             </nldd-text>
           </nldd-container>
-          {gegevensOpen && (
-            <div style={{ borderTop: '1px solid var(--primitives-color-neutral-200)', paddingTop: '12px' }}>
-              <CasusInfo casus={casus} />
-            </div>
-          )}
         </nldd-container>
       </div>
+      {gegevensOpen && (
+        <Modal open onClose={() => setGegevensOpen(false)} title={casus.title} size="lg" placement="right" dismissText="Sluit">
+          <CasusInfo casus={casus} />
+        </Modal>
+      )}
       <InitiatiefBacklog initiatiefId={initiatiefId} vasteCasusId={casus.id} filterPlek={filterPlek} />
     </nldd-container>
   );

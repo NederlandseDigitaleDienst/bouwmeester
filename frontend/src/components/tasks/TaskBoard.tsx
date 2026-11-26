@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { TaskCard } from './TaskCard';
 import { useUpdateTask } from '@/hooks/useTasks';
+import { useOpNaam } from '@/contexts/OpNaamContext';
 import { TaskStatus, TASK_STATUS_LABELS } from '@/types';
 import type { Task } from '@/types';
 
@@ -27,6 +28,7 @@ const COLUMN_TAG_COLOR: Record<TaskStatus, NlddBadgeColor> = {
 
 export function TaskBoard({ tasks, onEditTask }: TaskBoardProps) {
   const updateTask = useUpdateTask();
+  const vraagOpNaam = useOpNaam();
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
 
   const tasksByStatus = BOARD_COLUMNS.reduce(
@@ -59,10 +61,11 @@ export function TaskBoard({ tasks, onEditTask }: TaskBoardProps) {
     const task = tasks.find((t) => t.id === taskId);
     if (!task || task.status === targetStatus) return;
 
-    updateTask.mutate({
-      id: taskId,
-      data: { status: targetStatus },
-    });
+    updateTask.mutate(
+      { id: taskId, data: { status: targetStatus } },
+      // Zonder eigenaar naar In uitvoering of Afgerond: vragen of hij op naam moet.
+      { onSuccess: () => vraagOpNaam(task, targetStatus, task.casus?.initiatief_id) },
+    );
   };
 
   return (

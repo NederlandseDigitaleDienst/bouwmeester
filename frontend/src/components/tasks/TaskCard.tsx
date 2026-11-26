@@ -3,6 +3,7 @@ import { Card } from '@/components/common/Card';
 import { Icon } from '@/components/nldd/Icon';
 import { NlddIconButton } from '@/components/nldd/NlddIconButton';
 import { useUpdateTask } from '@/hooks/useTasks';
+import { useOpNaam } from '@/contexts/OpNaamContext';
 import {
   TaskStatus,
   TaskPriority,
@@ -72,6 +73,7 @@ function TaskTitleButton({
 
 export function TaskCard({ task, onEdit, compact = false }: TaskCardProps) {
   const updateTask = useUpdateTask();
+  const vraagOpNaam = useOpNaam();
   const isDone = task.status === TaskStatus.DONE;
   const isOverdue =
     task.due_date && checkOverdue(task.due_date) && !isDone;
@@ -80,12 +82,12 @@ export function TaskCard({ task, onEdit, compact = false }: TaskCardProps) {
   const doneSubtasks = subtasks.filter((s) => s.status === TaskStatus.DONE).length;
 
   const handleToggleDone = () => {
-    updateTask.mutate({
-      id: task.id,
-      data: {
-        status: isDone ? TaskStatus.OPEN : TaskStatus.DONE,
-      },
-    });
+    const status = isDone ? TaskStatus.OPEN : TaskStatus.DONE;
+    updateTask.mutate(
+      { id: task.id, data: { status } },
+      // Afgevinkt zonder eigenaar: vragen of hij op naam moet.
+      { onSuccess: () => vraagOpNaam(task, status, task.casus?.initiatief_id) },
+    );
   };
 
   const handleCardClick = () => {
