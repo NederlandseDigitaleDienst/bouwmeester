@@ -200,13 +200,12 @@ describe('StartCasusModal vanuit het casusbord', () => {
     expect([...leads.options].map((o) => o.text)).toEqual(['Kies een lead', 'Lead een', 'Lead twee']);
     expect(startknop().hasAttribute('disabled')).toBe(true);
 
-    // Elke vraag staat in een blok dat dicht begint, met in de kop of hij al
-    // beantwoord is.
+    // Elke vraag staat in een eigen blok, met in de kop of hij al beantwoord
+    // is. Een verplichte vraag zonder antwoord staat open: zo zie je wat de
+    // startknop nog tegenhoudt.
     const hoever = await blokKop('Tot hoever brengen we het?');
-    expect(hoever.getAttribute('aria-expanded')).toBe('false');
+    expect(hoever.getAttribute('aria-expanded')).toBe('true');
     expect(hoever.textContent).toContain('Nog niet beantwoord, verplicht');
-    expect(selectMet('Verkennen')).toBeUndefined();
-    await openBlokken(...VRAGEN);
     // Eerst de vragen, dan de lead: de antwoorden blijven staan.
     await waitFor(() => expect(selectMet('Verkennen')).toBeTruthy());
     await kies(selectMet('Ja'), 'ja');
@@ -325,6 +324,29 @@ describe('StartCasusModal vanuit het casusbord', () => {
         startvoorwaarden: expect.objectContaining({ antwoorden: [{ vraag_id: 'kanaal', waarde: 'Website' }] }),
       }),
     );
+  });
+
+  it('opent alleen de verplichte vragen die nog leeg zijn', async () => {
+    vragenVanInitiatief.mockReturnValue([
+      STANDAARD[1],
+      { id: 'notitie', vraag: 'Nog iets?', antwoordtype: 'vrij', opties: [], verplicht: false, op_kaartje: false },
+    ]);
+    soortenVanInitiatief.mockReturnValue([soort('s1', 'Beproeven', [])]);
+    renderWithProviders(
+      <ToastProvider>
+        <StartCasusModal lead={null} kiesUit={[lead('l1', 'Lead een')]} open onClose={vi.fn()} />
+      </ToastProvider>,
+    );
+    const casustype = await blokKop('Is het een interne casus of een satellietcasus?');
+    expect(casustype.getAttribute('aria-expanded')).toBe('true');
+    await waitFor(() => expect(selectMet('Interne casus')).toBeTruthy());
+    // Wat niet hoeft, begint dicht.
+    expect((await blokKop('Nog iets?')).getAttribute('aria-expanded')).toBe('false');
+    expect((await blokKop('Soort casus')).getAttribute('aria-expanded')).toBe('false');
+    // Met de lead en het antwoord gaat de startknop aan, zonder iets open te klappen.
+    await kies(selectMet('Lead een'), 'l1');
+    await kies(selectMet('Interne casus'), 'intern');
+    expect(startknop().hasAttribute('disabled')).toBe(false);
   });
 
   it('zegt het als er geen lead klaarstaat', () => {

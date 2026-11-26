@@ -124,6 +124,10 @@ class CasusUpdate(BaseModel):
     eind_eisen: list[SoortEis] | None = Field(None, max_length=300)
     # Wat het team leerde, meestal ingevuld bij het afronden. Blijft binnen.
     lessen: str | None = Field(None, max_length=10000)
+    # In de koelkast staat de fase vast (409). Met uit_koelkast haalt dezelfde
+    # wijziging de casus eruit, in één transactie met de fase en de eindeisen:
+    # zo komt hij nooit uit de koelkast zonder de fase waar hij heen ging.
+    uit_koelkast: bool = False
 
 
 class CasusPubliek(BaseModel):

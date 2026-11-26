@@ -25,6 +25,10 @@ interface Props {
  *
  * Daaronder: wat het team leerde. Dat blijft binnen; in de tab Updates kun je
  * er een tekst voor buiten van maken.
+ *
+ * Staat de casus in de koelkast, dan haalt dezelfde wijziging hem eruit:
+ * één call, zodat hij nooit uit de koelkast is zonder de nieuwe fase.
+ * Annuleren laat hem in de koelkast.
  */
 export function CasusAfrondenModal({ casus, fase, onClose }: Props) {
   if (!casus || !fase) return null;
@@ -47,6 +51,7 @@ function Formulier({ casus, fase, onClose }: { casus: Casus; fase: { id: string;
           // Alleen meesturen als er iets aan veranderde: zo overschrijft
           // afronden geen lessen die iemand intussen elders bijwerkte.
           ...(lessen !== (casus.lessen ?? '') && { lessen: richTextToPlain(lessen).trim() ? lessen : null }),
+          ...(casus.koelkast_sinds ? { uit_koelkast: true } : {}),
         },
       });
       onClose();
@@ -74,6 +79,7 @@ function Formulier({ casus, fase, onClose }: { casus: Casus; fase: { id: string;
         <nldd-text size="sm" color="secondary">
           Loop de deliverables van de soorten van deze casus na. Vink aan wat af is en licht toe waar dat helpt. De
           casus gaat ook door als niet alles af is.
+          {casus.koelkast_sinds ? ' Hij gaat daarmee ook uit de koelkast.' : ''}
         </nldd-text>
         <EisenNalopen
           soorten={soorten}

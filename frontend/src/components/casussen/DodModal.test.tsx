@@ -21,7 +21,7 @@ beforeAll(() => {
   if (typeof g.CSS?.supports !== 'function') g.CSS = { ...(g.CSS ?? {}), supports: () => false };
 });
 
-const ISSUE = { id: 'i1', casus_id: 'c1', title: 'Werkt het?', dod_checked: [] };
+const ISSUE = { id: 'i1', casus_id: 'c1', title: 'Werkt het?', is_onderzoeksvraag: true, dod_checked: [] };
 const knop = () =>
   [...document.querySelectorAll('nldd-button')].find((b) => b.getAttribute('text')?.startsWith('Afronden'))!;
 
@@ -45,6 +45,7 @@ describe('DodModal', () => {
     );
     await waitFor(() => expect(document.querySelector('nldd-checkbox-field[label="Getest"]')).toBeTruthy());
     expect(knop().getAttribute('text')).toBe('Afronden met 3 open');
+    expect(document.querySelector('nldd-form-field[label="Antwoord, interne versie"]')).toBeTruthy();
 
     await klik('Getest', true);
     expect(knop().getAttribute('text')).toBe('Afronden met 2 open');
@@ -58,5 +59,21 @@ describe('DodModal', () => {
       knop().dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     expect(updateIssue).toHaveBeenCalledWith(expect.objectContaining({ casus_id: 'c1' }), 'i1', { status: IssueStatus.DONE, dod_checked: ['Gedemonstreerd'], antwoord: null });
+  });
+
+  it('vraagt alleen bij een onderzoeksvraag om een antwoord', async () => {
+    const geenVraag = { ...ISSUE, is_onderzoeksvraag: false, antwoord: '<p>Blijft staan</p>' };
+    renderWithProviders(
+      <ToastProvider>
+        <DodModal issue={geenVraag} mode="afronden" onClose={vi.fn()} />
+      </ToastProvider>,
+    );
+    await waitFor(() => expect(document.querySelector('nldd-checkbox-field[label="Getest"]')).toBeTruthy());
+    expect(document.querySelector('nldd-form-field[label="Antwoord, interne versie"]')).toBeNull();
+
+    await act(async () => {
+      knop().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(updateIssue).toHaveBeenCalledWith(expect.objectContaining({ casus_id: 'c1' }), 'i1', { status: IssueStatus.DONE, dod_checked: [] });
   });
 });

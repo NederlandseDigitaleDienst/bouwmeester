@@ -2146,6 +2146,8 @@ export interface CasusUpdate {
   eind_eisen?: SoortEis[];
   /** Wat het team leerde; blijft binnen. */
   lessen?: string | null;
+  /** In de koelkast staat de fase vast; dit haalt hem er in dezelfde wijziging uit. */
+  uit_koelkast?: boolean;
 }
 
 /** Een afgeronde casus vrijgeven voor buiten. */
@@ -2269,12 +2271,6 @@ export interface Initiatief {
   startvragen?: Startvraag[];
   /** De casusfunnel die geldt: de eigen fases, anders het voorstel. */
   casus_fases?: CasusFaseDef[];
-  /** Het ritme: de vaste overleggen van het team; leeg = nog niets vastgelegd. */
-  overleggen?: Overleg[];
-  /** De punten die het team nog moet bespreken of besluiten, voor RegelRitme. */
-  open_punten?: string[];
-  /** Wensen om Bouwmeester zelf aan te passen, voor RegelRitme. */
-  wensen?: Wens[];
   created_by_id: string | null;
   created_at: string;
   updated_at: string | null;
@@ -2621,6 +2617,14 @@ export interface InitiatiefDetail extends Initiatief {
   casus_fases_voorstel?: CasusFaseDef[];
   /** Of de funnel het voorstel is (geen eigen fases). */
   casus_fases_is_voorstel?: boolean;
+  // Voor de tab RegelRitme. Alleen in de detailrespons (en het antwoord op
+  // opslaan), niet in het overzicht: InitiatiefListItem heeft ze niet.
+  /** Het ritme: de vaste overleggen van het team; leeg = nog niets vastgelegd. */
+  overleggen?: Overleg[];
+  /** De punten die het team nog moet bespreken of besluiten. */
+  open_punten?: string[];
+  /** Wensen om Bouwmeester zelf aan te passen. */
+  wensen?: Wens[];
 }
 
 /**

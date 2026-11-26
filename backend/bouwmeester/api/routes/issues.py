@@ -162,6 +162,16 @@ def maak_router(prefix: str, plek_dep: PlekDep, *, met_volgorde: bool) -> APIRou
         perm_ctx: PermissionContext = Depends(get_permission_context),
     ) -> IssueResponse:
         await require_can_change_casus(db, perm_ctx, current_user, plek)
+        if plek.id is None:
+            # Een vraag zonder casus hoort bij een initiatief dat met
+            # casussen werkt, zoals het starten van een casus
+            # (casussen.py). Bestaande vragen blijven te zien en te wijzigen.
+            init = await db.get(Initiatief, plek.initiatief_id)
+            if init is None or not init.casussen_enabled:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Casussen staan niet aan voor dit initiatief",
+                )
         if data.assignee_id is not None:
             await require_initiatief_member(db, plek.initiatief_id, data.assignee_id)
         repo = IssueRepository(db)
@@ -220,11 +230,16 @@ def maak_router(prefix: str, plek_dep: PlekDep, *, met_volgorde: bool) -> APIRou
         repo = IssueRepository(db)
         existing = await issue_in_plek(repo, plek, issue_id)
 
+        # Het initiatief komt van de plek (de casus, of het initiatief uit
+        # het pad), nooit alleen van de vraag: een vraag die een oude versie
+        # van de app in een casus aanmaakte, heeft initiatief_id leeg, en
+        # dan zou de ledencontrole hieronder niets toetsen.
+        initiatief_id = plek.initiatief_id
         verhuist = "casus_id" in data.model_fields_set and data.casus_id != plek.id
         nieuwe_plek: Werkplek | None = None
         if verhuist and data.casus_id is not None:
             nieuwe_plek = await _get_casus(db, data.casus_id, init_ctx)
-            if nieuwe_plek.initiatief_id != existing.initiatief_id:
+            if nieuwe_plek.initiatief_id != initiatief_id:
                 raise HTTPException(
                     status_code=400,
                     detail=(
@@ -233,23 +248,21 @@ def maak_router(prefix: str, plek_dep: PlekDep, *, met_volgorde: bool) -> APIRou
                     ),
                 )
         elif verhuist:
-            if existing.initiatief_id is None:
+            if initiatief_id is None:
                 raise HTTPException(
                     status_code=400,
                     detail="Deze casus hoort bij geen initiatief; de vraag blijft erin",
                 )
-            nieuwe_plek = InitiatiefWerk(initiatief_id=existing.initiatief_id)
+            nieuwe_plek = InitiatiefWerk(initiatief_id=initiatief_id)
         if nieuwe_plek is not None:
             await require_can_change_casus(db, perm_ctx, current_user, nieuwe_plek)
         if "assignee_id" in data.model_fields_set and data.assignee_id is not None:
-            await require_initiatief_member(
-                db, existing.initiatief_id, data.assignee_id
-            )
+            await require_initiatief_member(db, initiatief_id, data.assignee_id)
 
         old_status = existing.status
         was_vrijgegeven = existing.published_at is not None
         if nieuwe_plek is not None:
-            await repo.move_to_casus(existing, nieuwe_plek.id)
+            await repo.move_to_casus(existing, nieuwe_plek.id, initiatief_id)
         velden = IssueUpdate(
             **data.model_dump(exclude_unset=True, exclude={"casus_id"})
         )

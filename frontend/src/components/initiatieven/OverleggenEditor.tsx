@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { errorDetail } from '@/api/client';
 import { Input } from '@/components/common/Input';
 import { NlddButton } from '@/components/nldd/NlddButton';
 import { NlddIconButton } from '@/components/nldd/NlddIconButton';
 import { eventValue, orUndef, useNlddEvent } from '@/components/nldd/events';
 import { useUpdateInitiatiefSettings } from '@/hooks/useInitiatieven';
 import type { InitiatiefDetail, Overleg } from '@/types';
+
+import { opslaanFout } from './opslaanFout';
 
 const MAX_OVERLEGGEN = 20;
 
@@ -70,7 +71,7 @@ export function OverleggenEditor({ initiatief }: { initiatief: InitiatiefDetail 
     try {
       await settings.mutateAsync({ id: initiatief.id, data: { overleggen: schoon(overleggen) } });
     } catch (e) {
-      setFout(errorDetail(e) || 'Opslaan lukte niet.');
+      setFout(opslaanFout(e));
     }
   };
 

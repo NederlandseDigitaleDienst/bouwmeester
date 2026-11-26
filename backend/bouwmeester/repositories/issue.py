@@ -103,13 +103,29 @@ class IssueRepository(BaseRepository[Issue]):
         await self.session.refresh(issue, attribute_names=["assignee"])
         return issue
 
-    async def move_to_casus(self, issue: Issue, casus_id: UUID | None) -> None:
+    async def move_to_casus(
+        self, issue: Issue, casus_id: UUID | None, initiatief_id: UUID | None
+    ) -> None:
         """Verhuis een issue naar een andere casus, met alles eronder.
 
-        De taken onder het issue en hun subtaken krijgen de nieuwe casus.
-        Met None gaat de vraag uit de casus naar het initiatief; de taken
-        hangen dan alleen nog aan de vraag. Het issue komt achteraan op de
-        nieuwe plek. Toegang en initiatief controleert de route.
+        `casus_id` en `initiatief_id` zijn de nieuwe plek; de route bepaalt
+        ze uit de casus of het initiatief, niet uit het issue zelf (zie
+        hieronder). De taken onder het issue en hun subtaken krijgen de
+        nieuwe casus. Met None gaat de vraag uit de casus naar het
+        initiatief; de taken hangen dan alleen nog aan de vraag.
+
+        Subtaken krijgen ook het issue_id van de vraag. Een subtaak zonder
+        node en zonder casus heeft anders geen anker meer (ck_task_anchor),
+        en de toegangsfilters (apply_casus_filter) herkennen werk van een
+        initiatief aan casus_id of issue_id: zonder allebei zou de subtaak
+        als node-taak voor de hele org-scope zichtbaar worden. Een subtaak
+        telt niet mee voor de vraag (counts en sync_status kijken alleen
+        naar hoofdtaken).
+
+        Het issue krijgt ook het initiatief van de plek. Een vraag die een
+        oude versie van de app aanmaakte, kan initiatief_id leeg hebben;
+        zonder casus moet hij gevuld zijn (ck_issue_plek). Het issue komt
+        achteraan op de nieuwe plek. Toegang controleert de route.
         """
         oud = issue.casus_id
         if oud == casus_id:
@@ -118,7 +134,9 @@ class IssueRepository(BaseRepository[Issue]):
         def zelfde_casus(kolom):
             return kolom.is_(None) if oud is None else kolom == oud
 
-        rand = list(
+        # De taken met het issue_id van de vraag (ook subtaken die het al
+        # hebben), en daarna alles wat eronder hangt.
+        taken = list(
             (
                 await self.session.execute(
                     select(Task.id).where(
@@ -129,7 +147,8 @@ class IssueRepository(BaseRepository[Issue]):
             .scalars()
             .all()
         )
-        task_ids = list(rand)
+        subtaken: list[UUID] = []
+        rand = taken
         while rand:
             rand = list(
                 (
@@ -142,18 +161,28 @@ class IssueRepository(BaseRepository[Issue]):
                 .scalars()
                 .all()
             )
-            task_ids.extend(rand)
+            subtaken.extend(rand)
 
-        if task_ids:
+        if taken or subtaken:
             await self.session.execute(
-                update(Task).where(Task.id.in_(task_ids)).values(casus_id=casus_id)
+                update(Task)
+                .where(Task.id.in_(taken + subtaken))
+                .values(casus_id=casus_id)
             )
+        if subtaken:
+            # Een subtaak aan een node houdt die node als anker; een taak hangt
+            # niet aan een node en een vraag tegelijk.
+            await self.session.execute(
+                update(Task)
+                .where(Task.id.in_(subtaken), Task.node_id.is_(None))
+                .values(issue_id=issue.id)
+            )
+        if initiatief_id is not None:
+            issue.initiatief_id = initiatief_id
         doel = (
             Issue.casus_id == casus_id
             if casus_id is not None
-            else and_(
-                Issue.casus_id.is_(None), Issue.initiatief_id == issue.initiatief_id
-            )
+            else and_(Issue.casus_id.is_(None), Issue.initiatief_id == initiatief_id)
         )
         max_stmt = select(func.coalesce(func.max(Issue.sort_order), -1)).where(doel)
         issue.sort_order = (await self.session.execute(max_stmt)).scalar_one() + 1
@@ -181,17 +210,20 @@ class IssueRepository(BaseRepository[Issue]):
 
         Zichtbaarheid loopt via het initiatief van de vraag, net als
         CasusRepository.list_all via dat van de casus. Vragen zonder casus
-        horen erbij.
+        horen erbij. Het initiatief van een vraag is dat van haar casus, en
+        alleen zonder casus issue.initiatief_id: een vraag die een oude
+        versie van de app in een casus aanmaakte, heeft dat veld leeg.
         Losse taken zijn taken van een casus van dit initiatief zonder issue.
         Alleen hoofdtaken: een taak in een casus heeft geen subtaken (de
         filter op parent_id houdt het zo, ook voor oude gegevens).
         """
         taak_opties = (selectinload(Task.assignee),)
+        initiatief_van_vraag = func.coalesce(Casus.initiatief_id, Issue.initiatief_id)
         # Ook de vragen zonder casus; die komen eerst.
         issue_stmt = (
             select(Issue)
             .outerjoin(Casus, Issue.casus_id == Casus.id)
-            .where(Issue.initiatief_id == initiatief_id)
+            .where(initiatief_van_vraag == initiatief_id)
             .options(
                 selectinload(Issue.casus),
                 selectinload(Issue.assignee),
@@ -203,7 +235,7 @@ class IssueRepository(BaseRepository[Issue]):
                 Issue.created_at.asc(),
             )
         )
-        issue_stmt = apply_initiatief_filter(issue_stmt, Issue.initiatief_id, init_ctx)
+        issue_stmt = apply_initiatief_filter(issue_stmt, initiatief_van_vraag, init_ctx)
         issues = list((await self.session.execute(issue_stmt)).scalars().all())
 
         los_stmt = (

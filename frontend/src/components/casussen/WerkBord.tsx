@@ -35,7 +35,8 @@ const VRAAG_KOLOM: Record<IssueStatus, TaskStatus> = {
 
 type Kaart =
   | { soort: 'vraag'; id: string; vraag: BacklogIssue }
-  | { soort: 'taak'; id: string; taak: BacklogTask; vraag: BacklogIssue | null };
+  | { soort: 'taak'; id: string; taak: BacklogTask; vraag: BacklogIssue }
+  | { soort: 'taak'; id: string; taak: BacklogLosseTaak; vraag: null };
 
 /**
  * Het bord met al het werk: één kanban met de onderzoeksvragen als kort
@@ -165,7 +166,7 @@ export function WerkBord({
                   <div key={k.id} data-kaart-id={k.id}>
                     <TaakKaart
                       task={k.taak}
-                      vraagTitel={k.vraag?.title ?? 'geen, los op de casus'}
+                      {...(k.vraag ? { vraagTitel: k.vraag.title } : { losOpCasus: k.taak.casus.title })}
                       onOpen={(waar) => openTaskDetail(k.taak.id, k.vraag?.title ?? k.taak.title, waar)}
                       onContextMenu={(e) => verwijderen.openMenu(e, k.taak)}
                     />

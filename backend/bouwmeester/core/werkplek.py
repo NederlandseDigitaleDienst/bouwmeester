@@ -26,6 +26,12 @@ class InitiatiefWerk:
     id: None = None
     title: str = "Zonder casus"
 
+    def __post_init__(self) -> None:
+        # Zonder initiatief zouden de controles die het initiatief gebruiken
+        # (zien, lid zijn) stil doorlaten; zo'n plek bestaat niet.
+        if self.initiatief_id is None:
+            raise ValueError("Werk zonder casus hoort bij een initiatief")
+
 
 Werkplek = Casus | InitiatiefWerk
 
