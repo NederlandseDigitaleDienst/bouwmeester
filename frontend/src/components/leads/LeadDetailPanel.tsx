@@ -165,8 +165,9 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
   const [showStartCasus, setShowStartCasus] = useState(false);
   const navigate = useNavigate();
   // Na "Casus starten" gaat het werk verder op de casus. De lead blijft
-  // bewerkbaar, maar blijft in zijn kolom en is niet te verwijderen zolang
-  // de casus bestaat (de backend weigert dat ook).
+  // bewerkbaar, maar blijft in zijn kolom en bij zijn initiatief, zijn
+  // publieke tekst ligt vast, en hij is niet te verwijderen zolang de casus
+  // bestaat (de backend weigert dat ook).
   const casusGestart = !!lead?.casus_id;
   // Alleen bij een initiatief dat met casussen werkt (de schakelaar in de
   // instellingen); de backend weigert het anders ook.
@@ -234,9 +235,17 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
       score_strategisch: editScoreStrategisch === '' ? null : editScoreStrategisch,
       score_politiek: editScorePolitiek === '' ? null : editScorePolitiek,
       score_positie: editScorePositie === '' ? null : editScorePositie,
-      public_visible: editPublicVisible,
-      public_title: editPublicTitle.trim() || null,
-      public_summary: editPublicSummary.trim() || null,
+      // Met een casus ligt de publieke tekst vast (de backend weigert een
+      // wijziging met 409); alleen van de pagina halen gaat nog mee.
+      ...(casusGestart
+        ? editPublicVisible !== lead.public_visible
+          ? { public_visible: editPublicVisible }
+          : {}
+        : {
+            public_visible: editPublicVisible,
+            public_title: editPublicTitle.trim() || null,
+            public_summary: editPublicSummary.trim() || null,
+          }),
     };
 
     // Update lead fields
@@ -472,8 +481,18 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                 <nldd-container gap="12" padding="12">
                   <nldd-container layout="row" gap="8" vertical-alignment="center">
                     <nldd-title size={6}><h3>Publicatie op /c/{linkedInit.slug}</h3></nldd-title>
-                    <PublicVisibleSwitch checked={editPublicVisible} onChange={setEditPublicVisible} />
+                    <PublicVisibleSwitch
+                      checked={editPublicVisible}
+                      onChange={setEditPublicVisible}
+                      disabled={casusGestart && !lead.public_visible}
+                    />
                   </nldd-container>
+                  {casusGestart && (
+                    <nldd-text size="xs" color="secondary">
+                      Uit deze lead is een casus gestart. De publieke tekst is daarna niet meer te wijzigen.
+                      {lead.public_visible ? ' Van de pagina halen kan wel.' : ''}
+                    </nldd-text>
+                  )}
                   {editPublicVisible && !status.visible && (
                     <nldd-inline-dialog
                       variant="alert"
@@ -491,11 +510,12 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
                     label="Publieke titel"
                     type="text"
                     value={editPublicTitle}
+                    disabled={casusGestart}
                     onChange={(e) => setEditPublicTitle(e.target.value)}
                     placeholder="Bijv. 'Pilot bij Gemeente Utrecht'"
                   />
                   <nldd-form-field label="Publieke samenvatting">
-                    <PublicSummaryField value={editPublicSummary} onChange={setEditPublicSummary} />
+                    <PublicSummaryField value={editPublicSummary} onChange={setEditPublicSummary} disabled={casusGestart} />
                   </nldd-form-field>
                   <nldd-text size="xs" color="secondary">
                     Verschijnt alleen als de stage actief is (eerste gesprek, interne
@@ -521,7 +541,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
               <Badge color="groen">Casus gestart</Badge>
               <nldd-text size="sm" color="secondary">
                 Uit deze lead is een casus gestart; het werk gaat verder op de casus. De lead kun je nog aanpassen, maar
-                hij blijft in deze kolom en bij dit initiatief.
+                hij blijft in deze kolom en bij dit initiatief, en de publieke tekst ligt vast.
               </nldd-text>
             </nldd-container>
           )}
@@ -715,7 +735,7 @@ export function LeadDetailPanel({ leadId, open, onClose }: LeadDetailPanelProps)
             );
           })()}
 
-          <LeadUpdatesSection leadId={lead.id} />
+          <LeadUpdatesSection leadId={lead.id} publiekVast={casusGestart} />
 
           {/* Tags */}
           {(leadTags ?? []).length > 0 && (
@@ -1095,14 +1115,37 @@ function checkedValue(event: Event): boolean {
   return Boolean((event as CustomEvent<{ checked?: boolean }>).detail?.checked);
 }
 
-function PublicVisibleSwitch({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+function PublicVisibleSwitch({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+}) {
   const ref = useRef<HTMLElement>(null);
   useNlddEvent(ref, 'change', useCallback((e: Event) => onChange(checkedValue(e)), [onChange]));
 
-  return <nldd-switch-field ref={ref} checked={orUndef(checked)} label="Publiek tonen" />;
+  return (
+    <nldd-switch-field
+      ref={ref}
+      checked={orUndef(checked)}
+      label="Publiek tonen"
+      {...(disabled ? { disabled: true as const } : {})}
+    />
+  );
 }
 
-function PublicSummaryField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+function PublicSummaryField({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
   const ref = useRef<HTMLElement>(null);
   useNlddEvent(ref, 'input', useCallback((e: Event) => onChange(eventValue(e)), [onChange]));
 
@@ -1114,6 +1157,7 @@ function PublicSummaryField({ value, onChange }: { value: string; onChange: (val
       rows={3}
       accessible-label="Publieke samenvatting"
       width="full"
+      {...(disabled ? { disabled: true as const } : {})}
     />
   );
 }
