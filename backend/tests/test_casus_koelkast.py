@@ -225,7 +225,7 @@ async def test_uit_de_koelkast_naar_een_fase_in_een_wijziging(
 async def test_mislukte_wijziging_laat_de_casus_in_de_koelkast(client, casus):
     await _in_koelkast(client, casus)
     url = f"/api/casussen/{casus['id']}"
-    resp = await client.put(url, json={"fase": "bestaat-niet", "uit_koelkast": True})
+    resp = await client.put(url, json={"fase": "bestaat_niet", "uit_koelkast": True})
     assert resp.status_code == 400
     eis = {"soort_id": str(uuid.uuid4()), "eis": "Onbekend", "akkoord": True}
     resp = await client.put(
