@@ -1,9 +1,12 @@
 """Het onderzoeksverslag bij een onderzoeksvraag, en of het naar buiten mag.
 
-Dekt: uploaden en vervangen (alleen PDF, Word, ODT; vervangen zet het akkoord
-terug en ruimt het oude bestand op), wie wat mag, en de publieke kant: een
-verslag staat pas buiten als iemand akkoord gaf en de vraag zelf vrijgegeven
-is, en de publieke download geeft in alle andere gevallen dezelfde 404.
+Dekt: uploaden en vervangen (alleen PDF, Word, ODT, en de inhoud begint met
+de signatuur van dat type; vervangen zet het akkoord terug en ruimt het oude
+bestand op), wie wat mag, en de publieke kant: een verslag staat pas buiten
+als iemand akkoord gaf en de vraag zelf vrijgegeven is, intrekken of
+heropenen van de vraag laat het akkoord vervallen, buiten heet het bestand
+naar de publieke vraag, en de publieke download geeft in alle andere
+gevallen dezelfde 404.
 """
 
 import uuid
@@ -20,6 +23,8 @@ from tests.factories import client_as, make_person
 PDF = b"%PDF-1.4\n% Onderzoeksverslag\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 VRAAG = "Kun je een hardheidsclausule uitvoerbaar maken?"
+# De naam buiten: afgeleid van VRAAG, niet van de naam bij het uploaden.
+NAAM_BUITEN = "onderzoeksverslag-kun-je-een-hardheidsclausule-uitvoerbaar-maken.pdf"
 ANTWOORD = "Ja, met een expliciete beslisregel en een menselijke toets."
 SLUG = "rr-verslag"
 
@@ -148,6 +153,21 @@ async def test_uploaden_en_downloaden(client, casus):
         ("plaatje.png", PNG, "image/png"),
         ("notities.txt", b"tekst", "text/plain"),
         ("vermomd.pdf", PNG, "application/pdf"),
+        # Geen bekende signatuur: voor een verslag niet genoeg.
+        ("zonder-signatuur.pdf", b"\x00\x01\x02\x03 geen pdf", "application/pdf"),
+        ("leeg.pdf", b"", "application/pdf"),
+        ("zonder-signatuur.doc", b"geen word", "application/msword"),
+        (
+            "zonder-signatuur.docx",
+            b"geen zip",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ),
+        (
+            "zonder-signatuur.odt",
+            b"geen zip",
+            "application/vnd.oasis.opendocument.text",
+        ),
+        ("pdf-als-word.doc", PDF, "application/msword"),
     ],
 )
 async def test_alleen_documenten(client, casus, naam, inhoud, soort):
@@ -301,7 +321,7 @@ async def test_buiten_alleen_met_akkoord_en_vrijgegeven_vraag(client, casus):
     (buiten,) = (await _publiek(client))["beantwoorde_vragen"]
     assert buiten["verslag"] == {
         "id": verslag["id"],
-        "bestandsnaam": "verslag.pdf",
+        "bestandsnaam": NAAM_BUITEN,
         "content_type": "application/pdf",
         "bestandsgrootte": len(PDF),
     }
@@ -380,9 +400,162 @@ async def test_update_en_mailbrief_noemen_het_verslag(
     ).json()
     assert post["vragen"][0]["verslag"]["id"] == verslag["id"]
     (update,) = (await _publiek(client))["updates"]
-    assert update["vragen"][0]["verslag"]["bestandsnaam"] == "verslag.pdf"
+    assert update["vragen"][0]["verslag"]["bestandsnaam"] == NAAM_BUITEN
 
     resp = await client.get(
         f"/api/initiatieven/{initiatief.id}/updates/{post['id']}/eml"
     )
     assert "Het onderzoeksverslag staat op de publieke pagina" in resp.text
+
+
+# --- Na de review van #461 ----------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "naam,inhoud,soort",
+    [
+        ("verslag.doc", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1", "application/msword"),
+        (
+            "verslag.docx",
+            b"PK\x03\x04 rest",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ),
+        ("verslag.odt", b"PK\x03\x04 rest", "application/vnd.oasis.opendocument.text"),
+    ],
+)
+async def test_documenten_met_signatuur(client, casus, naam, inhoud, soort):
+    vraag = await _vraag(client, casus)
+    resp = await _upload(client, casus, vraag, naam=naam, inhoud=inhoud, soort=soort)
+    assert resp.status_code == 200, resp.text
+
+
+def test_signatuur_verplicht():
+    """Zonder de vlag laat de controle onbekende inhoud door (zo werken de
+    andere bijlagen); met de vlag niet."""
+    from bouwmeester.core.storage import verify_content_type
+
+    onbekend = b"\x00\x01\x02\x03"
+    assert verify_content_type(onbekend, "application/pdf") is True
+    assert (
+        verify_content_type(onbekend, "application/pdf", signatuur_verplicht=True)
+        is False
+    )
+    assert verify_content_type(PDF, "application/pdf", signatuur_verplicht=True) is True
+    assert (
+        verify_content_type(PNG, "application/pdf", signatuur_verplicht=True) is False
+    )
+    # Een type zonder signatuur kan met de vlag nooit.
+    assert (
+        verify_content_type(b"tekst", "text/plain", signatuur_verplicht=True) is False
+    )
+
+
+async def test_intrekken_laat_akkoord_vervallen(client, casus):
+    """Het akkoord gold voor de vraag buiten. Na intrekken en opnieuw
+    vrijgeven staat het verslag pas weer buiten na een nieuw akkoord."""
+    vraag = await _vraag(client, casus)
+    verslag = (await _upload(client, casus, vraag)).json()
+    await _openbaar(client, casus, vraag)
+    await _vrijgeven(client, casus, vraag)
+    assert (await _publieke_download(client, verslag["id"])).status_code == 200
+
+    resp = await client.delete(f"/api/casussen/{casus.id}/issues/{vraag['id']}/publiek")
+    assert resp.status_code == 200, resp.text
+    binnen = (await client.get(_url(casus, vraag))).json()
+    assert binnen["openbaar_op"] is None and binnen["openbaar_door_naam"] is None
+
+    await _vrijgeven(client, casus, vraag)
+    (buiten,) = (await _publiek(client))["beantwoorde_vragen"]
+    assert buiten["verslag"] is None
+    assert (await _publieke_download(client, verslag["id"])).status_code == 404
+
+    await _openbaar(client, casus, vraag)
+    assert (await _publieke_download(client, verslag["id"])).status_code == 200
+
+
+async def test_heropenen_laat_akkoord_vervallen(client, casus):
+    vraag = await _vraag(client, casus)
+    verslag = (await _upload(client, casus, vraag)).json()
+    await _openbaar(client, casus, vraag)
+    await _vrijgeven(client, casus, vraag)
+    pad = f"/api/casussen/{casus.id}/issues/{vraag['id']}"
+    await client.put(pad, json={"status": "open"})
+    assert (await client.get(_url(casus, vraag))).json()["openbaar_op"] is None
+
+    await client.put(pad, json={"status": "done"})
+    await _vrijgeven(client, casus, vraag)
+    assert (await _publieke_download(client, verslag["id"])).status_code == 404
+
+
+async def test_taak_weer_open_laat_akkoord_vervallen(client, casus):
+    """Ook als de status via een taak terugvalt (sync_status)."""
+    vraag = await _vraag(client, casus, af=False)
+    taak = (
+        await client.post(
+            "/api/tasks",
+            json={"title": "Uitzoeken", "issue_id": vraag["id"], "status": "done"},
+        )
+    ).json()
+    await client.put(
+        f"/api/casussen/{casus.id}/issues/{vraag['id']}", json={"status": "done"}
+    )
+    await _upload(client, casus, vraag)
+    await _openbaar(client, casus, vraag)
+    await _vrijgeven(client, casus, vraag)
+    resp = await client.put(f"/api/tasks/{taak['id']}", json={"status": "in_progress"})
+    assert resp.status_code == 200, resp.text
+    assert (await client.get(_url(casus, vraag))).json()["openbaar_op"] is None
+
+
+async def test_akkoord_voor_vrijgeven_blijft_staan(client, casus):
+    """Akkoord geven voordat de vraag buiten staat kan: dat akkoord vervalt
+    niet bij het vrijgeven zelf."""
+    vraag = await _vraag(client, casus)
+    await _upload(client, casus, vraag)
+    await _openbaar(client, casus, vraag)
+    await _vrijgeven(client, casus, vraag)
+    assert (await client.get(_url(casus, vraag))).json()["openbaar_op"] is not None
+
+
+async def test_bestandsnaam_blijft_binnen(client, casus):
+    """Buiten heet het verslag naar de publieke vraag; de naam bij het
+    uploaden (met een naam of een versie erin) blijft binnen."""
+    vraag = await _vraag(client, casus)
+    intern = "Concept v3 Jansen gemeente X.pdf"
+    verslag = (await _upload(client, casus, vraag, naam=intern)).json()
+    assert verslag["bestandsnaam"] == intern
+    await _openbaar(client, casus, vraag)
+    await _vrijgeven(client, casus, vraag)
+
+    publiek = await _publiek(client)
+    assert publiek["beantwoorde_vragen"][0]["verslag"]["bestandsnaam"] == NAAM_BUITEN
+    assert "Jansen" not in str(publiek)
+    resp = await _publieke_download(client, verslag["id"])
+    assert resp.status_code == 200
+    assert NAAM_BUITEN in resp.headers["content-disposition"]
+    assert "Jansen" not in resp.headers["content-disposition"]
+
+
+def test_publieke_verslagnaam():
+    from types import SimpleNamespace
+
+    from bouwmeester.services.publieke_vragen import publieke_verslagnaam
+
+    def naam(titel, soort="application/pdf"):
+        return publieke_verslagnaam(SimpleNamespace(public_title=titel), soort)
+
+    assert (
+        naam("Wat kost één beslisregel?")
+        == "onderzoeksverslag-wat-kost-een-beslisregel.pdf"
+    )
+    assert naam(None) == "onderzoeksverslag.pdf"
+    assert naam("???") == "onderzoeksverslag.pdf"
+    assert (
+        naam("x", "application/vnd.oasis.opendocument.text")
+        == "onderzoeksverslag-x.odt"
+    )
+    lang = naam("a" * 200)
+    assert lang == "onderzoeksverslag-" + "a" * 60 + ".pdf"
+    # Een verwijzing van vroeger: geen id in de naam.
+    zonder_id = naam(f"Vraag van [@Jan](user:{uuid.uuid4()})")
+    assert zonder_id == "onderzoeksverslag-vraag-van-jan.pdf"

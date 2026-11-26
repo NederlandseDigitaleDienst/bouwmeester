@@ -6,7 +6,10 @@ in de bijlagenopslag (core.storage), net als bijlagen bij een taak.
 Openbaar: wie het verslag naar buiten wil, bevestigt dat met een akkoord
 (openbaar_op, openbaar_door_id). Op de publieke pagina staat het pas als de
 vraag zelf ook naar buiten mag (services/publieke_vragen.py). Een nieuw
-bestand vraagt een nieuw akkoord: het akkoord gold voor het oude.
+bestand vraagt een nieuw akkoord: het akkoord gold voor het oude. Zo ook een
+vraag die wordt ingetrokken of heropend: het akkoord gold voor de vraag
+buiten. Buiten heet het bestand naar de publieke vraag; `bestandsnaam` is
+de naam binnen.
 """
 
 import uuid

@@ -40,6 +40,7 @@ from bouwmeester.services.publieke_vragen import (
     als_vraag_buiten,
     is_buiten_bij,
     publiek_verslag_bestand,
+    publieke_verslagnaam,
     vrijgegeven_vragen,
 )
 
@@ -210,7 +211,8 @@ async def download_publiek_verslag(
     Alleen als de pagina aan staat, iemand akkoord gaf voor het verslag en
     de vraag zelf naar buiten mag. In alle andere gevallen dezelfde 404,
     zoals bij de pagina zelf. Altijd als bijlage, nooit in de browser
-    geopend (nosniff zet de middleware).
+    geopend (nosniff zet de middleware), en onder een naam afgeleid van de
+    publieke vraag: de naam van het bestand binnen blijft binnen.
     """
     lookup = await db.execute(select(Initiatief).where(Initiatief.slug == slug))
     initiatief = lookup.scalar_one_or_none()
@@ -223,4 +225,8 @@ async def download_publiek_verslag(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Verslag niet gevonden"
         )
-    return await blob_download(verslag.pad, verslag.bestandsnaam, verslag.content_type)
+    return await blob_download(
+        verslag.pad,
+        publieke_verslagnaam(verslag.issue, verslag.content_type),
+        verslag.content_type,
+    )

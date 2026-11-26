@@ -7,27 +7,27 @@ welke vragen dat zijn; de tab Updates, de publieke pagina en de mailbrief
 lezen allemaal hier.
 
 Het onderzoeksverslag gaat mee als de vraag naar buiten mag en iemand akkoord
-gaf voor het verslag zelf (openbaar_op). Trekt iemand de vraag in, dan gaat
-het verslag vanzelf mee terug naar binnen.
+gaf voor het verslag zelf (openbaar_op). Trekt iemand de vraag in, of gaat
+hij weer open, dan vervalt dat akkoord (repositories/issue.py): opnieuw
+vrijgeven brengt het verslag pas na een nieuw akkoord weer naar buiten.
+Buiten heet het bestand naar de publieke vraag, niet naar de naam waaronder
+het binnen werd geüpload.
 """
 
+import re
+import unicodedata
 from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import contains_eager, selectinload
 
 from bouwmeester.models.casus import Casus
 from bouwmeester.models.issue import Issue
 from bouwmeester.models.onderzoeksverslag import Onderzoeksverslag
 from bouwmeester.schema.initiatief_update import PubliekeVraag, PubliekeVraagBuiten
 from bouwmeester.schema.onderzoeksverslag import PubliekVerslag
-
-
-def is_buiten(issue: Issue) -> bool:
-    """Mag deze vraag nu naar buiten? Vrijgegeven, afgerond, met tekst.
-
 from bouwmeester.schema.publieke_tekst import verwijzingen_als_tekst
 
 # De extensie bij elk type dat een verslag mag zijn (VERSLAG_CONTENT_TYPES).
@@ -37,6 +37,11 @@ _EXTENSIE = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
     "application/vnd.oasis.opendocument.text": ".odt",
 }
+
+
+def is_buiten(issue: Issue) -> bool:
+    """Mag deze vraag nu naar buiten? Vrijgegeven, afgerond, met tekst.
+
     Hetzelfde als _buiten_filter, maar dan voor een geladen vraag.
     """
     return (
@@ -102,7 +107,7 @@ async def publiek_verslag_bestand(
     """
     stmt = (
         select(Onderzoeksverslag)
-        .join(Issue, Issue.id == Onderzoeksverslag.issue_id)
+        .join(Onderzoeksverslag.issue)
         .outerjoin(Casus, Casus.id == Issue.casus_id)
         .where(
             Onderzoeksverslag.id == verslag_id,
@@ -110,8 +115,31 @@ async def publiek_verslag_bestand(
             *_van_initiatief(initiatief_id),
             *_buiten_filter(),
         )
+        # De vraag erbij, voor de naam van het bestand buiten.
+        .options(contains_eager(Onderzoeksverslag.issue))
     )
     return (await db.execute(stmt)).scalar_one_or_none()
+
+
+def publieke_verslagnaam(issue: Issue, content_type: str) -> str:
+    """De naam van het verslag buiten: afgeleid van de publieke vraag.
+
+    De naam waaronder iemand het bestand uploadde, blijft binnen: die kan
+    een naam, een gemeente of "concept-v3" bevatten. Buiten heet het
+    `onderzoeksverslag-<publieke-vraag>.pdf`, in ASCII, hooguit 60 tekens
+    van de vraag.
+    """
+    vraag = verwijzingen_als_tekst(issue.public_title) or ""
+    ascii_vraag = (
+        unicodedata.normalize("NFKD", vraag).encode("ascii", "ignore").decode()
+    )
+    stam = re.sub(r"[^a-z0-9]+", "-", ascii_vraag.lower()).strip("-")[:60].strip("-")
+    extensie = _EXTENSIE.get(content_type, "")
+    return (
+        f"onderzoeksverslag-{stam}{extensie}"
+        if stam
+        else f"onderzoeksverslag{extensie}"
+    )
 
 
 def publiek_verslag(issue: Issue) -> PubliekVerslag | None:
@@ -124,7 +152,7 @@ def publiek_verslag(issue: Issue) -> PubliekVerslag | None:
         return None
     return PubliekVerslag(
         id=v.id,
-        bestandsnaam=v.bestandsnaam,
+        bestandsnaam=publieke_verslagnaam(issue, v.content_type),
         content_type=v.content_type,
         bestandsgrootte=v.bestandsgrootte,
     )
