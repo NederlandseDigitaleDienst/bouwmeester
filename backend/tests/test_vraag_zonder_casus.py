@@ -10,6 +10,9 @@ Wat dit bestand bewaakt:
   lijst. Wie hem doet, moet lid zijn van het initiatief.
 - Een vraag verhuist uit een casus naar het initiatief en terug, met zijn
   taken; niet naar een casus van een ander initiatief.
+- Een vraag in een casus met initiatief_id leeg (aangemaakt door een oude
+  versie van de app, tijdens een deploy): de ledencontrole en de backlog
+  nemen het initiatief van de casus.
 - Een vraag zonder casus met taken verwijder je niet (400); zonder taken wel.
 - Het interne antwoord staat bij de vraag; een kijker wijzigt het niet.
 - Verwijderen van het initiatief ruimt de taken onder zo'n vraag op.
@@ -18,8 +21,10 @@ Wat dit bestand bewaakt:
 import uuid
 
 import pytest
+from sqlalchemy import update
 
 from bouwmeester.models.initiatief import Initiatief
+from bouwmeester.models.issue import Issue
 from bouwmeester.models.lead import Lead
 from bouwmeester.models.resource_permission import ResourcePermission
 from bouwmeester.models.task import Task
@@ -299,3 +304,81 @@ async def test_initiatief_verwijderen_ruimt_taken_op(
     resp = await client.delete(f"/api/initiatieven/{initiatief.id}")
     assert resp.status_code == 204, resp.text
     assert await db_session.get(Task, uuid.UUID(taak["id"])) is None
+
+
+async def _vraag_van_oude_versie(client, db_session, initiatief, lid):
+    """Een vraag in een casus zonder initiatief_id, zoals de vorige versie van
+    de app hem na de migratie nog aanmaakt."""
+    casus = await _casus(client, db_session, initiatief)
+    async with client_as(db_session, lid) as c:
+        v = (
+            await c.post(
+                f"/api/casussen/{casus['id']}/issues", json={"title": "Van de oude pod"}
+            )
+        ).json()
+    await db_session.execute(
+        update(Issue).where(Issue.id == uuid.UUID(v["id"])).values(initiatief_id=None)
+    )
+    await db_session.flush()
+    db_session.expire_all()
+    return casus, v
+
+
+async def test_vraag_zonder_initiatief_id_toetst_eigenaar_op_de_casus(
+    client, db_session, initiatief, lid, buitenstaander
+):
+    casus, v = await _vraag_van_oude_versie(client, db_session, initiatief, lid)
+    pad = f"/api/casussen/{casus['id']}/issues/{v['id']}"
+    async with client_as(db_session, lid) as c:
+        resp = await c.put(pad, json={"assignee_id": str(buitenstaander.id)})
+        assert resp.status_code == 400, resp.text
+        resp = await c.put(pad, json={"assignee_id": str(lid.id)})
+        assert resp.status_code == 200, resp.text
+
+
+async def test_vraag_zonder_initiatief_id_staat_in_de_backlog(
+    client, db_session, initiatief, lid
+):
+    _, v = await _vraag_van_oude_versie(client, db_session, initiatief, lid)
+    async with client_as(db_session, lid) as c:
+        backlog = (
+            await c.get(
+                "/api/casussen/backlog", params={"initiatief_id": str(initiatief.id)}
+            )
+        ).json()
+    assert v["id"] in {i["id"] for i in backlog["issues"]}
+
+
+async def test_vraag_zonder_initiatief_id_verhuist(client, db_session, initiatief, lid):
+    """Naar een andere casus van hetzelfde initiatief, en uit de casus: dan
+    krijgt de vraag het initiatief van de casus (ck_issue_plek)."""
+    casus, v = await _vraag_van_oude_versie(client, db_session, initiatief, lid)
+    andere = await _casus(client, db_session, initiatief)
+    async with client_as(db_session, lid) as c:
+        naar = await c.put(
+            f"/api/casussen/{casus['id']}/issues/{v['id']}",
+            json={"casus_id": andere["id"]},
+        )
+        assert naar.status_code == 200, naar.text
+        assert naar.json()["initiatief_id"] == str(initiatief.id)
+
+    await db_session.execute(
+        update(Issue).where(Issue.id == uuid.UUID(v["id"])).values(initiatief_id=None)
+    )
+    await db_session.flush()
+    db_session.expire_all()
+    async with client_as(db_session, lid) as c:
+        uit = await c.put(
+            f"/api/casussen/{andere['id']}/issues/{v['id']}", json={"casus_id": None}
+        )
+        assert uit.status_code == 200, uit.text
+        assert uit.json()["casus_id"] is None
+        assert uit.json()["initiatief_id"] == str(initiatief.id)
+
+
+def test_werk_zonder_casus_heeft_altijd_een_initiatief():
+    """Anders zouden zien en de ledencontrole stil doorlaten."""
+    from bouwmeester.core.werkplek import InitiatiefWerk
+
+    with pytest.raises(ValueError):
+        InitiatiefWerk(initiatief_id=None)
