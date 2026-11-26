@@ -345,6 +345,7 @@ async def test_vraag_met_oude_subtaken_verhuist_uit_casus_en_terug(
     )
     db_session.add(subsub)
     await db_session.flush()
+    sub_id, subsub_id = sub.id, subsub.id
 
     async with client_as(db_session, lid) as c:
         uit = await c.put(
@@ -353,15 +354,15 @@ async def test_vraag_met_oude_subtaken_verhuist_uit_casus_en_terug(
         assert uit.status_code == 200, uit.text
         assert (uit.json()["task_count"], uit.json()["task_done_count"]) == (1, 0)
 
-    db_session.expire_all()
-    for taak_id in (sub.id, subsub.id):
-        rij = await db_session.get(Task, taak_id)
+    # Opnieuw laden zonder expire_all: dat laat ook de fixtures verlopen.
+    for taak_id in (sub_id, subsub_id):
+        rij = await db_session.get(Task, taak_id, populate_existing=True)
         assert (rij.casus_id, rij.issue_id) == (None, uuid.UUID(v["id"]))
 
     async with client_as(db_session, buitenstaander) as c:
-        assert (await c.get(f"/api/tasks/{sub.id}")).status_code == 404
+        assert (await c.get(f"/api/tasks/{sub_id}")).status_code == 404
         alle = {x["id"] for x in (await c.get("/api/tasks")).json()}
-        assert str(sub.id) not in alle and str(subsub.id) not in alle
+        assert str(sub_id) not in alle and str(subsub_id) not in alle
 
     async with client_as(db_session, lid) as c:
         backlog = (
@@ -378,9 +379,9 @@ async def test_vraag_met_oude_subtaken_verhuist_uit_casus_en_terug(
         )
         assert terug.status_code == 200, terug.text
 
-    db_session.expire_all()
-    for taak_id in (sub.id, subsub.id):
-        rij = await db_session.get(Task, taak_id)
+    # Opnieuw laden zonder expire_all: dat laat ook de fixtures verlopen.
+    for taak_id in (sub_id, subsub_id):
+        rij = await db_session.get(Task, taak_id, populate_existing=True)
         assert (rij.casus_id, rij.issue_id) == (
             uuid.UUID(casus["id"]),
             uuid.UUID(v["id"]),
@@ -401,7 +402,9 @@ async def _vraag_van_oude_versie(client, db_session, initiatief, lid):
         update(Issue).where(Issue.id == uuid.UUID(v["id"])).values(initiatief_id=None)
     )
     await db_session.flush()
-    db_session.expire_all()
+    # Alleen de vraag opnieuw laden: expire_all laat ook de fixtures verlopen,
+    # en die lazy laden kan niet in async.
+    await db_session.get(Issue, uuid.UUID(v["id"]), populate_existing=True)
     return casus, v
 
 
@@ -447,7 +450,7 @@ async def test_vraag_zonder_initiatief_id_verhuist(client, db_session, initiatie
         update(Issue).where(Issue.id == uuid.UUID(v["id"])).values(initiatief_id=None)
     )
     await db_session.flush()
-    db_session.expire_all()
+    await db_session.get(Issue, uuid.UUID(v["id"]), populate_existing=True)
     async with client_as(db_session, lid) as c:
         uit = await c.put(
             f"/api/casussen/{andere['id']}/issues/{v['id']}", json={"casus_id": None}
