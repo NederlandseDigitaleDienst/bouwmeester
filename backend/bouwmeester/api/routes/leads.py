@@ -151,22 +151,22 @@ LEAD_PUBLIEKE_VELDEN = ("public_visible", "public_title", "public_summary")
 
 
 async def _require_lead_niet_publiek(db: AsyncSession, lead: Lead) -> None:
-    """409 als uit deze lead een casus is gestart en iemand zou zetten wat
-    de lead naar buiten brengt: de publieke velden of een publieke update.
+    """409 als uit deze lead een casus is gestart en iemand zou zetten of
+    wijzigen wat de lead op de publieke pagina toont: de publieke velden, of
+    de titel en publieke tekst van een gepubliceerde update.
 
-    Leadroutes vragen alleen of je het initiatief ziet, geen rol. Zolang de
-    lead alleen-lezen was, kon een kijker zo'n lead daarom niet publiek
-    maken; nu de lead bewerkbaar blijft, houdt deze regel dat dicht. Van de
-    pagina halen mag wel. Een rolcheck voor alle leadmutaties is een eigen
-    wijziging.
+    Leadroutes vragen alleen of je het initiatief ziet, geen rol. Ook een
+    kijker kan ze dus aanroepen; deze regel voorkomt dat die een lead met
+    casus naar buiten brengt. Van de pagina halen mag wel. Een rolcheck voor
+    alle leadmutaties is een eigen wijziging.
     """
     stmt = select(Casus.id).where(Casus.lead_id == lead.id)
     if (await db.execute(stmt.limit(1))).first() is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                "Uit deze lead is een casus gestart: wat hij naar buiten "
-                "brengt, ligt vast."
+                "Uit deze lead is een casus gestart. De publieke tekst is "
+                "daarna niet meer te wijzigen."
             ),
         )
 

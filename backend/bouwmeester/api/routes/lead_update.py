@@ -410,6 +410,9 @@ async def create_update(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
+    if data.publish and data.body_public:
+        # Direct publiceren met publieke tekst zet de update op de pagina.
+        await _require_lead_niet_publiek(db, lead)
 
     actor_id = current_user.id if current_user else None
     post = LeadUpdatePost(
@@ -466,12 +469,17 @@ async def edit_update(
 
     post = require_found(await _load_post(db, lead_id, post_id), "Update")
     payload = data.model_dump(exclude_unset=True)
+    # Een gepubliceerde update met publieke tekst staat op de publieke pagina,
+    # met zijn titel en die tekst (public_initiatief.py). Weigeren als dat
+    # anders wordt: een andere titel of tekst, of hij komt er nu pas op.
+    # Eraf halen (de publieke tekst leeg) mag.
+    titel = payload.get("titel", post.titel)
+    body_public = payload.get("body_public", post.body_public)
     if (
         post.published_at is not None
-        and "body_public" in payload
-        and payload["body_public"] != post.body_public
+        and body_public
+        and (titel, body_public) != (post.titel, post.body_public)
     ):
-        # Een gepubliceerde update toont body_public op de publieke pagina.
         await _require_lead_niet_publiek(db, lead)
     for key, value in payload.items():
         if key in {"mail_to", "mail_cc"} and value is not None:
@@ -501,6 +509,7 @@ async def publish_update(
 
     post = require_found(await _load_post(db, lead_id, post_id), "Update")
     if post.body_public:
+        # Ook opnieuw publiceren: dat zet een nieuwe datum op de pagina.
         await _require_lead_niet_publiek(db, lead)
     post.published_at = datetime.now(UTC)
     post.published_by_id = current_user.id if current_user else None
