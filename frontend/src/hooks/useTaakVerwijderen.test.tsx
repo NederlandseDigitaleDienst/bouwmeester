@@ -12,9 +12,9 @@ vi.mock('@/api/tasks', async (orig) => ({
 }));
 
 /** Een taakregel zoals in de backlog: rechtermuisknop opent het menu. */
-function Regel({ onVerwijderd }: { onVerwijderd?: (id: string) => void }) {
+function Regel({ onVerwijderd, subtaken }: { onVerwijderd?: (id: string) => void; subtaken?: number }) {
   const verwijderen = useTaakVerwijderen({ onVerwijderd });
-  const taak = { id: 't1', title: 'Wet lezen' };
+  const taak = { id: 't1', title: 'Wet lezen', subtaken };
   return (
     <>
       <div data-testid="taak" onContextMenu={(e) => verwijderen.openMenu(e, taak)}>
@@ -61,6 +61,22 @@ describe('useTaakVerwijderen', () => {
       knop.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     expect(deleteTask).toHaveBeenCalledWith('t1');
+  });
+
+  it('noemt geen subtaken als die er niet zijn (een casustaak)', () => {
+    renderWithProviders(<ToastProvider><Regel /></ToastProvider>);
+    fireEvent.contextMenu(screen.getByTestId('taak'), { clientX: 40, clientY: 50 });
+    fireEvent.click(screen.getByRole('menuitem', { name: /Taak verwijderen/ }));
+    const tekst = dialoog()?.getAttribute('supporting-text') ?? '';
+    expect(tekst).toBe('"Wet lezen" wordt definitief verwijderd, met opmerkingen en bijlagen.');
+    expect(tekst).not.toMatch(/subta/);
+  });
+
+  it('noemt de subtaken als een taak aan een node ze heeft', () => {
+    renderWithProviders(<ToastProvider><Regel subtaken={2} /></ToastProvider>);
+    fireEvent.contextMenu(screen.getByTestId('taak'), { clientX: 40, clientY: 50 });
+    fireEvent.click(screen.getByRole('menuitem', { name: /Taak verwijderen/ }));
+    expect(dialoog()?.getAttribute('supporting-text')).toContain('met 2 subtaken, opmerkingen en bijlagen');
   });
 
   it('meldt een gelukte verwijdering, zodat een taakdetail kan sluiten', async () => {
