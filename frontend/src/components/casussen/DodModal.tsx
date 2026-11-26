@@ -17,6 +17,8 @@ export interface DodIssue {
   casus_id: string | null;
   initiatief_id?: string | null;
   title: string;
+  /** Alleen een onderzoeksvraag krijgt bij het afronden een antwoord. */
+  is_onderzoeksvraag: boolean;
   dod_checked: string[];
   antwoord?: string | null;
 }
@@ -45,7 +47,8 @@ export function DodModal({ issue, mode, onClose }: Props) {
   const dodItems = geladenItems ?? [];
   const [checked, setChecked] = useState<Set<string>>(new Set());
 
-  // Bij afronden: het antwoord, interne versie, voor het team.
+  // Bij afronden van een onderzoeksvraag: het antwoord, interne versie, voor het team.
+  const metAntwoord = mode === 'afronden' && !!issue?.is_onderzoeksvraag;
   const [antwoord, setAntwoord] = useState(issue?.antwoord ?? '');
   useEffect(() => {
     setChecked(new Set(issue?.dod_checked ?? []));
@@ -74,7 +77,8 @@ export function DodModal({ issue, mode, onClose }: Props) {
         data: {
           status: IssueStatus.DONE,
           dod_checked: dodItems.filter((i) => checked.has(i)),
-          antwoord: richTextToPlain(antwoord).trim() ? antwoord : null,
+          // Een issue dat geen onderzoeksvraag is, houdt zijn antwoord zoals het is.
+          ...(metAntwoord ? { antwoord: richTextToPlain(antwoord).trim() ? antwoord : null } : {}),
         },
       });
       onClose();
@@ -135,7 +139,7 @@ export function DodModal({ issue, mode, onClose }: Props) {
             zo op het issue.
           </nldd-text>
         )}
-        {mode === 'afronden' && (
+        {metAntwoord && (
           <RichTextFormField
             hideOptional
             label="Antwoord, interne versie"
