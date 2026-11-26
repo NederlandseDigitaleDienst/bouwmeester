@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterEach } from 'vitest';
 import { act, waitFor } from '@testing-library/react';
 
+import { ApiError } from '@/api/client';
 import { renderWithProviders } from '@/test/utils';
 import type { InitiatiefDetail, Wens } from '@/types';
 import { WensModal } from './WensModal';
@@ -52,8 +53,15 @@ const kiesSoort = async (soort: Wens['soort']) => {
   });
 };
 
+const melding = () => document.querySelector('nldd-text[role="alert"]')?.textContent ?? '';
+
 describe('WensModal', () => {
-  beforeEach(() => updateInitiatiefSettings.mockReset().mockResolvedValue({}));
+  // Met accolades: wat beforeEach teruggeeft, roept vitest na de test aan
+  // als opruimfunctie, en mockResolvedValue geeft de mock zelf terug.
+  beforeEach(() => {
+    updateInitiatiefSettings.mockReset().mockResolvedValue({});
+  });
+  afterEach(() => vi.useRealTimers());
 
   it('een nieuwe wens komt achteraan, met naam en datum van de melder', async () => {
     const onClose = vi.fn();
@@ -98,6 +106,55 @@ describe('WensModal', () => {
 
     await waitFor(() => expect(updateInitiatiefSettings).toHaveBeenCalledTimes(1));
     expect(updateInitiatiefSettings.mock.calls[0][1].wensen).toEqual([ANDER]);
+  });
+
+  it('de datum is die van hier, ook vlak na middernacht', async () => {
+    // Kwart over twaalf 's nachts, lokale tijd: in UTC is het dan nog gisteren
+    // (in Nederland). toISOString zou die datum geven.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 10, 27, 0, 15));
+    renderWithProviders(<WensModal initiatief={initiatief} wens={null} open onClose={vi.fn()} />);
+    await typTitel('Na middernacht');
+    await klik(knop('Toevoegen'));
+    await waitFor(() => expect(updateInitiatiefSettings).toHaveBeenCalledTimes(1));
+    expect(updateInitiatiefSettings.mock.calls[0][1].wensen[2].gemeld_op).toBe('2026-11-27');
+  });
+
+  it('weigert de backend (422), dan blijft het venster open met de reden erin', async () => {
+    updateInitiatiefSettings.mockRejectedValue(
+      new ApiError(422, 'Unprocessable Entity', {
+        detail: [{ loc: ['body', 'wensen'], type: 'too_long', msg: 'List should have at most 200 items' }],
+      }),
+    );
+    const onClose = vi.fn();
+    renderWithProviders(<WensModal initiatief={initiatief} wens={null} open onClose={onClose} />);
+    await typTitel('Nog een');
+    await klik(knop('Toevoegen'));
+
+    await waitFor(() => expect(melding()).toMatch(/De lijst is vol/));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.querySelector('nldd-text-field')).not.toBeNull();
+  });
+
+  it('mislukt verwijderen sluit het bevestigvenster en toont de reden', async () => {
+    updateInitiatiefSettings.mockRejectedValue(new ApiError(403, 'Forbidden', { detail: 'Onvoldoende rechten' }));
+    const onClose = vi.fn();
+    renderWithProviders(<WensModal initiatief={initiatief} wens={BESTAAND} open onClose={onClose} />);
+    await klik(verwijderKnoppen()[0]);
+    await klik(verwijderKnoppen()[1]);
+
+    await waitFor(() => expect(melding()).toMatch(/eigenaar/));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('een te lange toelichting meldt hij vóór het versturen', async () => {
+    const lang = { ...BESTAAND, toelichting: 'x'.repeat(5001) };
+    const lijst = { ...initiatief, wensen: [lang, ANDER] } as unknown as InitiatiefDetail;
+    renderWithProviders(<WensModal initiatief={lijst} wens={lang} open onClose={vi.fn()} />);
+    await klik(knop('Opslaan'));
+
+    expect(melding()).toMatch(/toelichting is te lang/);
+    expect(updateInitiatiefSettings).not.toHaveBeenCalled();
   });
 
   it('dicht toont niets', () => {

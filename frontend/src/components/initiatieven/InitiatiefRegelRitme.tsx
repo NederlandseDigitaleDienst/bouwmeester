@@ -1,15 +1,18 @@
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { parseISO } from 'date-fns';
 
 import { RichTextDisplay } from '@/components/common/RichTextDisplay';
 import { leadColumnTagColor } from '@/components/leads/stageColors';
 import { Icon } from '@/components/nldd/Icon';
 import { NlddButton } from '@/components/nldd/NlddButton';
+import { NlddIconButton } from '@/components/nldd/NlddIconButton';
 import { useCasusSoorten } from '@/hooks/useCasusSoorten';
 import { useLeadColumns } from '@/hooks/useLeadColumns';
 import { CASUS_START_STAGE, type CasusFaseDef, type CasusSoort, type InitiatiefDetail, type Overleg, type Wens } from '@/types';
 import { Badge } from '@/components/common/Badge';
 import { initiatiefPath } from '@/utils/initiatiefRoutes';
+import { richTextToPlain } from '@/utils/richtext';
 
 import { InstellingenBlok } from './InstellingenBlok';
 import { OpenPuntenEditor } from './OpenPuntenEditor';
@@ -129,8 +132,8 @@ export function InitiatiefRegelRitme({ initiatief }: { initiatief: InitiatiefDet
           >
             <nldd-text size="sm">
               Bij de start loopt het team de voorwaarden van de soort na, bij de stap naar de laatste fase de
-              deliverables. Per punt een vinkje en een opmerking. Dat is geen poort, wel een vast moment om stil te
-              staan.
+              deliverables. Per punt een vinkje en een opmerking: een vast moment om stil te staan. De casus gaat
+              ook door als niet alles is afgevinkt.
             </nldd-text>
             {soorten.map((s) => (
               <SoortRegel key={s.id} soort={s} />
@@ -140,12 +143,13 @@ export function InitiatiefRegelRitme({ initiatief }: { initiatief: InitiatiefDet
 
         <Sectie icon="check-list" titel="Wanneer is een vraag beantwoord (DoD)" samenvatting={tel(dod.length, 'punt', 'punten')} actie={aanpassen}>
           <nldd-text size="sm">
-            Of een onderzoeksvraag beantwoord is, beoordeel je met deze punten, de Definition of Done. Het team bepaalt ze samen. Ze zijn geen eindproduct of eisenlijst, maar de standaard voor wat af is. Het team loopt ze na als het de vraag afrondt.
+            Met deze punten, de Definition of Done, beoordeelt het team of een onderzoeksvraag af is. Ze gelden
+            voor elke vraag; het team loopt ze na als het een vraag afrondt.
           </nldd-text>
           <nldd-rich-text>
             <ul>
-              {dod.map((d) => (
-                <li key={d}>{d}</li>
+              {dod.map((d, i) => (
+                <li key={`${i}-${d}`}>{d}</li>
               ))}
             </ul>
           </nldd-rich-text>
@@ -178,8 +182,8 @@ export function InitiatiefRegelRitme({ initiatief }: { initiatief: InitiatiefDet
           actie={aanpassen}
         >
           <nldd-text size="sm">
-            Een aanvraag komt binnen als lead. Pakken we hem op, dan start de trekker vanuit de lead een casus en
-            beantwoordt het team deze vragen. De antwoorden blijven bij de casus bewaard.
+            Een aanvraag komt binnen als lead. Pakken we hem op, dan start een bijdrager of eigenaar vanuit de lead
+            een casus en beantwoordt het team deze vragen. De antwoorden blijven bij de casus bewaard.
           </nldd-text>
           <nldd-rich-text>
             <ol>
@@ -246,7 +250,7 @@ export function InitiatiefRegelRitme({ initiatief }: { initiatief: InitiatiefDet
                     key={wens.id}
                     wens={wens}
                     eerste={i === 0}
-                    onOpen={isEigenaar ? () => setWensVenster({ wens }) : undefined}
+                    onBewerk={isEigenaar ? () => setWensVenster({ wens }) : undefined}
                   />
                 ))}
               </nldd-container>
@@ -261,59 +265,63 @@ export function InitiatiefRegelRitme({ initiatief }: { initiatief: InitiatiefDet
 
 /**
  * Wie en wat: de begrippen van het casuswerk. Zo werkt Bouwmeester, dus voor
- * elk initiatief hetzelfde; de rechten volgen core/authority.py (een
- * casustaak wijzigen: bijdrager, eigenaar of trekker; de uitvoerder werkt
- * zijn eigen taak bij) en require_initiatief_member (wie een taak doet, ziet
- * het initiatief).
+ * elk initiatief hetzelfde. Wat ze over rechten zeggen, volgt de backend:
+ * een casus starten en de trekker aanwijzen kan een bijdrager of eigenaar
+ * van het initiatief (core/authority.py: require_can_start_casus,
+ * require_can_manage_casus_team); de casus, zijn taken en het team wijzigen
+ * kan ook de trekker (require_can_change_casus); de uitvoerder werkt zijn
+ * eigen taak bij zonder rol (EIGEN_WERK_VELDEN in api/routes/tasks.py); wie
+ * in het team staat of een taak doet, moet het initiatief zien
+ * (require_initiatief_member). Teamlid zijn geeft geen rechten. De
+ * Definition of Done staat in de instellingen, en die zijn van de eigenaar.
  */
 const BEGRIPPEN: { icon: string; term: string; uitleg: string }[] = [
   {
     icon: 'inbox',
     term: 'Lead',
     uitleg:
-      'Een aanvraag of kans die binnenkomt, voordat we iets toezeggen. Leads staan op de tab Leads en schuiven door de kolommen van de funnel. Niet elke lead wordt een casus.',
+      'Een aanvraag of kans die binnenkomt, voordat we iets toezeggen. Leads schuiven door de kolommen op de tab Leads. Niet elke lead wordt een casus.',
   },
   {
     icon: 'folder',
     term: 'Casus',
     uitleg:
-      'Een organisatie heeft een casus, en die pakken we op. Een casus is dus niet hetzelfde als een lead: een organisatie kan meerdere casussen hebben. Een casus heeft een trekker, een casusteam, een of meer soorten en onderzoeksvragen, en gaat de fases van de RegelReis door.',
+      'Een vraag van een organisatie die we oppakken; één organisatie kan er meer hebben. Een casus heeft een trekker, een casusteam en onderzoeksvragen, en gaat door de fases van de RegelReis.',
   },
   {
     icon: 'question-mark-circle',
     term: 'Onderzoeksvraag',
-    uitleg:
-      'De open vraag waar het casusteam samen aan werkt. Een vraag hangt onder een casus en is van het team, niet van één persoon. Of een onderzoeksvraag beantwoord is, beoordeel je met de Definition of Done.',
+    uitleg: 'Een vraag onder een casus waar het casusteam samen aan werkt. Of hij af is, toets je aan de Definition of Done.',
   },
   {
     icon: 'check-list',
     term: 'Definition of Done',
     uitleg:
-      'De standaard waarmee het team beoordeelt of een onderzoeksvraag af is. Het is geen gewenst eindproduct en geen eisenlijst, maar een vaste maat die voor elke vraag geldt. Het team bepaalt de punten samen en loopt ze na bij het afronden van de vraag. Ze staan bij Wanneer is een vraag beantwoord (DoD), de eigenaar zet ze in de instellingen.',
+      'De punten waarmee het team beoordeelt of een onderzoeksvraag af is, voor elke vraag dezelfde. De eigenaar van het initiatief legt ze vast bij Instellingen.',
   },
   {
     icon: 'check-mark-circle',
     term: 'Taak',
     uitleg:
-      'Het werk zelf: duidelijk afgebakend, onder een onderzoeksvraag. Iedereen kan alle taken oppakken. Een open taak zet je dus niet op iemands naam. Dat doe je pas als iemand de taak gaat uitvoeren, en dan komt de naam van die persoon erop. Wie de taak doet, zet hem door van Open naar In uitvoering en Afgerond.',
+      'Afgebakend werk onder een onderzoeksvraag. Een open taak staat op niemands naam; die komt erop zodra iemand hem gaat doen. Wie de taak doet, houdt de status bij tot hij is afgerond.',
   },
   {
     icon: 'flag',
     term: 'Trekker',
     uitleg:
-      'Jaagt de casus aan. Aanjager, niet eigenaar van al het werk. De trekker wordt bij de start gekozen, mag de casus wijzigen, zoals de fase, en stelt het casusteam samen.',
+      'Jaagt de casus aan. Een bijdrager of eigenaar van het initiatief wijst de trekker aan. De trekker mag de casus wijzigen, zoals de fase en de taken, en stelt het casusteam samen.',
   },
   {
     icon: 'users',
     term: 'Casusteam',
     uitleg:
-      'De trekker en een klein groepje teamleden. Het team werkt samen aan de onderzoeksvragen. Binnen RegelRecht kunnen we ook kijkers uitnodigen, op het niveau van het initiatief of van de casus.',
+      'De trekker en een paar teamleden uit het initiatief; ook een kijker kan erin. In het team staan geeft geen extra rechten: wat je mag, volgt uit je rol op het initiatief.',
   },
   {
     icon: 'hand',
-    term: 'Kan iedereen een taak oppakken?',
+    term: 'Wie pakt een taak op?',
     uitleg:
-      'Ja. Het belangrijkste is dat op een taak de naam staat van wie hem uitvoert. Die naam zet je er zelf op, of iemand anders doet het. Iedereen die bijdrager of eigenaar is van het initiatief pakt taken op, ook bij een casus buiten het eigen casusteam. Ook kijkers kunnen een taak toegewezen krijgen en die dan zelf bijwerken.',
+      'Elke bijdrager of eigenaar van het initiatief, ook bij een casus buiten het eigen team; de trekker binnen de eigen casus. Een kijker kan een taak toegewezen krijgen en werkt die dan zelf bij.',
   },
 ];
 
@@ -331,16 +339,23 @@ function wensSamenvatting(wensen: Wens[]): string {
 }
 
 /**
- * Eén wens: soort, titel, wie hem meldde. Met `onOpen` (de eigenaar) is de
- * regel een knop die het venster opent om hem te bewerken.
+ * Eén wens: soort, titel, wie hem meldde. Heeft hij een toelichting, dan is
+ * de kop een knop die hem uitklapt, voor iedereen die het initiatief ziet:
+ * alleen lezen, als rich text zoals elders. Met `onBewerk` (de eigenaar)
+ * staat er een potlood naast dat het venster opent om hem te bewerken.
  */
-function WensRegel({ wens, eerste, onOpen }: { wens: Wens; eerste: boolean; onOpen?: () => void }) {
-  const gemeld = [wens.gemeld_door, wens.gemeld_op ? new Date(wens.gemeld_op).toLocaleDateString('nl-NL') : null]
+function WensRegel({ wens, eerste, onBewerk }: { wens: Wens; eerste: boolean; onBewerk?: () => void }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  const heeftToelichting = !!richTextToPlain(wens.toelichting).trim();
+  // parseISO leest een datum zonder tijd als lokale dag, new Date als UTC.
+  const gemeld = [wens.gemeld_door, wens.gemeld_op ? parseISO(wens.gemeld_op).toLocaleDateString('nl-NL') : null]
     .filter(Boolean)
     .join(', ');
-  const inhoud = (
+  const kop = (
     <nldd-container gap="4">
       <nldd-container layout="row" gap="8" vertical-alignment="center">
+        {heeftToelichting && <Icon name={open ? 'chevron-down' : 'chevron-right'} size="sm" />}
         <Badge color={wens.soort === 'bug' ? 'rood' : 'lintblauw'}>{wens.soort === 'bug' ? 'Bug' : 'Suggestie'}</Badge>
         <nldd-text size="sm" weight="medium">
           {wens.titel}
@@ -355,24 +370,37 @@ function WensRegel({ wens, eerste, onOpen }: { wens: Wens; eerste: boolean; onOp
   );
   return (
     <div style={{ borderTop: eerste ? undefined : RAND, padding: '8px 0' }}>
-      {onOpen ? (
-        <div
-          role="button"
-          tabIndex={0}
-          aria-label={`${wens.titel}: bewerken`}
-          onClick={onOpen}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onOpen();
-            }
-          }}
-          style={{ cursor: 'pointer' }}
-        >
-          {inhoud}
+      <nldd-container layout="row" gap="8" vertical-alignment="top">
+        <nldd-container className="row-fill">
+          {heeftToelichting ? (
+            <button
+              type="button"
+              className="plain-button"
+              aria-expanded={open}
+              aria-controls={id}
+              onClick={() => setOpen((v) => !v)}
+              style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}
+            >
+              {kop}
+            </button>
+          ) : (
+            kop
+          )}
+        </nldd-container>
+        {onBewerk && (
+          <NlddIconButton
+            icon="pencil"
+            accessibleLabel={`${wens.titel}: bewerken`}
+            variant="neutral-transparent"
+            size="sm"
+            onClick={onBewerk}
+          />
+        )}
+      </nldd-container>
+      {heeftToelichting && open && (
+        <div id={id} style={{ paddingTop: '8px' }}>
+          <RichTextDisplay content={wens.toelichting} fallback="" />
         </div>
-      ) : (
-        inhoud
       )}
     </div>
   );
@@ -576,8 +604,8 @@ function EisenLijst({ kop, eisen }: { kop: string; eisen: string[] }) {
       ) : (
         <nldd-rich-text>
           <ul>
-            {eisen.map((e) => (
-              <li key={e}>{e}</li>
+            {eisen.map((e, i) => (
+              <li key={`${i}-${e}`}>{e}</li>
             ))}
           </ul>
         </nldd-rich-text>
