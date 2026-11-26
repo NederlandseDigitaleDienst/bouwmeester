@@ -332,6 +332,25 @@ async def get_casus(
     return await _detail(CasusRepository(db), casus)
 
 
+def _leeg_koelkast(casus) -> dict | None:
+    """Haal de casus uit de koelkast, zonder flush.
+
+    Geeft de details voor het activiteitenlog, of None als hij er niet in
+    stond. Zonder de reden, net als bij het erin zetten.
+    """
+    if casus.koelkast_sinds is None:
+        return None
+    details = {
+        "casus_id": str(casus.id),
+        "title": casus.title,
+        "sinds": casus.koelkast_sinds.isoformat(),
+    }
+    casus.koelkast_sinds = None
+    casus.koelkast_reden = None
+    casus.koelkast_verwacht_terug = None
+    return details
+
+
 @router.put("/{casus_id}", response_model=CasusDetailResponse)
 async def update_casus(
     casus_id: UUID,
@@ -341,6 +360,12 @@ async def update_casus(
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
     perm_ctx: PermissionContext = Depends(get_permission_context),
 ) -> CasusDetailResponse:
+    """Werk een casus bij: gegevens, fase, eindeisen.
+
+    In de koelkast staat de fase vast: een andere fase geeft 409, tenzij
+    uit_koelkast meekomt. Dan gaat de casus in dezelfde transactie uit de
+    koelkast en naar de nieuwe fase; faalt er iets, dan blijft hij erin.
+    """
     bestaand = await _get_casus(db, casus_id, init_ctx)
     await require_can_change_casus(db, perm_ctx, current_user, bestaand)
     if data.fase is not None:
@@ -353,6 +378,18 @@ async def update_casus(
                 status_code=400,
                 detail="Deze fase staat niet in de casusfunnel van het initiatief",
             )
+        if (
+            bestaand.koelkast_sinds is not None
+            and not data.uit_koelkast
+            and data.fase != bestaand.fase
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Deze casus staat in de koelkast; zijn fase staat dan vast. "
+                    "Haal hem eerst uit de koelkast."
+                ),
+            )
     # De eindeisen van de soorten zoals het team ze naliep: een momentopname,
     # en geen poort voor de fase.
     eind_eisen = None
@@ -363,16 +400,25 @@ async def update_casus(
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc))
-        data = CasusUpdate.model_validate(
-            data.model_dump(exclude_unset=True, exclude={"eind_eisen"})
-        )
+    uit_koelkast = data.uit_koelkast
+    # Wat de repository niet als kolom schrijft, gaat er hier uit.
+    data = CasusUpdate.model_validate(
+        data.model_dump(exclude_unset=True, exclude={"eind_eisen", "uit_koelkast"})
+    )
     repo = CasusRepository(db)
     old = await repo.get(casus_id)
     old_fase = old.fase if old else None
     if eind_eisen is not None:
         # Vóór de update, zodat die hem meeschrijft en updated_at ververst.
         bestaand.eind_eisen = eind_eisen
+    # Ook vóór de update: één flush met de fase, zodat de casus nooit uit de
+    # koelkast is zonder de fase waar hij heen ging.
+    koelkast_uit = _leeg_koelkast(bestaand) if uit_koelkast else None
     casus = require_found(await repo.update(casus_id, data), "Casus")
+    if koelkast_uit is not None:
+        await log_activity(
+            db, current_user, None, "casus.koelkast_uit", details=koelkast_uit
+        )
     details: dict = {"casus_id": str(casus.id), "title": casus.title}
     if eind_eisen is not None:
         details["eind_eisen_akkoord"] = sum(e["akkoord"] for e in eind_eisen)
@@ -446,15 +492,8 @@ async def haal_uit_koelkast(
     """
     casus = await _get_casus(db, casus_id, init_ctx)
     await require_can_change_casus(db, perm_ctx, current_user, casus)
-    if casus.koelkast_sinds is not None:
-        details = {
-            "casus_id": str(casus.id),
-            "title": casus.title,
-            "sinds": casus.koelkast_sinds.isoformat(),
-        }
-        casus.koelkast_sinds = None
-        casus.koelkast_reden = None
-        casus.koelkast_verwacht_terug = None
+    details = _leeg_koelkast(casus)
+    if details is not None:
         await db.flush()
         await db.refresh(casus, attribute_names=["updated_at", "initiatief", "lead"])
         await log_activity(
