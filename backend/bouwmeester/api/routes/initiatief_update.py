@@ -8,6 +8,11 @@ buiten.
 Een gepubliceerde update is ook als mailbrief te downloaden: een .eml die
 Outlook opent als concept, zonder ontvangers. Bouwmeester verstuurt zelf
 niets en bewaart geen adressen.
+
+Titel en tekst van een update gaan naar buiten. Een @- of #-verwijzing gaat
+er bij het schrijven niet door (schema/publieke_tekst.py), een concept van
+daarvoor wordt pas gepubliceerd als de verwijzing eruit is, en de mailbrief
+maakt een verwijzing van daarvoor alsnog gewone tekst.
 """
 
 import html
@@ -51,6 +56,10 @@ from bouwmeester.schema.initiatief_update import (
     KlaarOmTeDelen,
     KlaarVraag,
     VrijgegevenVraag,
+)
+from bouwmeester.schema.publieke_tekst import (
+    geen_verwijzingen,
+    verwijzingen_als_tekst,
 )
 from bouwmeester.services.eml_builder import build_outlook_draft_eml
 from bouwmeester.services.markdown_min import markdown_to_html
@@ -377,9 +386,22 @@ async def publish_update(
     repo = InitiatiefRepository(db)
     await _require_access(repo, initiatief_id, current_user, perm_ctx, "contributor")
     post = require_found(await _load_post(db, initiatief_id, post_id), "Update")
+    _zonder_verwijzingen(post)
     post.published_at = datetime.now(UTC)
     post.published_by_id = current_user.id if current_user else None
     return await _herlaad(db, post)
+
+
+def _zonder_verwijzingen(post: InitiatiefUpdatePost) -> None:
+    """Een concept van vóór de controle op verwijzingen: 422 tot de
+    verwijzing eruit is, net als bij schrijven."""
+    try:
+        geen_verwijzingen(post.titel)
+        geen_verwijzingen(post.body)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e)
+        ) from e
 
 
 @router.post(
@@ -447,15 +469,18 @@ def _mailbrief_html(
     Alle tekst gaat door html.escape (de body via markdown_to_html, dat ook
     escapet): wat iemand typt, wordt nooit opmaak of een link in de mail.
     """
-    delen = [f"<h2>{html.escape(post.titel)}</h2>"]
+    t = verwijzingen_als_tekst
+    delen = [f"<h2>{html.escape(t(post.titel) or '')}</h2>"]
     if post.body:
-        delen.append(markdown_to_html(post.body))
+        delen.append(markdown_to_html(t(post.body) or ""))
     vragen = [v for v in post.vragen if is_buiten_bij(v, post.initiatief_id)]
     if vragen:
         delen.append("<h3>Beantwoorde onderzoeksvragen</h3>")
         for v in vragen:
-            delen.append(f"<p><strong>{html.escape(v.public_title or '')}</strong></p>")
-            delen.append(markdown_to_html(v.public_answer or ""))
+            delen.append(
+                f"<p><strong>{html.escape(t(v.public_title) or '')}</strong></p>"
+            )
+            delen.append(markdown_to_html(t(v.public_answer) or ""))
             if v.verslag is not None and v.verslag.openbaar_op is not None and link:
                 delen.append(
                     "<p>Het onderzoeksverslag staat op de publieke pagina.</p>"
@@ -464,11 +489,13 @@ def _mailbrief_html(
     if casussen:
         delen.append("<h3>Afgeronde casussen</h3>")
         for c in casussen:
-            delen.append(f"<p><strong>{html.escape(c.public_title or '')}</strong></p>")
-            delen.append(markdown_to_html(c.public_resultaat or ""))
+            delen.append(
+                f"<p><strong>{html.escape(t(c.public_title) or '')}</strong></p>"
+            )
+            delen.append(markdown_to_html(t(c.public_resultaat) or ""))
             if c.public_lessen:
                 delen.append("<p><em>Wat we leerden</em></p>")
-                delen.append(markdown_to_html(c.public_lessen))
+                delen.append(markdown_to_html(t(c.public_lessen) or ""))
     if link:
         safe = html.escape(link, quote=True)
         delen.append(
@@ -481,14 +508,15 @@ def _mailbrief_html(
 def _mailbrief_tekst(
     initiatief: Initiatief, post: InitiatiefUpdatePost, link: str | None
 ) -> str:
-    regels = [post.titel, ""]
+    t = verwijzingen_als_tekst
+    regels = [t(post.titel) or "", ""]
     if post.body:
-        regels += [post.body.strip(), ""]
+        regels += [(t(post.body) or "").strip(), ""]
     vragen = [v for v in post.vragen if is_buiten_bij(v, post.initiatief_id)]
     if vragen:
         regels += ["Beantwoorde onderzoeksvragen", ""]
         for v in vragen:
-            regels += [v.public_title or "", v.public_answer or ""]
+            regels += [t(v.public_title) or "", t(v.public_answer) or ""]
             if v.verslag is not None and v.verslag.openbaar_op is not None and link:
                 regels.append("Het onderzoeksverslag staat op de publieke pagina.")
             regels.append("")
@@ -496,9 +524,9 @@ def _mailbrief_tekst(
     if casussen:
         regels += ["Afgeronde casussen", ""]
         for c in casussen:
-            regels += [c.public_title or "", c.public_resultaat or ""]
+            regels += [t(c.public_title) or "", t(c.public_resultaat) or ""]
             if c.public_lessen:
-                regels += ["Wat we leerden:", c.public_lessen]
+                regels += ["Wat we leerden:", t(c.public_lessen) or ""]
             regels.append("")
     if link:
         regels.append(f"Alle updates van {initiatief.naam} staan op {link}")
@@ -533,7 +561,9 @@ async def download_mailbrief(
     eml_bytes = build_outlook_draft_eml(
         # Eén regel: een regeleinde in een kop laat de mailbibliotheek
         # weigeren (geen header-injectie, wel een 500).
-        subject=" ".join(f"{initiatief.naam}: {post.titel}".split()),
+        subject=" ".join(
+            f"{initiatief.naam}: {verwijzingen_als_tekst(post.titel)}".split()
+        ),
         to=[],
         body_html=_mailbrief_html(initiatief, post, link),
         body_text=_mailbrief_tekst(initiatief, post, link),

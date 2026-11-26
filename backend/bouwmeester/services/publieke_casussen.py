@@ -20,6 +20,7 @@ from bouwmeester.schema.initiatief_update import PubliekeCasus, PubliekeCasusBui
 
 
 def laatste_fase(initiatief: Initiatief | None) -> str | None:
+from bouwmeester.schema.publieke_tekst import verwijzingen_als_tekst
     """De id van de laatste fase van de funnel: daar is een casus afgerond."""
     if initiatief is None:
         return None
@@ -102,17 +103,17 @@ async def casussen_voor_update(
 def als_publieke_casus(casus: Casus) -> PubliekeCasus:
     return PubliekeCasus(
         id=casus.id,
-        titel=casus.public_title or "",
-        resultaat=casus.public_resultaat or "",
-        lessen=casus.public_lessen or None,
+        titel=verwijzingen_als_tekst(casus.public_title) or "",
+        resultaat=verwijzingen_als_tekst(casus.public_resultaat) or "",
+        lessen=verwijzingen_als_tekst(casus.public_lessen) or None,
         published_at=casus.published_at,
     )
 
 
 def als_casus_buiten(casus: Casus) -> PubliekeCasusBuiten:
     return PubliekeCasusBuiten(
-        titel=casus.public_title or "",
-        resultaat=casus.public_resultaat or "",
-        lessen=casus.public_lessen or None,
+        titel=verwijzingen_als_tekst(casus.public_title) or "",
+        resultaat=verwijzingen_als_tekst(casus.public_resultaat) or "",
+        lessen=verwijzingen_als_tekst(casus.public_lessen) or None,
         published_at=casus.published_at,
     )

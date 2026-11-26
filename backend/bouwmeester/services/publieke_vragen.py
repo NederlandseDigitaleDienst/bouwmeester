@@ -28,6 +28,15 @@ from bouwmeester.schema.onderzoeksverslag import PubliekVerslag
 def is_buiten(issue: Issue) -> bool:
     """Mag deze vraag nu naar buiten? Vrijgegeven, afgerond, met tekst.
 
+from bouwmeester.schema.publieke_tekst import verwijzingen_als_tekst
+
+# De extensie bij elk type dat een verslag mag zijn (VERSLAG_CONTENT_TYPES).
+_EXTENSIE = {
+    "application/pdf": ".pdf",
+    "application/msword": ".doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/vnd.oasis.opendocument.text": ".odt",
+}
     Hetzelfde als _buiten_filter, maar dan voor een geladen vraag.
     """
     return (
@@ -148,8 +157,8 @@ async def vragen_voor_update(
 def als_publieke_vraag(issue: Issue) -> PubliekeVraag:
     return PubliekeVraag(
         id=issue.id,
-        vraag=issue.public_title or "",
-        antwoord=issue.public_answer or "",
+        vraag=verwijzingen_als_tekst(issue.public_title) or "",
+        antwoord=verwijzingen_als_tekst(issue.public_answer) or "",
         published_at=issue.published_at,
         verslag=publiek_verslag(issue),
     )
@@ -157,8 +166,8 @@ def als_publieke_vraag(issue: Issue) -> PubliekeVraag:
 
 def als_vraag_buiten(issue: Issue) -> PubliekeVraagBuiten:
     return PubliekeVraagBuiten(
-        vraag=issue.public_title or "",
-        antwoord=issue.public_answer or "",
+        vraag=verwijzingen_als_tekst(issue.public_title) or "",
+        antwoord=verwijzingen_als_tekst(issue.public_answer) or "",
         published_at=issue.published_at,
         verslag=publiek_verslag(issue),
     )

@@ -1,4 +1,11 @@
-"""Public (unauthenticated) endpoints for an initiatief community page."""
+"""Public (unauthenticated) endpoints for an initiatief community page.
+
+Elke tekst gaat hier door `verwijzingen_als_tekst`: een @- of #-verwijzing
+uit de editor zet anders een naam en een intern id op de pagina. Nieuwe
+publieke tekst weigert zo'n verwijzing al bij het schrijven; dit vangt wat
+van daarvoor is, en de beschrijving van het initiatief, die voor binnen
+geschreven wordt.
+"""
 
 from uuid import UUID
 
@@ -22,6 +29,7 @@ from bouwmeester.schema.initiatief_update import (
     PubliekeVraagBuiten,
 )
 from bouwmeester.schema.lead_update import LeadUpdatePostPublicResponse
+from bouwmeester.schema.publieke_tekst import verwijzingen_als_tekst as _tekst
 from bouwmeester.services.publieke_casussen import (
     als_casus_buiten,
     is_casus_buiten_bij,
@@ -68,7 +76,9 @@ async def get_public_initiatief(
     slug: str,
     db: AsyncSession = Depends(get_db),
 ) -> PublicInitiatiefResponse:
-    """Return naam/beschrijving/kleur + published updates only.
+    """Naam, beschrijving en kleur, de gepubliceerde updates, de lopende
+    casussen van leads die daarvoor zijn opengezet, en de beantwoorde vragen
+    en afgeronde casussen die iemand vrijgaf.
 
     Returns 404 (not 403) when slug is unknown OR public_page_enabled is
     false. Hiding existence on disabled pages is intentional — leaks no
@@ -139,12 +149,12 @@ async def get_public_initiatief(
         )
         casussen.append(
             PublicCasus(
-                titel=lead.public_title or "",
-                samenvatting=lead.public_summary,
+                titel=_tekst(lead.public_title) or "",
+                samenvatting=_tekst(lead.public_summary),
                 updates=[
                     LeadUpdatePostPublicResponse(
-                        titel=u.titel,
-                        body_public=u.body_public,
+                        titel=_tekst(u.titel) or "",
+                        body_public=_tekst(u.body_public),
                         published_at=u.published_at,
                         published_by_naam=(
                             u.published_by.naam if u.published_by else None
@@ -158,12 +168,12 @@ async def get_public_initiatief(
     return PublicInitiatiefResponse(
         naam=initiatief.naam,
         slug=initiatief.slug or "",
-        beschrijving=initiatief.beschrijving,
+        beschrijving=_tekst(initiatief.beschrijving),
         kleur=initiatief.kleur,
         updates=[
             InitiatiefUpdatePostPublicResponse(
-                titel=u.titel,
-                body=u.body,
+                titel=_tekst(u.titel) or "",
+                body=_tekst(u.body),
                 published_at=u.published_at,
                 published_by_naam=(u.published_by.naam if u.published_by else None),
                 vragen=[

@@ -3,9 +3,10 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from bouwmeester.schema.onderzoeksverslag import PubliekVerslag
+from bouwmeester.schema.publieke_tekst import geen_verwijzingen, zonder_witruimte
 
 
 class PubliekeVraag(BaseModel):
@@ -49,8 +50,8 @@ class KlaarVraag(BaseModel):
     public_title: str | None = None
     public_answer: str | None = None
     published_at: datetime | None = None
-    in_gepubliceerde_update: bool = False
     # Nu buiten, en in een gepubliceerde update: daar staat hij nu te lezen.
+    in_gepubliceerde_update: bool = False
     verslag_openbaar: bool = False
 
 
@@ -65,8 +66,8 @@ class KlaarCasus(BaseModel):
     public_resultaat: str | None = None
     public_lessen: str | None = None
     published_at: datetime | None = None
-    in_gepubliceerde_update: bool = False
     # Nu buiten, en in een gepubliceerde update: daar staat hij nu te lezen.
+    in_gepubliceerde_update: bool = False
     afgerond_op: datetime | None = None
 
 
@@ -85,6 +86,10 @@ class VrijgegevenVraag(PubliekeVraag):
 
 
 class InitiatiefUpdatePostCreate(BaseModel):
+    """Een update schrijven. Titel en tekst gaan naar buiten (publieke
+    pagina, mailbrief), dus dezelfde regels als voor elke publieke tekst:
+    spaties eromheen eraf, geen @- of #-verwijzing."""
+
     titel: str = Field(min_length=1, max_length=300)
     body: str | None = Field(None, max_length=50000)
     publish: bool = False  # if true, set published_at to now()
@@ -93,13 +98,22 @@ class InitiatiefUpdatePostCreate(BaseModel):
     # Vrijgegeven, afgeronde casussen van dit initiatief die de update meeneemt.
     casus_ids: list[UUID] = Field(default_factory=list, max_length=200)
 
+    _strip = field_validator("titel", "body", mode="before")(zonder_witruimte)
+    _verwijzingen = field_validator("titel", "body")(geen_verwijzingen)
+
 
 class InitiatiefUpdatePostEdit(BaseModel):
+    """Een update wijzigen, ook een gepubliceerde: dezelfde regels als bij
+    het schrijven."""
+
     titel: str | None = Field(None, min_length=1, max_length=300)
     body: str | None = Field(None, max_length=50000)
     # Meegeven vervangt de hele lijst; weglaten laat hem staan.
     vraag_ids: list[UUID] | None = Field(None, max_length=200)
     casus_ids: list[UUID] | None = Field(None, max_length=200)
+
+    _strip = field_validator("titel", "body", mode="before")(zonder_witruimte)
+    _verwijzingen = field_validator("titel", "body")(geen_verwijzingen)
 
 
 class InitiatiefUpdatePostResponse(BaseModel):

@@ -5,11 +5,14 @@ buiten, maar alleen met een publieke vraag en een kort antwoord die iemand
 bewust vrijgaf. Dekt: vrijgeven alleen voor een afgeronde onderzoeksvraag en
 alleen door een bijdrager of eigenaar; heropenen trekt in; de publieke pagina
 toont alleen de publieke tekst en nooit de casus; een update neemt alleen
-vrijgegeven vragen van het eigen initiatief mee; de mailbrief.
+vrijgegeven vragen van het eigen initiatief mee; de mailbrief; titel en
+tekst van een update zonder @- of #-verwijzing, ook in de mailbrief en op de
+publieke pagina; de stand "In een update" volgt of de vraag nog buiten is.
 """
 
 import email
 import uuid
+from datetime import UTC, datetime
 from email import policy
 
 import pytest
@@ -17,6 +20,7 @@ import pytest
 from bouwmeester.core.config import get_settings
 from bouwmeester.models.casus import Casus
 from bouwmeester.models.initiatief import Initiatief
+from bouwmeester.models.initiatief_update import InitiatiefUpdatePost
 from bouwmeester.models.lead import Lead
 from bouwmeester.models.resource_permission import ResourcePermission
 from tests.factories import client_as, make_person
@@ -598,3 +602,142 @@ async def test_intern_antwoord_wissen(client, casus):
     resp = await client.put(pad, json={"antwoord": None})
     assert resp.status_code == 200, resp.text
     assert resp.json()["antwoord"] is None
+
+
+# --- Na de review van #461 ----------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "veld,tekst",
+    [
+        ("body", "Met dank aan [@Jan Jansen](user:%s)."),
+        ("body", "Zie [#Belronde](task:%s)."),
+        ("titel", "Stand bij [@Gemeente X](org:%s)"),
+        # Markdown laat een spatie en punthaken toe voor het doel.
+        ("body", "Met dank aan [@Jan Jansen]( user:%s)."),
+        ("body", "Met dank aan [@Jan Jansen](<user:%s>)."),
+    ],
+)
+async def test_update_zonder_verwijzingen(client, initiatief, veld, tekst):
+    """Titel en tekst van een update gaan naar buiten: geen verwijzing, bij
+    schrijven en bij wijzigen."""
+    data = {"titel": "Stand van zaken", "body": "Gewone tekst.", "publish": True}
+    data[veld] = tekst % uuid.uuid4()
+    resp = await client.post(f"/api/initiatieven/{initiatief.id}/updates", json=data)
+    assert resp.status_code == 422
+    assert "verwijzing" in resp.text
+
+    post = (await _update(client, initiatief)).json()
+    resp = await client.put(
+        f"/api/initiatieven/{initiatief.id}/updates/{post['id']}",
+        json={veld: tekst % uuid.uuid4()},
+    )
+    assert resp.status_code == 422
+    assert "verwijzing" in resp.text
+
+
+async def test_update_titel_van_alleen_spaties_is_422(client, initiatief):
+    resp = await client.post(
+        f"/api/initiatieven/{initiatief.id}/updates", json={"titel": "   "}
+    )
+    assert resp.status_code == 422
+
+
+async def _oude_update(db_session, initiatief, *, gepubliceerd: bool, persoon_id):
+    """Een update van vóór de controle, met een verwijzing in titel en tekst."""
+    post = InitiatiefUpdatePost(
+        initiatief_id=initiatief.id,
+        titel=f"Stand bij [@Gemeente X](org:{persoon_id})",
+        body=f"Met dank aan [@Jan Jansen](user:{persoon_id}) en **twee** vragen.",
+        published_at=datetime.now(UTC) if gepubliceerd else None,
+    )
+    db_session.add(post)
+    await db_session.flush()
+    return post
+
+
+async def test_oud_concept_met_verwijzing_publiceert_niet(
+    client, db_session, initiatief
+):
+    post = await _oude_update(
+        db_session, initiatief, gepubliceerd=False, persoon_id=uuid.uuid4()
+    )
+    resp = await client.post(
+        f"/api/initiatieven/{initiatief.id}/updates/{post.id}/publish"
+    )
+    assert resp.status_code == 422
+    assert "verwijzing" in resp.text
+    assert (await _publiek(client))["updates"] == []
+
+
+async def test_mailbrief_bevat_geen_verwijzing(
+    client, db_session, initiatief, monkeypatch
+):
+    """Een gepubliceerde update van vóór de controle: in de mailbrief wordt
+    de verwijzing gewone tekst, zonder id en zonder link."""
+    monkeypatch.setattr(get_settings(), "FRONTEND_URL", "https://bouwmeester.test")
+    persoon_id = uuid.uuid4()
+    post = await _oude_update(
+        db_session, initiatief, gepubliceerd=True, persoon_id=persoon_id
+    )
+    resp = await client.get(f"/api/initiatieven/{initiatief.id}/updates/{post.id}/eml")
+    assert resp.status_code == 200, resp.text
+    msg = _mail(resp)
+    assert str(persoon_id) not in msg["Subject"]
+    for deel in ("html", "plain"):
+        body = msg.get_body(preferencelist=(deel,)).get_content()
+        assert str(persoon_id) not in body
+        assert "user:" not in body and "org:" not in body
+        assert "@Jan Jansen" in body
+
+
+async def test_publieke_pagina_bevat_geen_verwijzing(client, db_session, initiatief):
+    """Ook op de publieke pagina: de oude update en de beschrijving van het
+    initiatief (die voor binnen geschreven wordt) zonder id."""
+    persoon_id = uuid.uuid4()
+    await _oude_update(db_session, initiatief, gepubliceerd=True, persoon_id=persoon_id)
+    initiatief.beschrijving = f"Getrokken door [@Anne](user:{persoon_id})."
+    await db_session.flush()
+    publiek = await _publiek(client)
+    assert str(persoon_id) not in str(publiek)
+    assert publiek["beschrijving"] == "Getrokken door @Anne."
+    (update,) = publiek["updates"]
+    assert update["titel"] == "Stand bij @Gemeente X"
+
+
+def test_verwijzingen_als_tekst():
+    from bouwmeester.schema.publieke_tekst import verwijzingen_als_tekst as t
+
+    id_ = uuid.uuid4()
+    assert t(None) is None
+    assert t("") == ""
+    assert t("Gewoon [een link](https://example.org).") == (
+        "Gewoon [een link](https://example.org)."
+    )
+    assert t(f"[@Anne](user:{id_}) en [#Wet](node:{id_})") == "@Anne en #Wet"
+    assert t(f"[@A \\] B](user:{id_})") == "@A ] B"
+    assert t(f"[@Anne]( <USER:{id_}> )") == "@Anne"
+    # Zonder sluitende haak: het id gaat er toch af.
+    assert str(id_) not in (t(f"[@Anne](user:{id_}") or "")
+
+
+async def test_in_een_update_volgt_of_de_vraag_buiten_is(client, casus, initiatief):
+    """De stand "In een update" geldt zolang de vraag buiten is: na
+    intrekken staat hij in geen update meer te lezen."""
+    vraag = await _vraag(client, casus)
+    await _vrijgeven(client, casus, vraag)
+    await _update(client, initiatief, [vraag["id"]])
+    pad = f"/api/initiatieven/{initiatief.id}/klaar-om-te-delen"
+
+    (klaar,) = (await client.get(pad)).json()["vragen"]
+    assert klaar["in_gepubliceerde_update"] is True
+
+    await client.delete(f"/api/casussen/{casus.id}/issues/{vraag['id']}/publiek")
+    (klaar,) = (await client.get(pad)).json()["vragen"]
+    assert klaar["published_at"] is None
+    assert klaar["in_gepubliceerde_update"] is False
+
+    # Opnieuw vrijgeven: de update toont hem weer, dus weer "In een update".
+    await _vrijgeven(client, casus, vraag)
+    (klaar,) = (await client.get(pad)).json()["vragen"]
+    assert klaar["in_gepubliceerde_update"] is True
