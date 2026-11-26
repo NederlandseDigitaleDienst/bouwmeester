@@ -85,20 +85,20 @@ describe('OpNaamContext', () => {
     expect(daarna).toHaveBeenCalledTimes(2);
   });
 
-  it('in uitvoering: vraagt het, en Aan mij koppelen zet hem in één klik op jou', async () => {
+  it('in uitvoering: vraagt het, en Op mijn naam zet hem in één klik op jou', async () => {
     render();
     const daarna = vi.fn();
     await vraag(zonder, TaskStatus.IN_PROGRESS, 'i1', daarna);
     expect(document.body.textContent).toContain('staat nu in uitvoering, maar nog niet op naam');
     expect((await lijst()).value).toBe('');
-    await waitFor(() => expect(knop('Aan mij koppelen')).toBeDefined());
+    await waitFor(() => expect(knop('Op mijn naam')).toBeDefined());
     expect(updateTask).not.toHaveBeenCalled();
     expect(daarna).not.toHaveBeenCalled();
 
-    await klik('Aan mij koppelen');
+    await klik('Op mijn naam');
     expect(updateTask).toHaveBeenCalledWith('t1', { assignee_id: 'ik' });
     expect(daarna).toHaveBeenCalledOnce();
-    expect(knop('Aan mij koppelen')).toBeUndefined();
+    expect(knop('Op mijn naam')).toBeUndefined();
   });
 
   it('afgerond: dezelfde vraag, en je kunt iemand anders kiezen', async () => {
@@ -129,7 +129,7 @@ describe('OpNaamContext', () => {
     render();
     await vraag(zonder, TaskStatus.IN_PROGRESS, 'i1');
     expect((await lijst()).value).toBe('');
-    expect(knop('Aan mij koppelen')).toBeUndefined();
+    expect(knop('Op mijn naam')).toBeUndefined();
     expect(knop('Op naam zetten')!.hasAttribute('disabled')).toBe(true);
   });
 
@@ -138,18 +138,84 @@ describe('OpNaamContext', () => {
     render();
     const daarna = vi.fn();
     await vraag(zonder, TaskStatus.IN_PROGRESS, 'i1', daarna);
-    await waitFor(() => expect(knop('Aan mij koppelen')).toBeDefined());
-    await klik('Aan mij koppelen');
+    await waitFor(() => expect(knop('Op mijn naam')).toBeDefined());
+    await klik('Op mijn naam');
     expect(daarna).not.toHaveBeenCalled();
-    expect(knop('Aan mij koppelen')).toBeDefined();
+    expect(knop('Op mijn naam')).toBeDefined();
   });
 
   it('zonder meegegeven initiatief: de leden van het initiatief van de casus', async () => {
     render();
     await vraag({ ...zonder, casus: { id: 'c1', title: 'Casus', initiatief_id: 'i2' } }, TaskStatus.IN_PROGRESS, null);
-    await waitFor(() => expect(knop('Aan mij koppelen')).toBeDefined());
+    await waitFor(() => expect(knop('Op mijn naam')).toBeDefined());
     expect(getInitiatiefPersonen).toHaveBeenCalledWith('i2');
-    await klik('Aan mij koppelen');
+    await klik('Op mijn naam');
     expect(updateTask).toHaveBeenCalledWith('t1', { assignee_id: 'ik' });
+  });
+
+  it('twee vragen kort na elkaar: de tweede wacht, en elke daarna draait op zijn beurt', async () => {
+    render();
+    const eerste = vi.fn();
+    const tweede = vi.fn();
+    await vraag(zonder, TaskStatus.DONE, 'i1', eerste);
+    await vraag({ ...zonder, id: 't2', title: 'Brief schrijven' }, TaskStatus.IN_PROGRESS, 'i1', tweede);
+    // Eén venster tegelijk, de eerste vraag eerst.
+    expect(document.querySelectorAll('nldd-top-title-bar[text="Op naam zetten?"]')).toHaveLength(1);
+    expect(document.body.textContent).toContain('"Wet lezen" is afgerond');
+
+    await klik('Niet nu');
+    expect(eerste).toHaveBeenCalledOnce();
+    expect(tweede).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain('"Brief schrijven" staat nu in uitvoering');
+
+    await waitFor(() => expect(knop('Op mijn naam')).toBeDefined());
+    await klik('Op mijn naam');
+    expect(updateTask).toHaveBeenCalledWith('t2', { assignee_id: 'ik' });
+    expect(tweede).toHaveBeenCalledOnce();
+    expect(knop('Op naam zetten')).toBeUndefined();
+  });
+
+  it('twee keer sluiten draait daarna maar één keer', async () => {
+    render();
+    const daarna = vi.fn();
+    await vraag(zonder, TaskStatus.IN_PROGRESS, 'i1', daarna);
+    const nietNu = knop('Niet nu')!;
+    await act(async () => {
+      nietNu.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      nietNu.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(daarna).toHaveBeenCalledOnce();
+  });
+
+  it('de knop die je indrukt draait, de andere niet', async () => {
+    let klaarMet: (v: unknown) => void = () => {};
+    updateTask.mockImplementation(() => new Promise((r) => (klaarMet = r)));
+    render();
+    await vraag(zonder, TaskStatus.IN_PROGRESS, 'i1');
+    const select = await lijst();
+    await act(async () => {
+      select.value = 'p1';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await waitFor(() => expect(knop('Op mijn naam')).toBeDefined());
+
+    await klik('Op naam zetten');
+    await waitFor(() => expect(knop('Op naam zetten')!.hasAttribute('loading')).toBe(true));
+    expect(knop('Op mijn naam')!.hasAttribute('loading')).toBe(false);
+    expect(knop('Op mijn naam')!.hasAttribute('disabled')).toBe(true);
+    await act(async () => klaarMet({ id: 't1' }));
+  });
+
+  it('Op mijn naam draait zelf, Op naam zetten niet', async () => {
+    let klaarMet: (v: unknown) => void = () => {};
+    updateTask.mockImplementation(() => new Promise((r) => (klaarMet = r)));
+    render();
+    await vraag(zonder, TaskStatus.IN_PROGRESS, 'i1');
+    await waitFor(() => expect(knop('Op mijn naam')).toBeDefined());
+
+    await klik('Op mijn naam');
+    await waitFor(() => expect(knop('Op mijn naam')!.hasAttribute('loading')).toBe(true));
+    expect(knop('Op naam zetten')!.hasAttribute('loading')).toBe(false);
+    await act(async () => klaarMet({ id: 't1' }));
   });
 });
