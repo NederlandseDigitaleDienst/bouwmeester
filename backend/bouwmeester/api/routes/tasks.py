@@ -145,15 +145,19 @@ async def _require_parent_visible(
 
 
 def _geen_subtaak_in_casus(parent: Task, casus_taak: bool) -> None:
-    """Een taak in een casus heeft geen subtaken en hangt onder geen taak.
+    """Een taak in een casus of onder een vraag heeft geen subtaken en hangt
+    onder geen taak.
 
     In een casus is het werk een onderzoeksvraag met taken eronder; een
-    stap die erbij hoort, is een eigen taak onder die vraag. Subtaken
-    blijven er voor taken aan een node.
+    stap die erbij hoort, is een eigen taak onder die vraag. Zo ook bij een
+    vraag zonder casus. Subtaken blijven er voor taken aan een node.
     """
     if parent.casus_id is not None or parent.issue_id is not None or casus_taak:
         raise HTTPException(
-            status_code=400, detail="Een taak in een casus heeft geen subtaken"
+            status_code=400,
+            detail=(
+                "Een taak in een casus of onder een onderzoeksvraag heeft geen subtaken"
+            ),
         )
 
 
