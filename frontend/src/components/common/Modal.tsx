@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import type { EntityColor } from '@/types';
 import { useNlddEvent, useNlddOverlay } from '@/components/nldd/events';
@@ -49,6 +49,43 @@ interface ModalProps {
    * zodat Sluiten en Terug daarna gewoon blijven werken.
    */
   titleEditor?: ReactNode;
+}
+
+/** Het element met de focus, ook als dat in een shadow root zit (de knop in een nldd-button). */
+function focusNu(): Element | null {
+  let el = document.activeElement;
+  while (el?.shadowRoot?.activeElement) el = el.shadowRoot.activeElement;
+  return el;
+}
+
+/**
+ * Na sluiten de focus terug naar waar hij vandaan kwam: de knop die het
+ * venster opende. Sluit het venster met hide(), dan doet de browser dat zelf
+ * (een modale `<dialog>` onthoudt het). Maar een venster dat bij sluiten uit
+ * de DOM gaat (`{open && <Modal open ...>}`, zoals Taak toevoegen en Op naam
+ * zetten?) wordt nooit gesloten, alleen weggehaald, en dan valt de focus op
+ * de body. Dat vangen we hier op, en alleen dan: staat de focus al ergens
+ * anders, dan blijft hij daar.
+ *
+ * Bij openen onthouden, voordat het venster de focus pakt: dit effect staat
+ * daarom voor useNlddOverlay, dat show() aanroept.
+ */
+function useFocusTerug(windowRef: RefObject<HTMLElement | null>, open: boolean) {
+  useEffect(() => {
+    if (!open) return;
+    const vandaan = focusNu();
+    const venster = windowRef.current;
+    if (!(vandaan instanceof HTMLElement) || vandaan === document.body) return;
+    return () => {
+      // Een microtaak later: dan is het venster weg of heeft de browser bij
+      // hide() de focus al teruggezet.
+      queueMicrotask(() => {
+        const nu = document.activeElement;
+        const kwijt = !nu || nu === document.body || (!!venster && venster.contains(nu));
+        if (kwijt && vandaan.isConnected) vandaan.focus();
+      });
+    };
+  }, [open, windowRef]);
 }
 
 /**
@@ -122,6 +159,8 @@ function ModalOverlay({
   useEffect(() => {
     openedAt.current = open ? Date.now() : 0;
   }, [open]);
+
+  useFocusTerug(windowRef, open);
 
   useNlddOverlay(windowRef, open, handleClose);
 
