@@ -56,7 +56,7 @@ const toevoegen = async () => {
   });
 };
 
-/** De keuzelijst Eigenaar, zodra de leden binnen zijn. */
+/** De keuzelijst Op naam van, zodra de leden binnen zijn. */
 const eigenaarLijst = () =>
   waitFor(() => {
     const s = [...document.querySelectorAll('select')].find((el) => [...el.options].some((o) => o.text === 'Lid Een'));
@@ -68,6 +68,12 @@ describe('TaakAanmakenModal', () => {
   beforeEach(() => {
     createTask.mockReset().mockResolvedValue({ id: 'nieuw', status: 'open' });
     ik.id = 'ik';
+  });
+
+  it('het titelveld krijgt de focus als het venster opengaat', () => {
+    renderModal();
+    // Het venster zoekt bij openen naar [autofocus]; zonder krijgt het zelf de focus.
+    expect(document.querySelector('nldd-text-field')!.hasAttribute('autofocus')).toBe(true);
   });
 
   it('Toevoegen kan pas met een titel', async () => {
@@ -111,7 +117,7 @@ describe('TaakAanmakenModal', () => {
     await act(async () => {
       await new Promise((r) => setTimeout(r, 50));
     });
-    expect(document.querySelector('nldd-form-field[label="Eigenaar"]')).toBeNull();
+    expect(document.querySelector('nldd-form-field[label="Op naam van"]')).toBeNull();
     expect([...document.querySelectorAll('select')].some((el) => [...el.options].some((o) => o.text === 'Lid Een'))).toBe(false);
   });
 
@@ -120,6 +126,8 @@ describe('TaakAanmakenModal', () => {
     createTask.mockResolvedValue({ id: 'nieuw', status });
     renderModal(vi.fn(), status, onAangemaakt);
     await waitFor(async () => expect((await eigenaarLijst()).value).toBe('ik'));
+    // Hetzelfde woord als in de vraag Op naam zetten?.
+    expect(document.querySelector('nldd-form-field[label="Op naam van"]')).not.toBeNull();
     await typTitel('Wet lezen');
     await toevoegen();
     expect(createTask).toHaveBeenCalledWith({ title: 'Wet lezen', issue_id: 'v1', status, assignee_id: 'ik' });

@@ -31,9 +31,13 @@ interface Props {
  *
  * De taak krijgt de status van de kolom. Een taak in Te doen staat nog niet
  * op naam, dus daar vraagt het venster niet naar een eigenaar. In In
- * uitvoering en Afgerond werkt er kennelijk al iemand aan: dan staat de
- * eigenaar alvast op jou, als je lid bent van het initiatief. Op Niemand
- * zetten mag.
+ * uitvoering en Afgerond werkt er kennelijk al iemand aan: dan staat hij
+ * alvast op jouw naam, als je lid bent van het initiatief. Op Niemand
+ * zetten mag. Het veld heet "Op naam van", net als in de vraag "Op naam
+ * zetten?" (OpNaamContext).
+ *
+ * Het titelveld krijgt bij openen de focus. Na sluiten gaat de focus terug
+ * naar de knop Taak toevoegen waar je vandaan kwam (dat regelt Modal).
  *
  * Wie hier te kiezen is, volgt de regel van de casus: alleen leden van het
  * initiatief (uit InitiatiefIdContext).
@@ -99,6 +103,7 @@ function Formulier({ onClose, issue, status = TaskStatus.OPEN, kolomNaam, onAang
           onChange={(e) => setTitel(e.target.value)}
           placeholder="Wat moet er gebeuren?"
           required
+          autoFocus
           onKeyDown={(e) => {
             if (e.key === 'Enter') void opslaan();
           }}
@@ -109,7 +114,7 @@ function Formulier({ onClose, issue, status = TaskStatus.OPEN, kolomNaam, onAang
           <Select
             key={personOptions.length}
             compact
-            label="Eigenaar"
+            label="Op naam van"
             width="240px"
             options={personOptions}
             value={wie}
