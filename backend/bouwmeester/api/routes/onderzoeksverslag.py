@@ -6,7 +6,9 @@ verslag; uploaden, vervangen en weghalen vraagt
 dezelfde rol als de casus wijzigen. Openbaar maken vraagt een bijdrager of
 eigenaar van het initiatief, net als een vraag vrijgeven, en een expliciet
 akkoord. Een nieuw bestand vervangt het oude en zet het akkoord terug: dat
-gold voor het oude bestand.
+gold voor het oude bestand. Intrekken of heropenen van de vraag zet het
+akkoord ook terug (repositories/issue.py): het gold voor de vraag buiten.
+De inhoud moet beginnen met de signatuur van zijn type (PDF, Word, ODT).
 
 Op de publieke pagina staat een openbaar verslag pas als de vraag zelf naar
 buiten mag; zie services/publieke_vragen.py en de publieke downloadroute in
@@ -151,7 +153,14 @@ def maak_router(prefix: str, plek_dep: PlekDep) -> APIRouter:
                 detail="Een onderzoeksverslag is een PDF-, Word- of ODT-bestand",
             )
         content = await read_upload_content(file)
-        validate_upload(content, content_type, allowed=VERSLAG_CONTENT_TYPES)
+        # Het verslag kan naar buiten: de inhoud moet beginnen zoals een
+        # bestand van dit type begint, "onbekend" is niet genoeg.
+        validate_upload(
+            content,
+            content_type,
+            allowed=VERSLAG_CONTENT_TYPES,
+            signatuur_verplicht=True,
+        )
         naam, pad = await store_upload(
             content,
             file.filename or "onderzoeksverslag",
