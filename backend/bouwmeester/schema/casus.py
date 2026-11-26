@@ -121,6 +121,10 @@ class CasusUpdate(BaseModel):
     # De eindeisen van de soorten zoals het team ze naliep, meestal samen met
     # de stap naar de laatste fase. Geen poort: de fase gaat ook zonder.
     eind_eisen: list[SoortEis] | None = Field(None, max_length=300)
+    # In de koelkast staat de fase vast (409). Met uit_koelkast haalt dezelfde
+    # wijziging de casus eruit, in één transactie met de fase en de eindeisen:
+    # zo komt hij nooit uit de koelkast zonder de fase waar hij heen ging.
+    uit_koelkast: bool = False
 
 
 class CasusKoelkast(BaseModel):

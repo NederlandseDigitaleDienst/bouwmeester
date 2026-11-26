@@ -20,6 +20,10 @@ interface Props {
  * soorten nalopen, per eis een vinkje en een opmerking. Geen poort: de casus
  * gaat ook door als niet alles af is. De casus bewaart wat het team invulde;
  * wie later opnieuw afrondt, begint daarmee. Annuleren laat de fase staan.
+ *
+ * Staat de casus in de koelkast, dan haalt dezelfde wijziging hem eruit:
+ * één call, zodat hij nooit uit de koelkast is zonder de nieuwe fase.
+ * Annuleren laat hem in de koelkast.
  */
 export function CasusAfrondenModal({ casus, fase, onClose }: Props) {
   if (!casus || !fase) return null;
@@ -35,7 +39,11 @@ function Formulier({ casus, fase, onClose }: { casus: Casus; fase: { id: string;
     try {
       await update.mutateAsync({
         id: casus.id,
-        data: { fase: fase.id, eind_eisen: naarSoortEisen(soorten, 'eind_eisen', waarden) },
+        data: {
+          fase: fase.id,
+          eind_eisen: naarSoortEisen(soorten, 'eind_eisen', waarden),
+          ...(casus.koelkast_sinds ? { uit_koelkast: true } : {}),
+        },
       });
       onClose();
     } catch {
@@ -62,6 +70,7 @@ function Formulier({ casus, fase, onClose }: { casus: Casus; fase: { id: string;
         <nldd-text size="sm" color="secondary">
           Loop de deliverables van de soorten van deze casus na. Vink aan wat af is en licht toe waar dat helpt. De
           casus gaat ook door als niet alles af is.
+          {casus.koelkast_sinds ? ' Hij gaat daarmee ook uit de koelkast.' : ''}
         </nldd-text>
         <EisenNalopen
           soorten={soorten}

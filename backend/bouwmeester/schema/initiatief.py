@@ -248,7 +248,14 @@ class InitiatiefEenheidWithNameResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class InitiatiefResponse(BaseModel):
+class InitiatiefKernResponse(BaseModel):
+    """Het initiatief zonder wat alleen de tab RegelRitme leest.
+
+    De basis voor het overzicht (GET /api/initiatieven): dat stuurt per
+    initiatief een kaartje mee, en de wensen en overleggen van elk team horen
+    daar niet bij.
+    """
+
     id: UUID
     naam: str
     slug: str | None = None
@@ -266,11 +273,6 @@ class InitiatiefResponse(BaseModel):
     startvragen: list[Startvraag] = Field(default_factory=list)
     # De casusfunnel die geldt: de eigen fases, anders het voorstel.
     casus_fases: list[CasusFaseDef] = Field(default_factory=list)
-    # Het ritme: de vaste overleggen van het team.
-    overleggen: list[Overleg] = Field(default_factory=list)
-    # De punten die nog openstaan, en de wensen voor Bouwmeester.
-    open_punten: list[str] = Field(default_factory=list)
-    wensen: list[Wens] = Field(default_factory=list)
     created_by_id: UUID | None = None
     created_at: datetime
     updated_at: datetime | None = None
@@ -287,13 +289,23 @@ class InitiatiefResponse(BaseModel):
     def _geldende_casus_fases(cls, opgeslagen: list | None) -> list[CasusFaseDef]:
         return geldende_casus_fases(opgeslagen)
 
+
+class InitiatiefResponse(InitiatiefKernResponse):
+    """Het initiatief met het ritme, de open punten en de wensen."""
+
+    # Het ritme: de vaste overleggen van het team.
+    overleggen: list[Overleg] = Field(default_factory=list)
+    # De punten die nog openstaan, en de wensen voor Bouwmeester.
+    open_punten: list[str] = Field(default_factory=list)
+    wensen: list[Wens] = Field(default_factory=list)
+
     @field_validator("overleggen", mode="before")
     @classmethod
     def _geldende_overleggen(cls, opgeslagen: list | None) -> list[Overleg]:
         return geldende_overleggen(opgeslagen)
 
 
-class InitiatiefListItemResponse(InitiatiefResponse):
+class InitiatiefListItemResponse(InitiatiefKernResponse):
     """An initiatief as the overview shows it: the record plus what is in it.
 
     The counts are what a card needs to say whether an initiatief is alive

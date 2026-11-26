@@ -6,15 +6,26 @@ Dekt:
 - zonder reden of datum: 422; een datum in het verleden: 422;
 - bijwerken in de koelkast houdt koelkast_sinds;
 - uit de koelkast haalt alles weg, de fase blijft; nog eens is geen fout;
+- in de koelkast staat de fase vast: een andere fase is 409, behalve met
+  uit_koelkast, dan gaat hij in één wijziging eruit en naar die fase (ook met
+  de eindeisen); faalt die wijziging, dan blijft hij in de koelkast;
+- een fase weghalen waar een casus in de koelkast in staat: de 409 zegt dat
+  hij in de koelkast staat;
+- de database weigert een koelkast zonder reden of datum (ck_casus_koelkast);
 - een kijker mag de casus niet wijzigen en dus ook niet in de koelkast: 403;
-- wie het initiatief niet ziet, krijgt 404 en ziet niet dat de casus bestaat.
+  een trekker die op het initiatief alleen kijker is, mag het wel;
+- wie het initiatief niet ziet, krijgt 404 en ziet niet dat de casus bestaat
+  (de toegangsregel uit test_casus_toegang.py, hier voor de koelkast).
 """
 
 import uuid
 from datetime import date, timedelta
 
 import pytest
+from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 
+from bouwmeester.models.activity import Activity
 from bouwmeester.models.initiatief import Initiatief
 from bouwmeester.models.lead import Lead
 from bouwmeester.models.resource_permission import ResourcePermission
@@ -153,3 +164,150 @@ async def test_buitenstaander_ziet_geen_koelkast(client, db_session, casus):
     assert (await client.get(f"/api/casussen/{casus['id']}")).json()[
         "koelkast_sinds"
     ] is None
+
+
+async def _in_koelkast(client, casus):
+    resp = await client.put(
+        _url(casus), json={"reden": "Partner heeft geen tijd", "verwacht_terug": MORGEN}
+    )
+    assert resp.status_code == 200, resp.text
+
+
+async def test_fase_staat_vast_in_de_koelkast(client, casus):
+    await _in_koelkast(client, casus)
+    url = f"/api/casussen/{casus['id']}"
+
+    resp = await client.put(url, json={"fase": "afronden"})
+    assert resp.status_code == 409
+    assert "koelkast" in resp.json()["detail"]
+    body = (await client.get(url)).json()
+    assert body["fase"] == "uitvoeren"
+    assert body["koelkast_sinds"] is not None
+
+    # De fase die hij al heeft, en andere gegevens, kunnen wel.
+    resp = await client.put(url, json={"fase": "uitvoeren", "title": "Andere titel"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["koelkast_sinds"] is not None
+
+
+async def test_uit_de_koelkast_naar_een_fase_in_een_wijziging(
+    client, db_session, casus
+):
+    await _in_koelkast(client, casus)
+    url = f"/api/casussen/{casus['id']}"
+    # Zoals het afrondvenster het doet: fase, eindeisen en uit de koelkast.
+    resp = await client.put(
+        url, json={"fase": "afronden", "eind_eisen": [], "uit_koelkast": True}
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["fase"] == "afronden"
+    assert body["koelkast_sinds"] is None
+    assert body["koelkast_reden"] is None
+    assert body["koelkast_verwacht_terug"] is None
+
+    soorten = (
+        await db_session.scalars(
+            select(Activity.event_type).where(
+                Activity.event_type.in_(["casus.koelkast_uit", "casus.updated"])
+            )
+        )
+    ).all()
+    assert soorten.count("casus.koelkast_uit") == 1
+    assert "casus.updated" in soorten
+
+    # Niet in de koelkast: uit_koelkast doet dan niets extra.
+    resp = await client.put(url, json={"fase": "delen", "uit_koelkast": True})
+    assert resp.status_code == 200
+    assert resp.json()["fase"] == "delen"
+
+
+async def test_mislukte_wijziging_laat_de_casus_in_de_koelkast(client, casus):
+    await _in_koelkast(client, casus)
+    url = f"/api/casussen/{casus['id']}"
+    resp = await client.put(url, json={"fase": "bestaat-niet", "uit_koelkast": True})
+    assert resp.status_code == 400
+    eis = {"soort_id": str(uuid.uuid4()), "eis": "Onbekend", "akkoord": True}
+    resp = await client.put(
+        url, json={"fase": "afronden", "eind_eisen": [eis], "uit_koelkast": True}
+    )
+    assert resp.status_code == 422
+    body = (await client.get(url)).json()
+    assert body["fase"] == "uitvoeren"
+    assert body["koelkast_reden"] == "Partner heeft geen tijd"
+
+
+async def test_fase_weghalen_noemt_de_koelkast(client, initiatief, casus):
+    await _in_koelkast(client, casus)
+    zonder_uitvoeren = [
+        {"id": "start", "naam": "Start", "kleur": "lintblauw"},
+        {"id": "klaar", "naam": "Klaar", "kleur": "mosgroen"},
+    ]
+    resp = await client.put(
+        f"/api/initiatieven/{initiatief.id}/settings",
+        json={"casus_fases": zonder_uitvoeren},
+    )
+    assert resp.status_code == 409
+    detail = resp.json()["detail"]
+    assert "uitvoeren (1 in de koelkast)" in detail
+    assert "Sleep hem vanuit de koelkast" in detail
+
+
+async def test_database_weigert_koelkast_zonder_reden_of_datum(db_session, casus):
+    for zet in [
+        "koelkast_sinds = now()",
+        "koelkast_sinds = now(), koelkast_reden = 'Waarom'",
+        "koelkast_sinds = now(), koelkast_verwacht_terug = current_date",
+        "koelkast_sinds = now(), koelkast_reden = '  ',"
+        " koelkast_verwacht_terug = current_date",
+        "koelkast_reden = 'Waarom', koelkast_verwacht_terug = current_date",
+    ]:
+        with pytest.raises(IntegrityError):
+            async with db_session.begin_nested():
+                await db_session.execute(
+                    text(f"UPDATE casus SET {zet} WHERE id = :id"),  # noqa: S608
+                    {"id": casus["id"]},
+                )
+    # Alle drie gevuld kan wel.
+    async with db_session.begin_nested():
+        await db_session.execute(
+            text(
+                "UPDATE casus SET koelkast_sinds = now(), koelkast_reden = 'Waarom',"
+                " koelkast_verwacht_terug = current_date WHERE id = :id"
+            ),
+            {"id": casus["id"]},
+        )
+
+
+async def test_trekker_die_kijker_is_mag_de_koelkast(
+    client, db_session, initiatief, casus
+):
+    trekker = await make_person(db_session, "Trekker")
+    db_session.add_all(
+        [
+            ResourcePermission(
+                person_id=trekker.id,
+                resource_type="initiatief",
+                resource_id=initiatief.id,
+                rol="viewer",
+            ),
+            ResourcePermission(
+                person_id=trekker.id,
+                resource_type="casus",
+                resource_id=uuid.UUID(casus["id"]),
+                rol="trekker",
+            ),
+        ]
+    )
+    await db_session.flush()
+    async with client_as(db_session, trekker) as c:
+        resp = await c.put(
+            _url(casus), json={"reden": "Waarom", "verwacht_terug": MORGEN}
+        )
+        assert resp.status_code == 200, resp.text
+        resp = await c.put(
+            f"/api/casussen/{casus['id']}",
+            json={"fase": "afronden", "uit_koelkast": True},
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["koelkast_sinds"] is None

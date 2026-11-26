@@ -138,13 +138,13 @@ function SoortKaart({ soort, onOpen }: { soort: CasusSoort; onOpen: () => void }
   return (
     <nldd-card ref={ref} button accessible-label={`${soort.naam} openen`}>
       <nldd-container gap="4" padding="12">
-        <nldd-container layout="row" gap="8" vertical-alignment="center">
-          <nldd-container className="row-fill">
-            <div>
-              <nldd-tag text={soort.naam} color={leadColumnTagColor(soort.kleur)} size="sm" />
-            </div>
-          </nldd-container>
-          <nldd-text size="xs" color="secondary" style={{ whiteSpace: 'nowrap' }}>
+        {/* Op een smal scherm gaan de aantallen onder de naam, en lopen ze
+            zelf door op een volgende regel: niets steekt uit de kaart. */}
+        <nldd-container layout="wrap" gap="8" vertical-alignment="center">
+          <div className="row-fill">
+            <nldd-tag text={soort.naam} color={leadColumnTagColor(soort.kleur)} size="sm" />
+          </div>
+          <nldd-text size="xs" color="secondary">
             {aantal(start, 'voorwaarde om te starten', 'voorwaarden om te starten')} · {aantal(deliverables, 'deliverable', 'deliverables')} ·{' '}
             {aantal(soort.casus_count, 'casus', 'casussen')}
           </nldd-text>

@@ -251,6 +251,10 @@ async def _geen_casussen_in_weggehaalde_fase(
 
     Anders staat er een casus in een fase die niet meer bestaat. Lege lijst
     betekent het voorstel; dan gelden die fases.
+
+    Een casus in de koelkast houdt zijn fase, maar staat op het bord in de
+    koelkast en niet in de kolom van die fase. De melding zegt dat erbij,
+    anders lijkt de kolom leeg en de melding onwaar.
     """
     from sqlalchemy import func
 
@@ -259,20 +263,38 @@ async def _geen_casussen_in_weggehaalde_fase(
 
     blijft = {f.id for f in geldende_casus_fases(nieuw)}
     stmt = (
-        select(Casus.fase, func.count())
+        select(Casus.fase, func.count(), func.count(Casus.koelkast_sinds))
         .where(Casus.initiatief_id == initiatief_id)
         .group_by(Casus.fase)
     )
-    vast = {fase: n for fase, n in (await db.execute(stmt)).all() if fase not in blijft}
+    vast = {
+        fase: (n, koelkast)
+        for fase, n, koelkast in (await db.execute(stmt)).all()
+        if fase not in blijft
+    }
     if vast:
-        lijst = ", ".join(f"{fase} ({n})" for fase, n in sorted(vast.items()))
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"Er staan nog casussen in fases die je weghaalt: {lijst}. "
-                "Verplaats die casussen eerst naar een andere fase."
-            ),
+
+        def telling(n: int, koelkast: int) -> str:
+            if not koelkast:
+                return str(n)
+            if koelkast == n:
+                return f"{n} in de koelkast"
+            return f"{n}, waarvan {koelkast} in de koelkast"
+
+        lijst = ", ".join(
+            f"{fase} ({telling(n, k)})" for fase, (n, k) in sorted(vast.items())
         )
+        detail = (
+            f"Er staan nog casussen in fases die je weghaalt: {lijst}. "
+            "Verplaats die casussen eerst naar een andere fase."
+        )
+        if any(k for _, k in vast.values()):
+            detail += (
+                " Een casus in de koelkast staat op het bord in de koelkast,"
+                " niet in de kolom van zijn fase. Sleep hem vanuit de koelkast"
+                " naar een fase die blijft."
+            )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
 
 
 @router.put("/{id}/settings", response_model=InitiatiefResponse)
