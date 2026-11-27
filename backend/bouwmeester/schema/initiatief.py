@@ -104,6 +104,7 @@ class InitiatiefSettingsUpdate(BaseModel):
     funnel_enabled: bool | None = None
     public_page_enabled: bool | None = None
     casussen_enabled: bool | None = None
+    rollen_enabled: bool | None = None
     score_strategisch_label: str | None = Field(None, max_length=120)
     score_politiek_label: str | None = Field(None, max_length=120)
     score_positie_label: str | None = Field(None, max_length=120)
@@ -264,6 +265,7 @@ class InitiatiefKernResponse(BaseModel):
     funnel_enabled: bool = False
     public_page_enabled: bool = False
     casussen_enabled: bool = False
+    rollen_enabled: bool = False
     score_strategisch_label: str | None = None
     score_politiek_label: str | None = None
     score_positie_label: str | None = None

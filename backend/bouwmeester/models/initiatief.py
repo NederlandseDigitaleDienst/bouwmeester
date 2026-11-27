@@ -44,6 +44,11 @@ class Initiatief(Base):
     casussen_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
+    # Rollen aan: de tab met rollen (doel, aanspreekbaar op, domein) en het
+    # overzicht per persoon. Standaard uit; uitzetten verbergt alleen.
+    rollen_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     score_strategisch_label: Mapped[str | None] = mapped_column(nullable=True)
     score_politiek_label: Mapped[str | None] = mapped_column(nullable=True)
     score_positie_label: Mapped[str | None] = mapped_column(nullable=True)

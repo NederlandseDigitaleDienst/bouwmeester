@@ -11,6 +11,8 @@ import { InitiatiefMensen } from '@/components/initiatieven/InitiatiefMensen';
 import { InitiatiefSignalen } from '@/components/initiatieven/InitiatiefSignalen';
 import { InitiatiefInstellingen } from '@/components/initiatieven/InitiatiefInstellingen';
 import { InitiatiefRegelRitme } from '@/components/initiatieven/InitiatiefRegelRitme';
+import { InitiatiefRollen } from '@/components/initiatieven/rollen/InitiatiefRollen';
+import { rollenTabLabel } from '@/components/initiatieven/rollen/rollenFilter';
 import {
   initiatiefPath,
   isInitiatiefTab,
@@ -25,6 +27,7 @@ const TAB_LABELS: Record<InitiatiefTab, string> = {
   backlog: 'Backlog',
   updates: 'Updates',
   mensen: 'Mensen',
+  rollen: 'Rollen',
   signalen: 'Signalen',
   regelritme: 'RegelRitme',
   instellingen: 'Instellingen',
@@ -37,7 +40,7 @@ const TAB_LABELS: Record<InitiatiefTab, string> = {
  * when the initiatief works with casussen (a switch in the settings, off by
  * default). RegelRitme explains how the team works with casussen, so it comes
  * with the same switch and sits right after the people, before signals and
- * settings.
+ * settings. Rollen has a switch of its own.
  */
 function visibleTabs(initiatief: InitiatiefDetail): InitiatiefTab[] {
   const canEdit =
@@ -46,6 +49,7 @@ function visibleTabs(initiatief: InitiatiefDetail): InitiatiefTab[] {
   if (initiatief.casussen_enabled) tabs.push('casussen', 'backlog');
   tabs.push('updates', 'mensen');
   if (initiatief.casussen_enabled) tabs.push('regelritme');
+  if (initiatief.rollen_enabled) tabs.push('rollen');
   tabs.push('signalen');
   if (canEdit) tabs.push('instellingen');
   return tabs;
@@ -89,7 +93,7 @@ export function InitiatiefPage() {
   // staat bij de instellingen.
   return (
     <nldd-container gap="24">
-      <InitiatiefTabBar initiatiefId={id} tabs={tabs} activeTab={activeTab} />
+      <InitiatiefTabBar initiatiefId={id} initiatiefNaam={initiatief.naam} tabs={tabs} activeTab={activeTab} />
 
       {/* Keyed on the initiatief, so switching between two of them does not
           carry a half-typed form or a filter from one into the other. */}
@@ -99,6 +103,7 @@ export function InitiatiefPage() {
         {activeTab === 'backlog' && <InitiatiefBacklog initiatiefId={initiatief.id} />}
         {activeTab === 'updates' && <TabBody><InitiatiefUpdates initiatief={initiatief} /></TabBody>}
         {activeTab === 'mensen' && <TabBody><InitiatiefMensen initiatief={initiatief} /></TabBody>}
+        {activeTab === 'rollen' && <TabBody><InitiatiefRollen initiatief={initiatief} /></TabBody>}
         {activeTab === 'signalen' && <TabBody><InitiatiefSignalen initiatief={initiatief} /></TabBody>}
         {activeTab === 'regelritme' && <TabBody><InitiatiefRegelRitme initiatief={initiatief} /></TabBody>}
         {activeTab === 'instellingen' && <TabBody><InitiatiefInstellingen initiatief={initiatief} /></TabBody>}
@@ -115,10 +120,12 @@ export function InitiatiefPage() {
  */
 function InitiatiefTabBar({
   initiatiefId,
+  initiatiefNaam,
   tabs,
   activeTab,
 }: {
   initiatiefId: string;
+  initiatiefNaam: string;
   tabs: InitiatiefTab[];
   activeTab: InitiatiefTab;
 }) {
@@ -139,7 +146,7 @@ function InitiatiefTabBar({
       {tabs.map((t) => (
         <nldd-tab-bar-item
           key={t}
-          text={TAB_LABELS[t]}
+          text={t === 'rollen' ? rollenTabLabel(initiatiefNaam) : TAB_LABELS[t]}
           data-tab-id={t}
           current={activeTab === t ? true : undefined}
         />

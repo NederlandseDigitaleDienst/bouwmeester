@@ -168,7 +168,14 @@ Initiatief
 ├── Lead (initiatief_id) — funnel-stage tracking
 ├── ResourcePermission (eigenaar/contributor/viewer per persoon of eenheid)
 ├── InitiatiefUpdatePost (publication posts; published_at IS NULL = concept)
+├── InitiatiefCirkel (alleen met rollen_enabled; één ankercirkel per initiatief, parent_id leeg; doel, focus[]; subcirkels later)
+│   └── InitiatiefRol (cirkel_id; status concept/open/belegd, vervuller_id SET NULL, ronde; doel, aanspreekbaar_op[], domein[], feedback; geeft geen toegang)
+│       ├── InitiatiefRolInteresse (person_id, ronde, invulling, vastgelegd_door_id; alleen bij een open rol, ook voor een ander)
+│       └── InitiatiefRolRaakvlak (rol_a_id < rol_b_id, omschrijving; één rij per paar, zichtbaar bij allebei)
+├── InitiatiefPersoonFocus (person_id, focus[]; vrije regels per persoon)
 └── slug (unique URL-segment, eenmalig instelbaar via /settings)
+
+Rollen en werk per persoon (`api/routes/initiatief_rollen.py`): lezen (ook export) wie het initiatief ziet, beheren (ook import) bijdrager of eigenaar; vervuller, interesse en focus alleen voor leden (`require_initiatief_member`). Toewijzen zet belegd; open zetten bij een belegde rol is opnieuw toewijzen: vervuller eraf, `ronde + 1`. `GET /initiatieven/{id}/personen/{person_id}/werk` geeft focus, rollen, interesse, leads, casussen, open issues en open taken binnen dit initiatief; de toegangstest staat in `tests/test_casus_toegang.py`.
 
 StakeholderAssessment (belang/houding/invloed per persoon op een scope)
 ├── scope_type=corpus_node OR initiatief

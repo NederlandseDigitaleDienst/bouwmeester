@@ -1193,3 +1193,45 @@ async def test_chat_ziet_en_wijzigt_geen_losse_taak_buiten_het_initiatief(
     db_session.expire_all()
     task = await db_session.get(Task, uuid.UUID(tid))
     assert (task.title, task.status) == ("Losse Zeldzaamwoordtaak", "open")
+
+
+async def test_werk_per_persoon_alleen_binnen_het_initiatief(
+    db_session, initiatief, lid, buitenstaander, taak
+):
+    url = f"/api/initiatieven/{initiatief.id}/personen/{lid.id}/werk"
+    async with client_as(db_session, lid) as c:
+        resp = await c.get(url)
+        assert resp.status_code == 200, resp.text
+        assert [t["id"] for t in resp.json()["open_taken"]] == [taak["id"]]
+    async with client_as(db_session, buitenstaander) as c:
+        assert (await c.get(url)).status_code == 404
+
+
+async def test_werk_per_persoon_volgt_de_org_scope_van_taken(
+    client, db_session, initiatief, casus, lid, werkeenheid
+):
+    """Een taak van een eenheid die je niet ziet, ontbreekt ook in het werk
+    van een ander, zoals in de takenlijst van de casus. Je eigen taak zie je."""
+    collega = await make_person(db_session, "Collega")
+    await grant_role(db_session, collega, "editor", werkeenheid)
+    await _lid_van(db_session, initiatief.id, collega.id)
+    andere_eenheid = await make_org(db_session, "Andere eenheid")
+    resp = await client.post(
+        "/api/tasks",
+        json={
+            "title": "Van een andere eenheid",
+            "casus_id": casus["id"],
+            "assignee_id": str(lid.id),
+            "organisatie_eenheid_id": str(andere_eenheid.id),
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    tid = resp.json()["id"]
+    url = f"/api/initiatieven/{initiatief.id}/personen/{lid.id}/werk"
+
+    async with client_as(db_session, collega) as c:
+        lijst = (await c.get(f"/api/tasks?casus_id={casus['id']}")).json()
+        assert tid not in [t["id"] for t in lijst]
+        assert tid not in [t["id"] for t in (await c.get(url)).json()["open_taken"]]
+    async with client_as(db_session, lid) as c:
+        assert tid in [t["id"] for t in (await c.get(url)).json()["open_taken"]]

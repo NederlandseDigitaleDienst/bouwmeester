@@ -22,6 +22,7 @@ from bouwmeester.api.routes.fcc import router as fcc_router
 from bouwmeester.api.routes.graph import router as graph_router
 from bouwmeester.api.routes.import_export import router as import_export_router
 from bouwmeester.api.routes.initiatief import router as initiatieven_router
+from bouwmeester.api.routes.initiatief_rollen import router as initiatief_rollen_router
 from bouwmeester.api.routes.initiatief_update import (
     router as initiatief_updates_router,
 )
@@ -85,6 +86,7 @@ api_router.include_router(fcc_router)
 api_router.include_router(graph_router)
 api_router.include_router(initiatieven_router)
 api_router.include_router(initiatief_updates_router)
+api_router.include_router(initiatief_rollen_router)
 api_router.include_router(import_export_router)
 api_router.include_router(lead_columns_router)
 api_router.include_router(leads_router)

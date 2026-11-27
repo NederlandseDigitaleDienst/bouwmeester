@@ -234,6 +234,14 @@ export const queryKeys = {
     list: (initiatiefId: string | null) => ['casus-soorten', 'list', initiatiefId] as const,
   },
 
+  initiatiefRollen: {
+    all: ['initiatief-rollen'] as const,
+    list: (initiatiefId: string) => ['initiatief-rollen', 'list', initiatiefId] as const,
+    cirkel: (initiatiefId: string) => ['initiatief-rollen', 'cirkel', initiatiefId] as const,
+    werk: (initiatiefId: string, personId: string) =>
+      ['initiatief-rollen', 'werk', initiatiefId, personId] as const,
+  },
+
   // --- Lead-kolommen (per-initiatief funnel-stages) ---
   leadColumns: {
     all: ['lead-columns'] as const,
