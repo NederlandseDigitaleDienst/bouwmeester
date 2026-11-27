@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { Modal } from './Modal';
 
 /**
@@ -131,5 +131,66 @@ describe('Modal', () => {
       </Modal>,
     );
     expect(bar(container)).toHaveAttribute('supporting-text', 'Taak');
+  });
+
+  describe('focus terug na sluiten', () => {
+    // Een knop die het venster opent, en een venster dat bij sluiten uit de
+    // DOM gaat, zoals Taak toevoegen.
+    function Opener({ open, onClose = vi.fn() }: { open: boolean; onClose?: () => void }) {
+      return (
+        <>
+          <button type="button">Taak toevoegen</button>
+          <button type="button">Iets anders</button>
+          {open && (
+            <Modal open onClose={onClose} title="Taak toevoegen">
+              <input aria-label="Taak" />
+            </Modal>
+          )}
+        </>
+      );
+    }
+    const knop = () => screen.getByText('Taak toevoegen', { selector: 'button' });
+    const flush = () => act(async () => {});
+
+    it('gaat terug naar de knop als het venster uit de DOM gaat', async () => {
+      const { rerender } = render(<Opener open={false} />);
+      knop().focus();
+      rerender(<Opener open />);
+      // Het venster pakt de focus (in de browser doet show() dat).
+      screen.getByLabelText('Taak').focus();
+      rerender(<Opener open={false} />);
+      await flush();
+      expect(knop()).toHaveFocus();
+    });
+
+    it('gaat terug naar de knop als het venster dichtgaat maar blijft staan', async () => {
+      function Blijvend({ open }: { open: boolean }) {
+        return (
+          <>
+            <button type="button">Taak toevoegen</button>
+            <Modal open={open} onClose={vi.fn()} title="Taak toevoegen">
+              <input aria-label="Taak" />
+            </Modal>
+          </>
+        );
+      }
+      const { rerender } = render(<Blijvend open={false} />);
+      knop().focus();
+      rerender(<Blijvend open />);
+      screen.getByLabelText('Taak').focus();
+      rerender(<Blijvend open={false} />);
+      await flush();
+      expect(knop()).toHaveFocus();
+    });
+
+    it('laat de focus staan als die al ergens anders is', async () => {
+      const { rerender } = render(<Opener open={false} />);
+      knop().focus();
+      rerender(<Opener open />);
+      screen.getByText('Iets anders').focus();
+      rerender(<Opener open={false} />);
+      await flush();
+      expect(screen.getByText('Iets anders')).toHaveFocus();
+    });
   });
 });

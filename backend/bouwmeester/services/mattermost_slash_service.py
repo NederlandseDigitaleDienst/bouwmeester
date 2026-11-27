@@ -318,8 +318,8 @@ class MattermostSlashService:
             return _ephemeral(
                 f"Geen lead gevonden voor '{_escape_md(query)}' (of geen toegang)."
             )
-        # Zelfde regel als in de API: een lead met casus is alleen-lezen en
-        # zijn kanaal is meegegaan naar de casus.
+        # Zelfde regel als in de API (_require_lead_open): een lead met casus
+        # krijgt geen eigen kanaal meer, zijn kanaal is meegegaan naar de casus.
         heeft_casus = (
             await self.session.execute(
                 select(Casus.id).where(Casus.lead_id == target_lead.id).limit(1)

@@ -27,8 +27,8 @@ import { useCasusSoorten, useZetCasusSoorten } from '@/hooks/useCasusSoorten';
 
 /**
  * De gegevens van een casus naast het werk: fase, team, startvoorwaarden en
- * herkomst. Staat inline in het casusoverzicht, uitklapbaar; geen eigen
- * venster, want taakdetail en issue bewerken openen al een venster.
+ * herkomst. Staat in het paneel achter de drie puntjes in de kop van het
+ * casusoverzicht (CasusOverzicht).
  */
 export function CasusInfo({ casus }: { casus: CasusDetail }) {
   const updateCasus = useUpdateCasus();
@@ -261,7 +261,7 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
         <nldd-container layout="row" gap="8" vertical-alignment="center">
           <nldd-text size="sm">
             Gestart vanuit lead {casus.lead?.title ?? ''}
-            {casus.organization ? ` (${casus.organization})` : ''}. De lead is alleen-lezen.
+            {casus.organization ? ` (${casus.organization})` : ''}.
           </nldd-text>
           <NlddButton variant="neutral-transparent" size="sm" endIcon="arrow-right" onClick={() => openLeadDetail(casus.lead_id)} text="Open lead" />
         </nldd-container>

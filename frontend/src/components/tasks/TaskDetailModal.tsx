@@ -17,6 +17,7 @@ import { Badge } from '@/components/common/Badge';
 import { TaskCreateForm } from './TaskCreateForm';
 import { useIssues } from '@/hooks/useIssues';
 import { useTaakVerwijderen } from '@/hooks/useTaakVerwijderen';
+import { useOpNaam } from '@/contexts/OpNaamContext';
 import { useTaskFormOptions } from '@/hooks/useTaskFormOptions';
 import { eventValue, orUndef, useNlddEvent } from '@/components/nldd/events';
 import { NlddIconButton } from '@/components/nldd/NlddIconButton';
@@ -265,6 +266,14 @@ function TaakVelden({ task, onClose }: { task: Task; onClose: () => void }) {
   const isWerk = !!(task.casus_id || task.issue_id);
   const werkInitiatief = task.casus?.initiatief_id ?? task.issue?.initiatief_id ?? null;
   const personOptions = useInitiatiefPersonOptions(task.assignee ?? null, werkInitiatief);
+  // Zonder eigenaar naar In uitvoering of Afgerond: vragen of hij op naam
+  // moet, met dezelfde keuze aan mensen als hierboven.
+  const vraagOpNaam = useOpNaam();
+  const zetStatus = (status: TaskStatus) =>
+    updateTask.mutate(
+      { id: task.id, data: { status } },
+      { onSuccess: () => vraagOpNaam(task, status, werkInitiatief) },
+    );
   // De onderzoeksvraag waar de taak onder hangt: alleen tonen. Een taak naar
   // een andere vraag verplaatsen kan hier bewust niet.
   const { data: vragen } = useIssues(task.casus_id ?? null);
@@ -285,7 +294,7 @@ function TaakVelden({ task, onClose }: { task: Task; onClose: () => void }) {
       <nldd-container gap="12">
         <Eigenschappen>
           <Eigenschap label="Status">
-            <Select size="sm" aria-label="Status" options={STATUS_OPTIONS} value={task.status} onChange={(e) => zet({ status: e.target.value as TaskStatus })} />
+            <Select size="sm" aria-label="Status" options={STATUS_OPTIONS} value={task.status} onChange={(e) => zetStatus(e.target.value as TaskStatus)} />
           </Eigenschap>
           <Eigenschap label="Prioriteit">
             <Select size="sm" aria-label="Prioriteit" options={PRIORITY_OPTIONS} value={task.priority} onChange={(e) => zet({ priority: e.target.value as TaskPriority })} />
@@ -454,7 +463,7 @@ export function TaskDetailModal({ taskId, open, onClose, placement = 'center' }:
                   variant="neutral-transparent"
                   size="sm"
                   startIcon="trash"
-                  onClick={() => vraagBevestiging({ id: task.id, title: task.title })}
+                  onClick={() => vraagBevestiging({ id: task.id, title: task.title, subtaken: task.subtasks?.length ?? 0 })}
                   text="Verwijderen"
                 />
               }

@@ -1,8 +1,8 @@
-"""Casus: start vanuit een lead, lead daarna alleen-lezen, casusteam.
+"""Casus: start vanuit een lead, lead blijft bewerkbaar maar in zijn kolom, casusteam.
 
 Dekt de veiligheidsregels: starten alleen vanuit de startkolom en alleen
-voor zichtbare leads, geen tweede casus, geen mutaties op de lead erna
-(ook niet samenvoegen of iets weghalen), en trekker/teamlid alleen uit wie
+voor zichtbare leads, geen tweede casus, de lead erna niet naar een andere
+kolom of een ander initiatief en niet samenvoegen, en trekker/teamlid alleen uit wie
 het initiatief kan zien. Rechten: zien volgt het initiatief; starten,
 wijzigen en het team beheren vraagt bijdrager of eigenaar (of de trekker,
 behalve bij starten); verwijderen alleen de eigenaar.
@@ -250,33 +250,98 @@ async def test_start_with_trekker_requires_membership(
 
 
 # ---------------------------------------------------------------------------
-# Lead alleen-lezen na de start
+# Lead na de start: bewerkbaar, maar in zijn kolom
 # ---------------------------------------------------------------------------
 
 
-async def test_lead_is_read_only_after_start(client, lead_gewonnen, sample_person):
+async def test_lead_blijft_bewerkbaar_na_start(client, lead_gewonnen, sample_person):
+    """Uit de lead is een casus gestart; de lead zelf kun je nog aanpassen
+    (gegevens, notities, contacten, nodes), maar hij blijft in zijn kolom
+    en verwijderen kan pas als de casus weg is."""
     assert (await _start(client, lead_gewonnen)).status_code == 201
     lid = lead_gewonnen.id
+    stage = (await client.get(f"/api/leads/{lid}")).json()["stage"]
 
-    assert (await client.get(f"/api/leads/{lid}")).status_code == 200
-    assert (
-        await client.put(f"/api/leads/{lid}", json={"title": "x"})
-    ).status_code == 409
+    resp = await client.put(f"/api/leads/{lid}", json={"title": "Aangepast"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["title"] == "Aangepast"
+    assert resp.json()["casus_id"] is not None
+    # Dezelfde kolom meesturen mag; een andere niet.
+    resp = await client.put(f"/api/leads/{lid}", json={"stage": stage, "title": "Weer"})
+    assert resp.status_code == 200, resp.text
+    resp = await client.put(f"/api/leads/{lid}", json={"stage": "koelkast"})
+    assert resp.status_code == 409
+    assert "blijft in zijn kolom" in resp.json()["detail"]
+    # Ook het initiatief blijft dat van de casus.
+    resp = await client.put(f"/api/leads/{lid}", json={"initiatief_id": None})
+    assert resp.status_code == 409
+    resp = await client.put(
+        f"/api/leads/{lid}", json={"initiatief_id": str(lead_gewonnen.initiatief_id)}
+    )
+    assert resp.status_code == 200, resp.text
     assert (
         await client.post(f"/api/leads/{lid}/move", json={"stage": "koelkast"})
     ).status_code == 409
-    assert (
-        await client.post(f"/api/leads/{lid}/activities", json={"content": "n"})
-    ).status_code == 409
-    assert (
-        await client.post(
-            f"/api/leads/{lid}/contacts",
-            json={"person_id": str(sample_person.id), "rol": "contactpersoon"},
-        )
-    ).status_code == 409
+    assert (await client.get(f"/api/leads/{lid}")).json()["stage"] == stage
+
+    resp = await client.post(f"/api/leads/{lid}/activities", json={"content": "n"})
+    assert resp.status_code == 201, resp.text
+    resp = await client.post(
+        f"/api/leads/{lid}/contacts",
+        json={"person_id": str(sample_person.id), "rol": "contactpersoon"},
+    )
+    assert resp.status_code == 201, resp.text
     resp = await client.delete(f"/api/leads/{lid}")
     assert resp.status_code == 409
     assert "verwijder eerst de casus" in resp.json()["detail"]
+
+
+async def test_lead_met_casus_niet_naar_buiten(client, lead_gewonnen):
+    """Leadroutes vragen geen rol, dus ook een kijker kan ze aanroepen. Met
+    een casus blijft daarom vast wat de lead naar de publieke pagina brengt:
+    de publieke velden en een update met publieke tekst. Eraf halen mag."""
+    lid = lead_gewonnen.id
+    resp = await client.put(
+        f"/api/leads/{lid}",
+        json={"public_visible": True, "public_title": "Zorgtoeslag publiek"},
+    )
+    assert resp.status_code == 200, resp.text
+    resp = await client.post(
+        f"/api/leads/{lid}/updates",
+        json={"titel": "Stand", "body_public": "Wat buiten mag"},
+    )
+    assert resp.status_code == 201, resp.text
+    post_id = resp.json()["id"]
+    resp = await client.post(f"/api/leads/{lid}/updates", json={"titel": "Concept"})
+    concept_id = resp.json()["id"]
+    assert (await _start(client, lead_gewonnen)).status_code == 201
+
+    for body in (
+        {"public_title": "Iets anders"},
+        {"public_summary": "Nieuw"},
+        {"public_visible": True, "title": "Zelfde publiek, andere titel"},
+    ):
+        resp = await client.put(f"/api/leads/{lid}", json=body)
+        if "public_visible" in body:
+            # public_visible verandert niet: de rest mag dan gewoon.
+            assert resp.status_code == 200, (body, resp.text)
+        else:
+            assert resp.status_code == 409, (body, resp.text)
+            assert "publieke tekst" in resp.json()["detail"]
+
+    # Publiceren met publieke tekst niet; zonder publieke tekst wel.
+    pad = f"/api/leads/{lid}/updates"
+    assert (await client.post(f"{pad}/{post_id}/publish")).status_code == 409
+    assert (await client.post(f"{pad}/{concept_id}/publish")).status_code == 200
+    resp = await client.put(f"{pad}/{concept_id}", json={"body_public": "Toch"})
+    assert resp.status_code == 409, resp.text
+    resp = await client.put(f"{pad}/{concept_id}", json={"titel": "Ander"})
+    assert resp.status_code == 200, resp.text
+
+    # Eraf halen mag.
+    resp = await client.put(f"/api/leads/{lid}", json={"public_visible": False})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["public_visible"] is False
 
 
 async def test_lead_editable_again_after_casus_deleted(client, lead_gewonnen):
@@ -607,9 +672,11 @@ async def test_initiatief_weg_dan_ook_de_casusteams(
     assert await teamrijen() == 0
 
 
-async def test_lead_met_casus_niet_samenvoegen_of_iets_weghalen(
+async def test_lead_met_casus_niet_samenvoegen_wel_contact_weghalen(
     client, db_session, initiatief, lead_gewonnen, sample_person
 ):
+    """Samenvoegen zou de lead van de casus wijzigen of weghalen: geweigerd.
+    Een contact weghalen is gewoon aanpassen: dat mag."""
     andere = await _nieuwe_lead(db_session, initiatief, "Dubbel")
     resp = await client.post(
         f"/api/leads/{lead_gewonnen.id}/contacts",
@@ -625,7 +692,7 @@ async def test_lead_met_casus_niet_samenvoegen_of_iets_weghalen(
         )
         assert resp.status_code == 409, resp.text
     resp = await client.delete(f"/api/leads/{lead_gewonnen.id}/contacts/{contact_id}")
-    assert resp.status_code == 409
+    assert resp.status_code == 204, resp.text
 
 
 # ---------------------------------------------------------------------------
@@ -777,9 +844,8 @@ async def test_dezelfde_rol_twee_keer_is_409(
     assert len(resp.json()["team"]) == 1
 
 
-async def test_chat_wijzigt_geen_lead_met_casus(
-    client, db_session, initiatief, lead_gewonnen
-):
+async def test_chat_en_lead_met_casus(client, db_session, initiatief, lead_gewonnen):
+    """Ook via de chat: aanpassen en notities mogen, verplaatsen niet."""
     from bouwmeester.services.chat_service import _execute_write_tool
 
     lid = await _met_rol(db_session, initiatief, "Chatter", "contributor")
@@ -787,24 +853,30 @@ async def test_chat_wijzigt_geen_lead_met_casus(
     lead_id = str(lead_gewonnen.id)
     for tool, args in [
         ("update_lead", {"lead_id": lead_id, "title": "Via de chat"}),
-        ("move_lead", {"lead_id": lead_id, "stage": "koelkast"}),
         ("add_lead_activity", {"lead_id": lead_id, "content": "Notitie"}),
     ]:
         result = await _execute_write_tool(tool, args, db_session, person_id=lid.id)
-        assert result["success"] is False, (tool, result)
-        assert "alleen-lezen" in result["summary"], (tool, result)
+        assert result["success"] is True, (tool, result)
+    result = await _execute_write_tool(
+        "move_lead",
+        {"lead_id": lead_id, "stage": "koelkast"},
+        db_session,
+        person_id=lid.id,
+    )
+    assert result["success"] is False, result
+    assert "blijft in zijn kolom" in result["summary"], result
     resp = await client.get(f"/api/leads/{lead_id}")
-    assert resp.json()["title"] == "Zorgtoeslag"
+    assert resp.json()["title"] == "Via de chat"
 
 
 # ---------------------------------------------------------------------------
-# Ronde 3 van de review: oude lezers en de alleen-lezen-regel op elke route
+# Ronde 3 van de review: oude lezers en wat een lead met casus nog mag
 # ---------------------------------------------------------------------------
 
 
-async def test_lead_met_casus_geen_updates_en_geen_kanaal(client, lead_gewonnen):
-    """Ook de updates van een lead en een Mattermost-kanaal vallen onder
-    alleen-lezen: de lead is geschiedenis, het werk gaat verder op de casus."""
+async def test_lead_met_casus_updates_wel_kanaal_niet(client, lead_gewonnen):
+    """De updates van een lead blijven bewerkbaar na de start van een casus.
+    Een nieuw Mattermost-kanaal niet: het kanaal is meegegaan naar de casus."""
     lid = lead_gewonnen.id
     resp = await client.post(f"/api/leads/{lid}/updates", json={"titel": "Voor"})
     assert resp.status_code == 201, resp.text
@@ -813,7 +885,7 @@ async def test_lead_met_casus_geen_updates_en_geen_kanaal(client, lead_gewonnen)
 
     assert (await client.get(f"/api/leads/{lid}/updates")).status_code == 200
     resp = await client.post(f"/api/leads/{lid}/updates", json={"titel": "Na"})
-    assert resp.status_code == 409, resp.text
+    assert resp.status_code == 201, resp.text
     for methode, pad in [
         ("put", f"/api/leads/{lid}/updates/{post_id}"),
         ("post", f"/api/leads/{lid}/updates/{post_id}/publish"),
@@ -822,7 +894,7 @@ async def test_lead_met_casus_geen_updates_en_geen_kanaal(client, lead_gewonnen)
     ]:
         kwargs = {"json": {"titel": "Anders"}} if methode == "put" else {}
         resp = await getattr(client, methode)(pad, **kwargs)
-        assert resp.status_code == 409, (pad, resp.text)
+        assert resp.status_code in (200, 204), (pad, resp.text)
     resp = await client.post(
         f"/api/leads/{lid}/mattermost-channels",
         json={
@@ -1126,3 +1198,190 @@ async def test_generieke_routes_op_een_eenheidsrij_nemen_de_leden_mee(
     assert await _team(client, cid) == []
     async with client_as(db_session, p) as c:
         assert (await c.get(f"/api/casussen/{cid}")).status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Review van #463: wat een lead met casus op de publieke pagina toont, en wat
+# er verder vrij is
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def publieke_lead(client, db_session, initiatief, lead_gewonnen):
+    """De lead staat op de publieke pagina, met een gepubliceerde update."""
+    initiatief.public_page_enabled = True
+    await db_session.flush()
+    lid = lead_gewonnen.id
+    resp = await client.put(
+        f"/api/leads/{lid}",
+        json={"public_visible": True, "public_title": "Zorgtoeslag publiek"},
+    )
+    assert resp.status_code == 200, resp.text
+    resp = await client.post(
+        f"/api/leads/{lid}/updates",
+        json={"titel": "Stand", "body_public": "Wat buiten mag", "publish": True},
+    )
+    assert resp.status_code == 201, resp.text
+    return lead_gewonnen, resp.json()["id"]
+
+
+async def _publieke_updates(client, initiatief) -> list[dict]:
+    resp = await client.get(f"/api/public/initiatieven/by-slug/{initiatief.slug}")
+    assert resp.status_code == 200, resp.text
+    casussen = resp.json()["casussen"]
+    assert [c["titel"] for c in casussen] == ["Zorgtoeslag publiek"]
+    return casussen[0]["updates"]
+
+
+async def test_nieuwe_update_niet_direct_publiek(client, initiatief, publieke_lead):
+    """POST /updates met publish en publieke tekst zette een update meteen op
+    de publieke pagina, langs de losse /publish-route heen."""
+    lead, _ = publieke_lead
+    assert (await _start(client, lead)).status_code == 201
+    pad = f"/api/leads/{lead.id}/updates"
+    voor = len((await client.get(pad)).json())
+
+    resp = await client.post(
+        pad, json={"titel": "Nieuw", "body_public": "Naar buiten", "publish": True}
+    )
+    assert resp.status_code == 409, resp.text
+    assert "publieke tekst" in resp.json()["detail"]
+    assert len((await client.get(pad)).json()) == voor
+    assert [u["titel"] for u in await _publieke_updates(client, initiatief)] == [
+        "Stand"
+    ]
+
+    # Een concept met publieke tekst mag, en direct publiceren zonder
+    # publieke tekst ook: die komt niet op de pagina.
+    resp = await client.post(pad, json={"titel": "Concept", "body_public": "Later"})
+    assert resp.status_code == 201, resp.text
+    resp = await client.post(pad, json={"titel": "Intern", "publish": True})
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["published_at"] is not None
+    assert [u["titel"] for u in await _publieke_updates(client, initiatief)] == [
+        "Stand"
+    ]
+
+
+async def test_gepubliceerde_update_ligt_vast(client, initiatief, publieke_lead):
+    """De publieke pagina toont van een update de titel en de publieke tekst.
+    Na de start van een casus is geen van beide te wijzigen; de rest van de
+    update wel, en eraf halen ook."""
+    lead, post_id = publieke_lead
+    assert (await _start(client, lead)).status_code == 201
+    pad = f"/api/leads/{lead.id}/updates/{post_id}"
+
+    for body in (
+        {"titel": "Andere titel"},
+        {"body_public": "Andere tekst"},
+        {"titel": "Andere titel", "body_public": "Wat buiten mag"},
+    ):
+        resp = await client.put(pad, json=body)
+        assert resp.status_code == 409, (body, resp.text)
+    # Dezelfde waarden meesturen, of alleen wat intern blijft: mag.
+    resp = await client.put(
+        pad,
+        json={
+            "titel": "Stand",
+            "body_public": "Wat buiten mag",
+            "body_internal": "Voor het team",
+            "mail_subject": "Stand van zaken",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["body_internal"] == "Voor het team"
+    # Opnieuw publiceren zou een nieuwe datum op de pagina zetten.
+    assert (await client.post(f"{pad}/publish")).status_code == 409
+    publiek = await _publieke_updates(client, initiatief)
+    assert [(u["titel"], u["body_public"]) for u in publiek] == [
+        ("Stand", "Wat buiten mag")
+    ]
+
+    # Eraf halen mag: de publieke tekst leeg. Daarna mag de titel ook, want
+    # de update staat niet meer op de pagina; de tekst terugzetten niet.
+    resp = await client.put(pad, json={"body_public": None})
+    assert resp.status_code == 200, resp.text
+    assert await _publieke_updates(client, initiatief) == []
+    resp = await client.put(pad, json={"titel": "Intern"})
+    assert resp.status_code == 200, resp.text
+    resp = await client.put(pad, json={"body_public": "Terug"})
+    assert resp.status_code == 409, resp.text
+    assert await _publieke_updates(client, initiatief) == []
+
+
+async def test_chat_zet_geen_publieke_velden(
+    client, db_session, initiatief, lead_gewonnen
+):
+    """De chat kan een lead met casus aanpassen, maar de publieke velden kent
+    hij niet: die laat update_lead staan."""
+    from bouwmeester.services.chat_service import _execute_write_tool
+
+    lid = await _met_rol(db_session, initiatief, "Chatter", "contributor")
+    assert (await _start(client, lead_gewonnen)).status_code == 201
+    result = await _execute_write_tool(
+        "update_lead",
+        {
+            "lead_id": str(lead_gewonnen.id),
+            "title": "Via de chat",
+            "public_visible": True,
+            "public_title": "Naar buiten",
+        },
+        db_session,
+        person_id=lid.id,
+    )
+    assert result["success"] is True, result
+    await db_session.refresh(lead_gewonnen)
+    assert lead_gewonnen.title == "Via de chat"
+    assert lead_gewonnen.public_visible is False
+    assert lead_gewonnen.public_title is None
+
+
+async def test_vrijgegeven_routes_op_een_lead_met_casus(
+    client, lead_gewonnen, sample_node
+):
+    """Na de start van een casus blijven tags, nodes, bijlagen, GitHub-links
+    en notities aan te passen en weg te halen."""
+    assert (await _start(client, lead_gewonnen)).status_code == 201
+    pad = f"/api/leads/{lead_gewonnen.id}"
+
+    resp = await client.post(f"{pad}/tags", json={"tag_name": "zorg"})
+    assert resp.status_code == 201, resp.text
+    tag_id = resp.json()["tag"]["id"]
+    assert (await client.delete(f"{pad}/tags/{tag_id}")).status_code == 204
+
+    resp = await client.post(f"{pad}/nodes", json={"node_id": str(sample_node.id)})
+    assert resp.status_code == 201, resp.text
+    link_id = resp.json()["id"]
+    assert (await client.delete(f"{pad}/nodes/{link_id}")).status_code == 204
+
+    resp = await client.post(
+        f"{pad}/attachments",
+        files={"file": ("notitie.txt", b"aantekening", "text/plain")},
+    )
+    assert resp.status_code == 201, resp.text
+    bijlage_id = resp.json()["id"]
+    resp = await client.delete(f"{pad}/attachments/{bijlage_id}")
+    assert resp.status_code == 204, resp.text
+
+    resp = await client.post(
+        f"{pad}/github-links", json={"url": "https://github.com/foo/bar/pull/12"}
+    )
+    assert resp.status_code == 201, resp.text
+    gh_id = resp.json()["id"]
+    resp = await client.patch(f"{pad}/github-links/{gh_id}", json={"title": "PR"})
+    assert resp.status_code == 200, resp.text
+    assert (await client.delete(f"{pad}/github-links/{gh_id}")).status_code == 204
+
+    resp = await client.post(f"{pad}/activities", json={"content": "Notitie"})
+    assert resp.status_code == 201, resp.text
+    activity_id = resp.json()["id"]
+    resp = await client.delete(f"{pad}/activities/{activity_id}")
+    assert resp.status_code == 204, resp.text
+
+    for sub in ("tags", "github-links"):
+        assert (await client.get(f"{pad}/{sub}")).json() == [], sub
+    detail = (await client.get(pad)).json()
+    assert detail["attachments"] == []
+    assert activity_id not in [a["id"] for a in detail["activities"]]
+    assert detail["linked_nodes"] == []
+    assert detail["casus_id"] is not None

@@ -134,8 +134,9 @@ class Lead(Base):
         cascade="all, delete-orphan",
         order_by="LeadUpdatePost.created_at.desc()",
     )
-    # De casus die uit deze lead is gestart, als die er is. Daarna is de
-    # lead alleen-lezen (zie _require_lead_open in routes/leads.py).
+    # De casus die uit deze lead is gestart, als die er is. De lead blijft
+    # daarna bewerkbaar, maar blijft in zijn kolom (zie _require_lead_open in
+    # routes/leads.py).
     casus: Mapped[Optional["Casus"]] = relationship(
         "Casus", back_populates="lead", uselist=False
     )

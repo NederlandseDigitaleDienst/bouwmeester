@@ -15,7 +15,7 @@ from sqlalchemy.orm import selectinload
 from bouwmeester.api.deps import require_found
 from bouwmeester.api.routes.leads import (
     _check_lead_access,
-    _require_lead_open,
+    _require_lead_niet_publiek,
     _robust_parse_json,
 )
 from bouwmeester.core.auth import OptionalUser
@@ -410,7 +410,9 @@ async def create_update(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
-    await _require_lead_open(db, lead)
+    if data.publish and data.body_public:
+        # Direct publiceren met publieke tekst zet de update op de pagina.
+        await _require_lead_niet_publiek(db, lead)
 
     actor_id = current_user.id if current_user else None
     post = LeadUpdatePost(
@@ -464,10 +466,21 @@ async def edit_update(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
-    await _require_lead_open(db, lead)
 
     post = require_found(await _load_post(db, lead_id, post_id), "Update")
     payload = data.model_dump(exclude_unset=True)
+    # Een gepubliceerde update met publieke tekst staat op de publieke pagina,
+    # met zijn titel en die tekst (public_initiatief.py). Weigeren als dat
+    # anders wordt: een andere titel of tekst, of hij komt er nu pas op.
+    # Eraf halen (de publieke tekst leeg) mag.
+    titel = payload.get("titel", post.titel)
+    body_public = payload.get("body_public", post.body_public)
+    if (
+        post.published_at is not None
+        and body_public
+        and (titel, body_public) != (post.titel, post.body_public)
+    ):
+        await _require_lead_niet_publiek(db, lead)
     for key, value in payload.items():
         if key in {"mail_to", "mail_cc"} and value is not None:
             value = list(value)
@@ -493,9 +506,11 @@ async def publish_update(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
-    await _require_lead_open(db, lead)
 
     post = require_found(await _load_post(db, lead_id, post_id), "Update")
+    if post.body_public:
+        # Ook opnieuw publiceren: dat zet een nieuwe datum op de pagina.
+        await _require_lead_niet_publiek(db, lead)
     post.published_at = datetime.now(UTC)
     post.published_by_id = current_user.id if current_user else None
     await db.flush()
@@ -519,7 +534,6 @@ async def unpublish_update(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
-    await _require_lead_open(db, lead)
 
     post = require_found(await _load_post(db, lead_id, post_id), "Update")
     post.published_at = None
@@ -544,7 +558,6 @@ async def delete_update(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
-    await _require_lead_open(db, lead)
 
     post = await _load_post(db, lead_id, post_id)
     if post is None:

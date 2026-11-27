@@ -245,8 +245,8 @@ async def start_casus(
         await soort_repo.zet_voor_casus(casus.id, data.soort_ids)
         await db.refresh(casus, attribute_names=["soorten"])
 
-    # Het kanaal van de lead gaat mee: de lead is vanaf nu alleen-lezen, en
-    # het gesprek loopt door bij de casus. De voortgang staat er uit: zo'n
+    # Het kanaal van de lead gaat mee: de lead krijgt geen eigen kanaal meer,
+    # en het gesprek loopt door bij de casus. De voortgang staat er uit: zo'n
     # kanaal is gekozen om berichten binnen te halen, niet om casusinhoud
     # naar buiten te sturen. Aanzetten doet het team bij de casus, en dat
     # kan alleen in een privékanaal.
