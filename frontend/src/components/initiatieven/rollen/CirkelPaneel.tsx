@@ -52,7 +52,7 @@ export function CirkelPaneel({
       closeable={!update.isPending}
       toolbar={
         canEdit && !bewerken ? (
-          <NlddButton variant="neutral-transparent" size="sm" startIcon="pencil" onClick={() => setBewerken(true)} text="Bewerken" />
+          <NlddButton slot="toolbar" variant="neutral-transparent" size="sm" startIcon="pencil" onClick={() => setBewerken(true)} text="Bewerken" />
         ) : undefined
       }
       footer={

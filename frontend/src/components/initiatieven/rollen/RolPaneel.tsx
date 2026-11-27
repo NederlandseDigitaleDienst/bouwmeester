@@ -81,7 +81,7 @@ export function RolPaneel({ initiatief, rollen, rol, nieuw, canEdit, onClose, on
       dismissText="Sluit"
       toolbar={
         canEdit ? (
-          <NlddButton variant="neutral-transparent" size="sm" startIcon="pencil" onClick={() => setBewerken(true)} text="Bewerken" />
+          <NlddButton slot="toolbar" variant="neutral-transparent" size="sm" startIcon="pencil" onClick={() => setBewerken(true)} text="Bewerken" />
         ) : undefined
       }
     >
