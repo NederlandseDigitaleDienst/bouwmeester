@@ -9,10 +9,18 @@ Casussen bevatten de vertrouwelijkste informatie en zijn nooit publiek.
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import DateTime, ForeignKey, Text, func, text
+from sqlalchemy import (
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -26,8 +34,28 @@ if TYPE_CHECKING:
     from bouwmeester.models.person import Person
 
 
+# Alle drie leeg (niet in de koelkast) of alle drie gevuld, met een reden die
+# niet alleen uit spaties bestaat. "IS NOT NULL" staat er los bij: een check
+# met NULL als uitkomst gaat door.
+KOELKAST_CHECK = (
+    "(koelkast_sinds IS NULL AND koelkast_reden IS NULL"
+    " AND koelkast_verwacht_terug IS NULL)"
+    " OR (koelkast_sinds IS NOT NULL AND koelkast_reden IS NOT NULL"
+    " AND btrim(koelkast_reden) <> '' AND koelkast_verwacht_terug IS NOT NULL)"
+)
+
+
 class Casus(Base):
     __tablename__ = "casus"
+    __table_args__ = (
+        # In de koelkast hoort een reden en een verwachte datum, erbuiten
+        # geen van drieën. De route bewaakt dat ook; dit houdt het heel
+        # buiten de route om. Dezelfde tekst staat in de migratie.
+        CheckConstraint(
+            KOELKAST_CHECK,
+            name="ck_casus_koelkast",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -70,6 +98,17 @@ class Casus(Base):
     # momentopname (schema.casus_soort.momentopname_eisen); leeg is nog niet
     # nagelopen, of de soorten hebben geen eindeisen.
     eind_eisen: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    # De koelkast: een casus die even stilligt. De fase blijft staan, zodat
+    # hij na de koelkast verder gaat waar hij was. In de koelkast is
+    # koelkast_sinds gezet; de reden en de verwachte terugkeer zijn dan
+    # verplicht (ck_casus_koelkast), zodat iedereen ziet waarom hij stilligt
+    # en wanneer hij er weer uit komt. Zolang hij erin staat, staat de fase
+    # vast (routes/casussen.py).
+    koelkast_sinds: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    koelkast_reden: Mapped[str | None] = mapped_column(Text, nullable=True)
+    koelkast_verwacht_terug: Mapped[date | None] = mapped_column(Date, nullable=True)
     started_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("person.id", ondelete="SET NULL"),

@@ -1,5 +1,13 @@
 import { apiGet, apiPost, apiPut, apiDelete } from './client';
-import type { BacklogResponse, Casus, CasusDetail, CasusStart, CasusTeamlid, CasusUpdate } from '@/types';
+import type {
+  BacklogResponse,
+  Casus,
+  CasusDetail,
+  CasusKoelkast,
+  CasusStart,
+  CasusTeamlid,
+  CasusUpdate,
+} from '@/types';
 
 export async function getCasussen(initiatiefId?: string): Promise<Casus[]> {
   return apiGet<Casus[]>('/api/casussen', initiatiefId ? { initiatief_id: initiatiefId } : undefined);
@@ -15,6 +23,16 @@ export async function startCasus(data: CasusStart): Promise<CasusDetail> {
 
 export async function updateCasus(id: string, data: CasusUpdate): Promise<CasusDetail> {
   return apiPut<CasusDetail>(`/api/casussen/${id}`, data);
+}
+
+/** In de koelkast zetten, of de reden en datum bijwerken. De fase blijft staan. */
+export async function zetInKoelkast(id: string, data: CasusKoelkast): Promise<CasusDetail> {
+  return apiPut<CasusDetail>(`/api/casussen/${id}/koelkast`, data);
+}
+
+/** Uit de koelkast: de casus gaat verder in zijn fase. */
+export async function haalUitKoelkast(id: string): Promise<CasusDetail> {
+  return apiDelete<CasusDetail>(`/api/casussen/${id}/koelkast`);
 }
 
 export async function deleteCasus(id: string): Promise<void> {

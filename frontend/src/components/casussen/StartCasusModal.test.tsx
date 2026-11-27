@@ -98,6 +98,36 @@ const vink = async (label: string, checked = true) => {
 
 const startknop = () => [...document.querySelectorAll('nldd-button')].find((b) => b.getAttribute('text') === 'Casus starten')!;
 
+/** De kop van een uitklapblok, op zijn titel (niet op de samenvatting ernaast). */
+const blokKop = (titel: string) =>
+  waitFor(() => {
+    const knop = [...document.querySelectorAll('button[aria-expanded]')].find((el) => el.querySelector('nldd-text')?.textContent === titel);
+    expect(knop).toBeTruthy();
+    return knop as HTMLButtonElement;
+  });
+
+/** Klap blokken open die nog dicht zijn: elke vraag en de soortkeuze hebben er een. */
+const openBlokken = async (...titels: string[]) => {
+  for (const titel of titels) {
+    const knop = await blokKop(titel);
+    if (knop.getAttribute('aria-expanded') === 'false') {
+      await act(async () => {
+        knop.click();
+      });
+    }
+  }
+};
+const VRAGEN = STANDAARD.map((v) => v.vraag);
+
+/** Klap een blok met eisen open; het begint dicht. */
+const klapOpen = async (titel: string) => {
+  const knop = await blokKop(titel);
+  expect(knop.getAttribute('aria-expanded')).toBe('false');
+  await act(async () => {
+    knop.click();
+  });
+};
+
 describe('StartCasusModal vanuit het casusbord', () => {
   beforeEach(() => {
     startCasus.mockReset().mockResolvedValue({ id: 'c9', fase: 'start' });
@@ -117,17 +147,26 @@ describe('StartCasusModal vanuit het casusbord', () => {
       </ToastProvider>,
     );
     const eis = (label: string) => document.querySelector(`nldd-checkbox-field[label="${label}"]`);
+    await openBlokken('Soort casus');
     await waitFor(() => expect(eis('Beproeven')).toBeTruthy());
     // Zonder gekozen soort geen starteisen; een soort zonder eisen voegt niets toe.
     await vink('Modelleren');
     expect(eis('Partner gevonden')).toBeNull();
     await vink('Beproeven');
+    // De eisen per soort staan in een blok dat dicht begint, met de telling in de kop.
+    expect((await blokKop('Beproeven')).textContent).toContain('0 van 2 aangevinkt');
+    expect(eis('Partner gevonden')).toBeNull();
+    await klapOpen('Beproeven');
     await waitFor(() => expect(eis('Partner gevonden')).toBeTruthy());
     await vink('Partner gevonden');
+    expect((await blokKop('Beproeven')).textContent).toContain('1 van 2 aangevinkt');
     const opmerking = document.querySelector('nldd-text-field[accessible-label="Opmerking bij Data beschikbaar"]')!;
     await act(async () => {
       opmerking.dispatchEvent(new CustomEvent('input', { detail: { value: 'Volgt in november' } }));
     });
+    // De kop van de soortkeuze vat samen wat er gekozen is.
+    expect((await blokKop('Soort casus')).textContent).toContain('Beproeven, Modelleren');
+    await openBlokken(...VRAGEN);
     await kies(selectMet('Lead een'), 'l1');
     await kies(selectMet('Ja'), 'ja');
     await kies(selectMet('Interne casus'), 'intern');
@@ -161,6 +200,12 @@ describe('StartCasusModal vanuit het casusbord', () => {
     expect([...leads.options].map((o) => o.text)).toEqual(['Kies een lead', 'Lead een', 'Lead twee']);
     expect(startknop().hasAttribute('disabled')).toBe(true);
 
+    // Elke vraag staat in een eigen blok, met in de kop of hij al beantwoord
+    // is. Een verplichte vraag zonder antwoord staat open: zo zie je wat de
+    // startknop nog tegenhoudt.
+    const hoever = await blokKop('Tot hoever brengen we het?');
+    expect(hoever.getAttribute('aria-expanded')).toBe('true');
+    expect(hoever.textContent).toContain('Nog niet beantwoord, verplicht');
     // Eerst de vragen, dan de lead: de antwoorden blijven staan.
     await waitFor(() => expect(selectMet('Verkennen')).toBeTruthy());
     await kies(selectMet('Ja'), 'ja');
@@ -173,6 +218,10 @@ describe('StartCasusModal vanuit het casusbord', () => {
     await vink('Regelbeheer');
     await vink('Uitvoeringstoets');
     expect(startknop().hasAttribute('disabled')).toBe(false);
+    // De koppen vatten de antwoorden samen.
+    expect((await blokKop('Tot hoever brengen we het?')).textContent).toContain('Verkennen');
+    expect((await blokKop('Is het een interne casus of een satellietcasus?')).textContent).toContain('Interne casus');
+    expect((await blokKop('Op welke schakels maken we impact?')).textContent).toContain('2 gekozen');
 
     await act(async () => {
       startknop().dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -207,12 +256,17 @@ describe('StartCasusModal vanuit het casusbord', () => {
       [...document.querySelectorAll('nldd-checkbox-field')].filter((el) =>
         ['Data beschikbaar', 'Partner gevonden'].includes(el.getAttribute('label') ?? ''),
       );
+    await openBlokken(...VRAGEN);
     // Bij een interne casus geen criteria; pas bij een satellietcasus.
     await waitFor(() => expect(selectMet('Satellietcasus')).toBeTruthy());
     await kies(selectMet('Satellietcasus'), 'intern');
     await new Promise((r) => setTimeout(r, 20));
     expect(criteriumVinkjes().length).toBe(0);
     await kies(selectMet('Satellietcasus'), 'satelliet');
+    // De criteria staan in een blok dat dicht begint.
+    expect((await blokKop('Acceptatiecriteria voor een satellietcasus')).textContent).toContain('0 van 2 aangevinkt');
+    expect(criteriumVinkjes().length).toBe(0);
+    await klapOpen('Acceptatiecriteria voor een satellietcasus');
     await waitFor(() => expect(criteriumVinkjes().length).toBe(2));
     const [data] = criteriumVinkjes();
     expect(data.getAttribute('label')).toBe('Data beschikbaar');
@@ -254,6 +308,7 @@ describe('StartCasusModal vanuit het casusbord', () => {
         <StartCasusModal lead={null} kiesUit={[lead('l1', 'Lead een')]} open onClose={vi.fn()} />
       </ToastProvider>,
     );
+    await openBlokken('Is het een interne casus of een satellietcasus?', 'Via welk kanaal?', 'Nog iets?');
     await waitFor(() => expect(selectMet('Website')).toBeTruthy());
     // De standaardvragen staan er niet bij.
     expect(document.body.textContent).not.toContain('Tot hoever');
@@ -269,6 +324,29 @@ describe('StartCasusModal vanuit het casusbord', () => {
         startvoorwaarden: expect.objectContaining({ antwoorden: [{ vraag_id: 'kanaal', waarde: 'Website' }] }),
       }),
     );
+  });
+
+  it('opent alleen de verplichte vragen die nog leeg zijn', async () => {
+    vragenVanInitiatief.mockReturnValue([
+      STANDAARD[1],
+      { id: 'notitie', vraag: 'Nog iets?', antwoordtype: 'vrij', opties: [], verplicht: false, op_kaartje: false },
+    ]);
+    soortenVanInitiatief.mockReturnValue([soort('s1', 'Beproeven', [])]);
+    renderWithProviders(
+      <ToastProvider>
+        <StartCasusModal lead={null} kiesUit={[lead('l1', 'Lead een')]} open onClose={vi.fn()} />
+      </ToastProvider>,
+    );
+    const casustype = await blokKop('Is het een interne casus of een satellietcasus?');
+    expect(casustype.getAttribute('aria-expanded')).toBe('true');
+    await waitFor(() => expect(selectMet('Interne casus')).toBeTruthy());
+    // Wat niet hoeft, begint dicht.
+    expect((await blokKop('Nog iets?')).getAttribute('aria-expanded')).toBe('false');
+    expect((await blokKop('Soort casus')).getAttribute('aria-expanded')).toBe('false');
+    // Met de lead en het antwoord gaat de startknop aan, zonder iets open te klappen.
+    await kies(selectMet('Lead een'), 'l1');
+    await kies(selectMet('Interne casus'), 'intern');
+    expect(startknop().hasAttribute('disabled')).toBe(false);
   });
 
   it('zegt het als er geen lead klaarstaat', () => {

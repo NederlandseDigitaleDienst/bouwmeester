@@ -9,7 +9,9 @@ import { NlddIconButton } from '@/components/nldd/NlddIconButton';
 import { MattermostChannelsSection } from '@/components/mattermost/MattermostChannelsSection';
 import { CasusKanaalberichten } from '@/components/mattermost/CasusKanaalberichten';
 import { useLeadDetail } from '@/contexts/LeadDetailContext';
-import { useRemoveCasusTeamlid, useUpdateCasus } from '@/hooks/useCasussen';
+import { useHaalUitKoelkast, useRemoveCasusTeamlid, useUpdateCasus } from '@/hooks/useCasussen';
+import { formatDateLong, isOverdue } from '@/utils/dates';
+import { KoelkastModal } from './KoelkastModal';
 import { CASUS_TYPE_LABELS, CASUSTEAM_ROL_LABELS } from '@/types';
 import { useCasusFases } from '@/hooks/useCasusFases';
 import { useInitiatief } from '@/hooks/useInitiatieven';
@@ -49,16 +51,22 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
   const [afronden, setAfronden] = useState(false);
   const [herstel, setHerstel] = useState(0);
   const eindEisen = casus.eind_eisen ?? [];
-  // Een kanaal koppelen stuurt casusinhoud naar Mattermost. Dat valt onder
-  // het wijzigen van de casus: bijdrager, eigenaar of de trekker, geen
-  // kijker. De backend weigert het ook.
+  // Wie de casus mag wijzigen: bijdrager, eigenaar of de trekker, geen
+  // kijker (require_can_change_casus). Dat geldt voor de koelkast en voor
+  // een kanaal koppelen, dat casusinhoud naar Mattermost stuurt. De backend
+  // weigert het ook.
   const { data: initiatief } = useInitiatief(casus.initiatief_id ?? undefined);
   const { currentPerson } = useCurrentPerson();
-  const kanKanalenBeheren =
+  const kanWijzigen =
     !casus.initiatief_id ||
     initiatief?.access_level === 'eigenaar' ||
     initiatief?.access_level === 'contributor' ||
     casus.team.some((lid) => lid.rol === 'trekker' && lid.person_id === currentPerson?.id);
+  const uitKoelkast = useHaalUitKoelkast();
+  const [koelkast, setKoelkast] = useState(false);
+  // In de koelkast staat de fase vast; de backend weigert een andere (409).
+  // Op het bord sleep je hem uit de koelkast naar een fase, in één keer.
+  const inKoelkast = !!casus.koelkast_sinds;
 
   return (
     <nldd-container gap="16">
@@ -71,6 +79,7 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
           width="220px"
           options={faseOptions}
           value={casus.fase}
+          disabled={inKoelkast}
           onChange={(e) => {
             const fase = e.target.value;
             if (fase === laatste?.id && heeftEisen(casus.soorten ?? [], 'eind_eisen')) setAfronden(true);
@@ -85,6 +94,12 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
             setHerstel((h) => h + 1);
           }}
         />
+        {inKoelkast && (
+          <nldd-text size="sm" color="secondary">
+            De fase staat vast zolang de casus in de koelkast staat. Haal hem er eerst uit, of sleep hem op het bord naar een
+            andere fase.
+          </nldd-text>
+        )}
         {/* Wat er in deze fase gebeurt en wanneer de casus door mag. */}
         {huidige?.omschrijving && <nldd-text size="sm" color="secondary">{huidige.omschrijving}</nldd-text>}
         {huidige?.door_als && (
@@ -93,6 +108,38 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
           </nldd-text>
         )}
       </nldd-container>
+
+      {/* De koelkast: los van de fase, die blijft staan. De knoppen alleen
+          voor wie de casus mag wijzigen; een kijker ziet wel waarom. */}
+      {casus.koelkast_sinds ? (
+        <nldd-box background="tinted">
+          <nldd-container gap="6" padding="12">
+            <nldd-text size="sm" weight="bold">
+              In de koelkast sinds {formatDateLong(casus.koelkast_sinds)}
+            </nldd-text>
+            {casus.koelkast_reden && <nldd-text size="sm">{casus.koelkast_reden}</nldd-text>}
+            {casus.koelkast_verwacht_terug && (
+              <nldd-text size="sm" color="secondary">
+                Terug verwacht: {formatDateLong(casus.koelkast_verwacht_terug)}
+                {isOverdue(casus.koelkast_verwacht_terug) ? ' (datum voorbij)' : ''}
+              </nldd-text>
+            )}
+            {kanWijzigen && (
+              <nldd-container layout="row" gap="8">
+                <NlddButton variant="secondary" size="sm" text="Uit de koelkast" loading={uitKoelkast.isPending} onClick={() => uitKoelkast.mutate(casus.id)} />
+                <NlddButton variant="neutral-transparent" size="sm" startIcon="pencil" text="Reden of datum aanpassen" onClick={() => setKoelkast(true)} />
+              </nldd-container>
+            )}
+          </nldd-container>
+        </nldd-box>
+      ) : (
+        kanWijzigen && (
+          <div>
+            <NlddButton variant="neutral-transparent" size="sm" startIcon="pause" text="In de koelkast zetten" onClick={() => setKoelkast(true)} />
+          </div>
+        )
+      )}
+      <KoelkastModal casus={koelkast ? casus : null} onClose={() => setKoelkast(false)} />
 
       {casus.description && <RichTextDisplay content={casus.description} />}
 
@@ -177,7 +224,7 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
           </nldd-container>
         )}
         {/* De starteisen van de soorten zoals het team ze bij de start naliep. */}
-        {sv.start_eisen && sv.start_eisen.length > 0 && <EisenMomentopname titel="Starteisen" eisen={sv.start_eisen} />}
+        {sv.start_eisen && sv.start_eisen.length > 0 && <EisenMomentopname titel="Voorwaarden om te starten" eisen={sv.start_eisen} />}
         {sv.toelichting && (
           <nldd-container gap="4">
             <nldd-text size="xs" weight="medium" color="secondary">Toelichting</nldd-text>
@@ -191,7 +238,7 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
           fase kwam. */}
       {eindEisen.length > 0 && (
         <DetailSection
-          title="Eindeisen"
+          title="Deliverables"
           icon={<Icon name="check-mark-circle" size="sm" />}
           count={eindEisen.filter((e) => e.akkoord).length}
           separated
@@ -205,8 +252,8 @@ export function CasusInfo({ casus }: { casus: CasusDetail }) {
           berichten staan er ook zonder kanaal onder. */}
       <DetailSection title="Mattermost" separated>
         <nldd-container gap="12">
-          <MattermostChannelsSection scope={{ type: 'casus', id: casus.id }} kanBeheren={kanKanalenBeheren} />
-          <CasusKanaalberichten casusId={casus.id} kanBeheren={kanKanalenBeheren} />
+          <MattermostChannelsSection scope={{ type: 'casus', id: casus.id }} kanBeheren={kanWijzigen} />
+          <CasusKanaalberichten casusId={casus.id} kanBeheren={kanWijzigen} />
         </nldd-container>
       </DetailSection>
 

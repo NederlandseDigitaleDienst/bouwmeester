@@ -5,6 +5,7 @@ de lead. Toegang loopt via de initiatief-context, net als bij leads. Casussen
 zijn nooit publiek.
 """
 
+from datetime import UTC, date, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -46,6 +47,7 @@ from bouwmeester.repositories.task import TaskRepository
 from bouwmeester.schema.casus import (
     DEFAULT_DOD,
     CasusDetailResponse,
+    CasusKoelkast,
     CasusResponse,
     CasusStart,
     CasusTeamCreate,
@@ -330,6 +332,25 @@ async def get_casus(
     return await _detail(CasusRepository(db), casus)
 
 
+def _leeg_koelkast(casus) -> dict | None:
+    """Haal de casus uit de koelkast, zonder flush.
+
+    Geeft de details voor het activiteitenlog, of None als hij er niet in
+    stond. Zonder de reden, net als bij het erin zetten.
+    """
+    if casus.koelkast_sinds is None:
+        return None
+    details = {
+        "casus_id": str(casus.id),
+        "title": casus.title,
+        "sinds": casus.koelkast_sinds.isoformat(),
+    }
+    casus.koelkast_sinds = None
+    casus.koelkast_reden = None
+    casus.koelkast_verwacht_terug = None
+    return details
+
+
 @router.put("/{casus_id}", response_model=CasusDetailResponse)
 async def update_casus(
     casus_id: UUID,
@@ -339,6 +360,12 @@ async def update_casus(
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
     perm_ctx: PermissionContext = Depends(get_permission_context),
 ) -> CasusDetailResponse:
+    """Werk een casus bij: gegevens, fase, eindeisen.
+
+    In de koelkast staat de fase vast: een andere fase geeft 409, tenzij
+    uit_koelkast meekomt. Dan gaat de casus in dezelfde transactie uit de
+    koelkast en naar de nieuwe fase; faalt er iets, dan blijft hij erin.
+    """
     bestaand = await _get_casus(db, casus_id, init_ctx)
     await require_can_change_casus(db, perm_ctx, current_user, bestaand)
     if data.fase is not None:
@@ -351,6 +378,18 @@ async def update_casus(
                 status_code=400,
                 detail="Deze fase staat niet in de casusfunnel van het initiatief",
             )
+        if (
+            bestaand.koelkast_sinds is not None
+            and not data.uit_koelkast
+            and data.fase != bestaand.fase
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Deze casus staat in de koelkast; zijn fase staat dan vast. "
+                    "Haal hem eerst uit de koelkast."
+                ),
+            )
     # De eindeisen van de soorten zoals het team ze naliep: een momentopname,
     # en geen poort voor de fase.
     eind_eisen = None
@@ -361,16 +400,25 @@ async def update_casus(
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc))
-        data = CasusUpdate.model_validate(
-            data.model_dump(exclude_unset=True, exclude={"eind_eisen"})
-        )
+    uit_koelkast = data.uit_koelkast
+    # Wat de repository niet als kolom schrijft, gaat er hier uit.
+    data = CasusUpdate.model_validate(
+        data.model_dump(exclude_unset=True, exclude={"eind_eisen", "uit_koelkast"})
+    )
     repo = CasusRepository(db)
     old = await repo.get(casus_id)
     old_fase = old.fase if old else None
     if eind_eisen is not None:
         # Vóór de update, zodat die hem meeschrijft en updated_at ververst.
         bestaand.eind_eisen = eind_eisen
+    # Ook vóór de update: één flush met de fase, zodat de casus nooit uit de
+    # koelkast is zonder de fase waar hij heen ging.
+    koelkast_uit = _leeg_koelkast(bestaand) if uit_koelkast else None
     casus = require_found(await repo.update(casus_id, data), "Casus")
+    if koelkast_uit is not None:
+        await log_activity(
+            db, current_user, None, "casus.koelkast_uit", details=koelkast_uit
+        )
     details: dict = {"casus_id": str(casus.id), "title": casus.title}
     if eind_eisen is not None:
         details["eind_eisen_akkoord"] = sum(e["akkoord"] for e in eind_eisen)
@@ -384,6 +432,74 @@ async def update_casus(
         )
     await log_activity(db, current_user, None, "casus.updated", details=details)
     return await _detail(repo, casus)
+
+
+@router.put("/{casus_id}/koelkast", response_model=CasusDetailResponse)
+async def zet_in_koelkast(
+    casus_id: UUID,
+    data: CasusKoelkast,
+    current_user: OptionalUser,
+    db: AsyncSession = Depends(get_db),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
+) -> CasusDetailResponse:
+    """Zet een casus in de koelkast, of werk de reden en datum bij.
+
+    De fase blijft staan: na de koelkast gaat de casus verder waar hij was.
+    Wie de casus mag wijzigen, mag hem ook in de koelkast zetten.
+    """
+    casus = await _get_casus(db, casus_id, init_ctx)
+    await require_can_change_casus(db, perm_ctx, current_user, casus)
+    if data.verwacht_terug < date.today():
+        raise HTTPException(
+            status_code=422,
+            detail="De verwachte datum om uit de koelkast te komen is al voorbij",
+        )
+    al_in = casus.koelkast_sinds is not None
+    if not al_in:
+        casus.koelkast_sinds = datetime.now(UTC)
+    casus.koelkast_reden = data.reden
+    casus.koelkast_verwacht_terug = data.verwacht_terug
+    await db.flush()
+    await db.refresh(casus, attribute_names=["updated_at", "initiatief", "lead"])
+    await log_activity(
+        db,
+        current_user,
+        None,
+        "casus.koelkast_bijgewerkt" if al_in else "casus.koelkast_in",
+        # Zonder de reden: het log leest ook wie het initiatief niet ziet
+        # (audit:read), net als bij de andere casusregels alleen id en titel.
+        details={
+            "casus_id": str(casus.id),
+            "title": casus.title,
+            "verwacht_terug": data.verwacht_terug.isoformat(),
+        },
+    )
+    return await _detail(CasusRepository(db), casus)
+
+
+@router.delete("/{casus_id}/koelkast", response_model=CasusDetailResponse)
+async def haal_uit_koelkast(
+    casus_id: UUID,
+    current_user: OptionalUser,
+    db: AsyncSession = Depends(get_db),
+    init_ctx: InitiatiefContext = Depends(get_initiatief_context),
+    perm_ctx: PermissionContext = Depends(get_permission_context),
+) -> CasusDetailResponse:
+    """Haal een casus uit de koelkast. Hij gaat verder in zijn fase.
+
+    Geen casus in de koelkast: niets te doen, wel het antwoord.
+    """
+    casus = await _get_casus(db, casus_id, init_ctx)
+    await require_can_change_casus(db, perm_ctx, current_user, casus)
+    details = _leeg_koelkast(casus)
+    if details is not None:
+        await db.flush()
+        await db.refresh(casus, attribute_names=["updated_at", "initiatief", "lead"])
+        await log_activity(
+            db, current_user, None, "casus.koelkast_uit", details=details
+        )
+    return await _detail(CasusRepository(db), casus)
 
 
 @router.delete("/{casus_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -1,49 +1,47 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { Input } from '@/components/common/Input';
-import { Select } from '@/components/common/Select';
 import { NlddButton } from '@/components/nldd/NlddButton';
 import { NlddIconButton } from '@/components/nldd/NlddIconButton';
-import { TAG_KLEUR_OPTIES, leadColumnTagColor } from '@/components/leads/stageColors';
+import { useNlddEvent } from '@/components/nldd/events';
+import { leadColumnTagColor } from '@/components/leads/stageColors';
 import {
   useCasusSoorten,
   useCreateCasusSoort,
   useDeleteCasusSoort,
   useReorderCasusSoorten,
-  useUpdateCasusSoort,
 } from '@/hooks/useCasusSoorten';
 import type { CasusSoort } from '@/types';
 import { CasusSoortDetailModal } from './CasusSoortDetailModal';
 
-const KLEUREN = TAG_KLEUR_OPTIES.map((k) => ({ value: k.value, label: k.label }));
+const aantal = (n: number, een: string, meer: string) => `${n} ${n === 1 ? een : meer}`;
 
 /**
- * Casussoorten beheren in de instellingen: de soorten die je als tags aan
- * een casus hangt. Elke wijziging wordt meteen opgeslagen; hernoemen werkt
- * meteen op alle casussen, verwijderen haalt de soort overal weg (met een
- * bevestiging die zegt op hoeveel casussen hij staat). Eigenaar-only, net
+ * Casussoorten beheren in de instellingen. De lijst toont per soort het
+ * label, de omschrijving en hoeveel voorwaarden en deliverables hij heeft; klik
+ * een soort aan en je regelt alles in een eigen scherm: naam, kleur,
+ * omschrijving, de voorwaarden om te starten en de deliverables. Een nieuwe soort
+ * begint met alleen een naam en opent meteen dat scherm. Eigenaar-only, net
  * als de andere instellingen; de backend bewaakt dat ook.
  */
 export function CasusSoortenBeheer({ initiatiefId }: { initiatiefId: string }) {
   const { data: soorten = [], isLoading } = useCasusSoorten(initiatiefId);
   const create = useCreateCasusSoort();
   const reorder = useReorderCasusSoorten();
-  const [naam, setNaam] = useState('');
-  const [kleur, setKleur] = useState('neutral');
-  const [uitleg, setUitleg] = useState('');
-  const [weg, setWeg] = useState<CasusSoort | null>(null);
-  // De soort waarvan het detailvenster open is.
-  const [detailId, setDetailId] = useState<string | null>(null);
   const del = useDeleteCasusSoort();
+  const [naam, setNaam] = useState('');
+  const [weg, setWeg] = useState<CasusSoort | null>(null);
+  // De soort waarvan het scherm open is.
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const voegToe = async () => {
     const n = naam.trim();
     if (!n) return;
     try {
-      await create.mutateAsync({ initiatiefId, naam: n, kleur, uitleg: uitleg.trim() || null });
+      const nieuw = await create.mutateAsync({ initiatiefId, naam: n, kleur: 'neutral', uitleg: null });
       setNaam('');
-      setUitleg('');
+      setDetailId(nieuw.id);
     } catch {
       // toast is al getoond (bijvoorbeeld: bestaat al)
     }
@@ -59,28 +57,23 @@ export function CasusSoortenBeheer({ initiatiefId }: { initiatiefId: string }) {
   return (
     <nldd-container gap="12">
       <nldd-text size="sm" color="secondary">
-        Soorten casus die je als labels aan een casus hangt, bij het starten of later bij de casusgegevens.
-        De uitleg staat bij het kiezen en als tooltip op het label. Een wijziging werkt meteen op alle
-        casussen.
+        Soorten casus die je als labels aan een casus hangt. Open een soort om de voorwaarden om te starten en de
+        deliverables te regelen. Een wijziging werkt meteen op alle casussen.
       </nldd-text>
       {isLoading ? (
         <nldd-text size="sm" color="secondary">Laden...</nldd-text>
       ) : soorten.length === 0 ? (
         <nldd-text size="sm" color="secondary">Nog geen soorten.</nldd-text>
       ) : (
-        <nldd-container gap="16">
+        <nldd-container gap="8">
           {soorten.map((s, i) => (
-            <SoortRegel
-              key={s.id}
-              soort={s}
-              initiatiefId={initiatiefId}
-              eerste={i === 0}
-              laatste={i === soorten.length - 1}
-              onOmhoog={() => verplaats(i, -1)}
-              onOmlaag={() => verplaats(i, 1)}
-              onVerwijder={() => setWeg(s)}
-              onOpen={() => setDetailId(s.id)}
-            />
+            <nldd-container key={s.id} layout="row" gap="4" vertical-alignment="center">
+              <nldd-container className="row-fill">
+                <SoortKaart soort={s} onOpen={() => setDetailId(s.id)} />
+              </nldd-container>
+              <NlddIconButton icon="arrow-up" accessibleLabel={`${s.naam} omhoog`} variant="neutral-transparent" size="sm" disabled={i === 0} onClick={() => verplaats(i, -1)} />
+              <NlddIconButton icon="arrow-down" accessibleLabel={`${s.naam} omlaag`} variant="neutral-transparent" size="sm" disabled={i === soorten.length - 1} onClick={() => verplaats(i, 1)} />
+            </nldd-container>
           ))}
         </nldd-container>
       )}
@@ -98,26 +91,13 @@ export function CasusSoortenBeheer({ initiatiefId }: { initiatiefId: string }) {
             }}
           />
         </nldd-container>
-        <div style={{ width: '160px', flexShrink: 0 }}>
-          <Select size="sm" aria-label="Kleur van de nieuwe soort" options={KLEUREN} value={kleur} onChange={(e) => setKleur(e.target.value)} />
-        </div>
         <NlddButton variant="secondary" size="sm" startIcon="plus" onClick={() => void voegToe()} loading={create.isPending} disabled={!naam.trim()} text="Toevoegen" />
       </nldd-container>
-      <Input
-        type="text"
-        value={uitleg}
-        aria-label="Uitleg bij de nieuwe soort"
-        maxLength={500}
-        placeholder="Uitleg, bijvoorbeeld: we proberen iets nieuws uit om ervan te leren"
-        onChange={(e) => setUitleg(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') void voegToe();
-        }}
-      />
       <CasusSoortDetailModal
         soort={soorten.find((s) => s.id === detailId) ?? null}
         initiatiefId={initiatiefId}
         onClose={() => setDetailId(null)}
+        onVerwijder={(s) => setWeg(s)}
       />
       <ConfirmDialog
         open={!!weg}
@@ -127,6 +107,7 @@ export function CasusSoortenBeheer({ initiatiefId }: { initiatiefId: string }) {
           try {
             await del.mutateAsync({ initiatiefId, soortId: weg.id });
             setWeg(null);
+            setDetailId(null);
           } catch {
             // toast is al getoond
           }
@@ -138,7 +119,7 @@ export function CasusSoortenBeheer({ initiatiefId }: { initiatiefId: string }) {
       >
         {weg
           ? `"${weg.naam}" verdwijnt uit de instellingen${
-              weg.casus_count > 0 ? ` en van ${weg.casus_count} ${weg.casus_count === 1 ? 'casus' : 'casussen'}` : ''
+              weg.casus_count > 0 ? ` en van ${aantal(weg.casus_count, 'casus', 'casussen')}` : ''
             }.`
           : ''}
       </ConfirmDialog>
@@ -146,95 +127,32 @@ export function CasusSoortenBeheer({ initiatiefId }: { initiatiefId: string }) {
   );
 }
 
-interface RegelProps {
-  soort: CasusSoort;
-  initiatiefId: string;
-  eerste: boolean;
-  laatste: boolean;
-  onOmhoog: () => void;
-  onOmlaag: () => void;
-  onVerwijder: () => void;
-  onOpen: () => void;
-}
-
-/** Eén soort: naam (opslaan bij Enter of verlaten), kleur, volgorde, weg. */
-function SoortRegel({ soort, initiatiefId, eerste, laatste, onOmhoog, onOmlaag, onVerwijder, onOpen }: RegelProps) {
-  const update = useUpdateCasusSoort();
-  const [naam, setNaam] = useState(soort.naam);
-  const [uitleg, setUitleg] = useState(soort.uitleg ?? '');
-  const opslaan = (data: { naam?: string; kleur?: string; uitleg?: string | null }) =>
-    update.mutate(
-      { initiatiefId, soortId: soort.id, data },
-      // Bij een fout (bijvoorbeeld dubbele naam) terug naar wat er stond.
-      {
-        onError: () => {
-          setNaam(soort.naam);
-          setUitleg(soort.uitleg ?? '');
-        },
-      },
-    );
-  const uitlegOpslaan = () => {
-    const u = uitleg.trim();
-    if (u !== (soort.uitleg ?? '')) opslaan({ uitleg: u || null });
-  };
-  const naamOpslaan = () => {
-    const n = naam.trim();
-    if (!n) return setNaam(soort.naam);
-    if (n !== soort.naam) opslaan({ naam: n });
-  };
+/** Eén soort in de lijst: klik hem aan voor het scherm met alles erover. */
+function SoortKaart({ soort, onOpen }: { soort: CasusSoort; onOpen: () => void }) {
+  const ref = useRef<HTMLElement>(null);
+  const handleClick = useCallback(() => onOpen(), [onOpen]);
+  useNlddEvent(ref, 'click', handleClick);
+  const start = soort.start_eisen?.length ?? 0;
+  const deliverables = soort.eind_eisen?.length ?? 0;
 
   return (
-    <nldd-container gap="4">
-    <nldd-container layout="row" gap="8" vertical-alignment="center">
-      <nldd-container className="row-fill">
-        <Input
-          type="text"
-          value={naam}
-          aria-label={`Naam van ${soort.naam}`}
-          maxLength={100}
-          onChange={(e) => setNaam(e.target.value)}
-          onBlur={naamOpslaan}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') naamOpslaan();
-          }}
-        />
+    <nldd-card ref={ref} button accessible-label={`${soort.naam} openen`}>
+      <nldd-container gap="4" padding="12">
+        {/* Op een smal scherm gaan de aantallen onder de naam, en lopen ze
+            zelf door op een volgende regel: niets steekt uit de kaart. */}
+        <nldd-container layout="wrap" gap="8" vertical-alignment="center">
+          <div className="row-fill">
+            <nldd-tag text={soort.naam} color={leadColumnTagColor(soort.kleur)} size="sm" />
+          </div>
+          <nldd-text size="xs" color="secondary">
+            {aantal(start, 'voorwaarde om te starten', 'voorwaarden om te starten')} · {aantal(deliverables, 'deliverable', 'deliverables')} ·{' '}
+            {aantal(soort.casus_count, 'casus', 'casussen')}
+          </nldd-text>
+        </nldd-container>
+        <nldd-text size="sm" color="secondary" className="line-clamp-2">
+          {soort.uitleg || 'Nog geen omschrijving.'}
+        </nldd-text>
       </nldd-container>
-      <div style={{ width: '160px', flexShrink: 0 }}>
-        <Select
-          size="sm"
-          aria-label={`Kleur van ${soort.naam}`}
-          options={KLEUREN}
-          value={soort.kleur}
-          onChange={(e) => opslaan({ kleur: e.target.value })}
-        />
-      </div>
-      {/* Zo ziet de tag eruit op een casus. Vaste breedte, zodat de regels
-          onder elkaar blijven staan; een lange naam wordt afgekapt. */}
-      <div style={{ width: '140px', flexShrink: 0, overflow: 'hidden', whiteSpace: 'nowrap' }}>
-        <nldd-tag text={soort.naam} color={leadColumnTagColor(soort.kleur)} size="sm" />
-      </div>
-      <nldd-text size="xs" color="secondary" style={{ width: '80px', flexShrink: 0, textAlign: 'right', whiteSpace: 'nowrap' }}>
-        {soort.casus_count === 1 ? '1 casus' : `${soort.casus_count} casussen`}
-      </nldd-text>
-      <NlddIconButton icon="arrow-up" accessibleLabel={`${soort.naam} omhoog`} variant="neutral-transparent" size="sm" disabled={eerste} onClick={onOmhoog} />
-      <NlddIconButton icon="arrow-down" accessibleLabel={`${soort.naam} omlaag`} variant="neutral-transparent" size="sm" disabled={laatste} onClick={onOmlaag} />
-      <NlddIconButton icon="trash" accessibleLabel={`${soort.naam} verwijderen`} variant="neutral-transparent" size="sm" onClick={onVerwijder} />
-      {/* In detail: hoe ver we zo'n casus brengen, met punten. */}
-      <NlddIconButton icon="ellipsis" accessibleLabel={`${soort.naam} in detail`} variant="neutral-transparent" size="sm" onClick={onOpen} />
-    </nldd-container>
-    {/* De uitleg: opslaan bij Enter of verlaten, leeg wist hem. */}
-    <Input
-      type="text"
-      value={uitleg}
-      aria-label={`Uitleg bij ${soort.naam}`}
-      maxLength={500}
-      placeholder="Uitleg (optioneel): wat betekent deze soort?"
-      onChange={(e) => setUitleg(e.target.value)}
-      onBlur={uitlegOpslaan}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') uitlegOpslaan();
-      }}
-    />
-    </nldd-container>
+    </nldd-card>
   );
 }

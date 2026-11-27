@@ -19,6 +19,10 @@ Dit bestand bewaakt de regels die daarbij horen:
   van een node, de chat-tools en meldingen. Buiten het initiatief is het
   antwoord 404, ook als de taak een eenheid heeft die je niet ziet.
 - De kandidatenlijst van een initiatief laat zien waarom iemand erbij hoort.
+
+Elders bewaakt, met dezelfde regel:
+- de koelkast van een casus (in en uit, 404 buiten het initiatief):
+  test_buitenstaander_ziet_geen_koelkast in test_casus_koelkast.py.
 """
 
 import uuid

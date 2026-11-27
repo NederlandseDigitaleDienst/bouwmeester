@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { NlddButton } from '@/components/nldd/NlddButton';
-import { useUpdateCasus } from '@/hooks/useCasussen';
+import { useHaalUitKoelkast, useUpdateCasus } from '@/hooks/useCasussen';
 import { useLeads } from '@/hooks/useLeads';
 import { useInitiatief } from '@/hooks/useInitiatieven';
 import { CASUS_START_STAGE } from '@/types';
@@ -10,7 +10,11 @@ import { leadColumnTagColor } from '@/components/leads/stageColors';
 import { CasusAfrondenModal } from './CasusAfrondenModal';
 import { CasusCard } from './CasusCard';
 import { heeftEisen } from './eisen';
+import { KoelkastModal } from './KoelkastModal';
 import { StartCasusModal } from './StartCasusModal';
+
+/** De kolom van de koelkast: geen fase, de casus houdt zijn fase. */
+const KOELKAST = '__koelkast__';
 
 /** Wat een fase inhoudt, als tooltip op het label van de kolom. */
 function faseUitleg(f: CasusFaseDef, laatste: boolean): string | undefined {
@@ -36,9 +40,17 @@ interface Props {
  *
  * De kolommen zijn de casusfunnel van het initiatief (instellingen): naam en
  * kleur per fase, en de omschrijving en "door als" als tooltip op het label.
+ *
+ * Rechts staat de koelkast: casussen die even stilliggen. Sleep je er een
+ * heen, dan vraagt het bord waarom en wanneer hij er naar verwachting uit
+ * komt. De casus houdt zijn fase; sleep je hem terug naar een kolom, dan
+ * komt hij uit de koelkast in die fase.
  */
 export function CasusFunnelBord({ casussen, initiatiefId, onOpen }: Props) {
   const updateCasus = useUpdateCasus();
+  const uitKoelkast = useHaalUitKoelkast();
+  // De casus waarvoor het koelkastvenster open is.
+  const [naarKoelkast, setNaarKoelkast] = useState<Casus | null>(null);
   // De startvragen: welke antwoorden op de kaartjes komen.
   const { data: initiatief } = useInitiatief(initiatiefId);
   const vragen = initiatief?.startvragen ?? [];
@@ -56,23 +68,47 @@ export function CasusFunnelBord({ casussen, initiatiefId, onOpen }: Props) {
 
   const perFase = useMemo(() => {
     const map: Record<string, Casus[]> = Object.fromEntries(fases.map((f) => [f.id, [] as Casus[]]));
-    for (const c of casussen) (map[c.fase] ??= []).push(c);
+    map[KOELKAST] = [];
+    for (const c of casussen) (map[c.koelkast_sinds ? KOELKAST : c.fase] ??= []).push(c);
     for (const lijst of Object.values(map)) lijst.sort((a, b) => a.title.localeCompare(b.title, 'nl'));
     return map;
   }, [casussen, fases]);
 
   // Naar de laatste fase met eindeisen: eerst nalopen, de fase gaat mee
-  // met het afronden. Anders meteen.
+  // met het afronden. Anders meteen. Uit de koelkast gaat in dezelfde
+  // wijziging mee (ook in het afrondvenster), zodat de casus nooit uit de
+  // koelkast is zonder zijn nieuwe fase.
   const zetFase = (casus: Casus, fase: string) => {
     if (fase === laatste?.id && heeftEisen(casus.soorten ?? [], 'eind_eisen')) setAfronden(casus);
-    else updateCasus.mutate({ id: casus.id, data: { fase } });
+    else updateCasus.mutate({ id: casus.id, data: { fase, ...(casus.koelkast_sinds ? { uit_koelkast: true } : {}) } });
   };
 
   const naarFase = (casusId: string, fase: string) => {
     const casus = casussen.find((c) => c.id === casusId);
-    if (!casus || casus.fase === fase) return;
+    if (!casus) return;
+    if (fase === KOELKAST) {
+      if (!casus.koelkast_sinds) setNaarKoelkast(casus);
+      return;
+    }
+    if (casus.fase === fase) {
+      // Terug in zijn eigen fase: alleen uit de koelkast.
+      if (casus.koelkast_sinds) uitKoelkast.mutate(casus.id);
+      return;
+    }
+    // Naar een andere fase, ook vanuit de koelkast: één wijziging. Vraagt de
+    // fase eerst het afrondvenster, dan blijft hij bij annuleren in de koelkast.
     zetFase(casus, fase);
   };
+  const faseNaam = (id: string) => fases.find((f) => f.id === id)?.naam ?? id;
+  const kolommen = [...fases.map((f, i) => ({ ...f, koelkast: false, laatsteFase: i === fases.length - 1 })), {
+    id: KOELKAST,
+    naam: 'Koelkast',
+    kleur: 'hemelblauw',
+    omschrijving: 'Casussen die even stilliggen, met waarom en wanneer ze er naar verwachting uit komen.',
+    door_als: null,
+    koelkast: true,
+    laatsteFase: false,
+  }];
 
   const gestart = (casus: CasusDetail) => {
     // Gestart in de eerste fase; klikte je in een andere kolom, dan daarheen.
@@ -84,13 +120,13 @@ export function CasusFunnelBord({ casussen, initiatiefId, onOpen }: Props) {
       {/* Zelfde samenvatting als boven het leadbord: totaal en per fase. */}
       <nldd-container layout="wrap" gap="8" vertical-alignment="center">
         <nldd-text size="sm">{casussen.length} {casussen.length === 1 ? 'casus' : 'casussen'}</nldd-text>
-        {fases.filter((f) => (perFase[f.id]?.length ?? 0) > 0).map((f) => (
+        {kolommen.filter((f) => (perFase[f.id]?.length ?? 0) > 0).map((f) => (
           <nldd-tag key={f.id} text={`${f.naam}: ${perFase[f.id].length}`} color={leadColumnTagColor(f.kleur)} size="sm" />
         ))}
       </nldd-container>
 
       <div style={{ display: 'flex', gap: '12px', minHeight: '400px', overflowX: 'auto', paddingBottom: '8px' }}>
-        {fases.map((f, i) => {
+        {kolommen.map((f) => {
           const fase = f.id;
           const kaartjes = perFase[fase] ?? [];
           return (
@@ -129,7 +165,7 @@ export function CasusFunnelBord({ casussen, initiatiefId, onOpen }: Props) {
                       text={f.naam}
                       color={leadColumnTagColor(f.kleur)}
                       size="sm"
-                      {...(faseUitleg(f, i === fases.length - 1) ? { title: faseUitleg(f, i === fases.length - 1) } : {})}
+                      {...(faseUitleg(f, f.laatsteFase) ? { title: faseUitleg(f, f.laatsteFase) } : {})}
                     />
                     <nldd-text size="xs" color="secondary" style={{ fontVariantNumeric: 'tabular-nums' }}>
                       {kaartjes.length}
@@ -152,25 +188,30 @@ export function CasusFunnelBord({ casussen, initiatiefId, onOpen }: Props) {
                           }}
                           style={{ opacity: gesleept === c.id ? 0.4 : 1 }}
                         >
-                          <CasusCard casus={c} onClick={() => onOpen(c.id)} vragen={vragen} />
+                          <CasusCard
+                            casus={c}
+                            onClick={() => onOpen(c.id)}
+                            vragen={vragen}
+                            {...(f.koelkast ? { faseNaam: faseNaam(c.fase) } : {})}
+                          />
                         </div>
                       ))
                     ) : (
                       <nldd-container padding-block="24">
                         <nldd-text size="xs" color="secondary" horizontal-alignment="center">
-                          Sleep casussen hierheen
+                          {f.koelkast ? 'Sleep een casus hierheen die even stilligt' : 'Sleep casussen hierheen'}
                         </nldd-text>
                       </nldd-container>
                     )}
                   </nldd-container>
-                  <NlddButton
+                  {!f.koelkast && <NlddButton
                     text="Nieuwe casus"
                     startIcon="plus"
                     variant="neutral-transparent"
                     size="sm"
                     onClick={() => setNieuwIn(fase)}
                     width="full"
-                  />
+                  />}
                 </nldd-container>
               </nldd-box>
             </div>
@@ -186,6 +227,7 @@ export function CasusFunnelBord({ casussen, initiatiefId, onOpen }: Props) {
         onClose={() => setNieuwIn(null)}
         onStarted={gestart}
       />
+      <KoelkastModal casus={naarKoelkast} onClose={() => setNaarKoelkast(null)} />
       <CasusAfrondenModal casus={afronden} fase={afronden ? laatste ?? null : null} onClose={() => setAfronden(null)} />
     </nldd-container>
   );

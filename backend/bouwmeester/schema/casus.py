@@ -6,11 +6,11 @@ Alles wat hier als lijst staat is daarom op één plek te wijzigen.
 """
 
 import enum
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from bouwmeester.schema.casus_fases import FASE_ID_PATROON
 from bouwmeester.schema.casus_soort import CasusSoortSummary, SoortEis
@@ -121,6 +121,28 @@ class CasusUpdate(BaseModel):
     # De eindeisen van de soorten zoals het team ze naliep, meestal samen met
     # de stap naar de laatste fase. Geen poort: de fase gaat ook zonder.
     eind_eisen: list[SoortEis] | None = Field(None, max_length=300)
+    # In de koelkast staat de fase vast (409). Met uit_koelkast haalt dezelfde
+    # wijziging de casus eruit, in één transactie met de fase en de eindeisen:
+    # zo komt hij nooit uit de koelkast zonder de fase waar hij heen ging.
+    uit_koelkast: bool = False
+
+
+class CasusKoelkast(BaseModel):
+    """Een casus in de koelkast zetten, of de reden en datum bijwerken.
+
+    Beide verplicht: wie iets in de koelkast zet, zegt waarom en wanneer het
+    er naar verwachting weer uit komt. De datum mag niet in het verleden
+    liggen; de route controleert dat tegen vandaag.
+    """
+
+    reden: str = Field(..., min_length=1, max_length=2000)
+    verwacht_terug: date
+
+    @field_validator("reden", mode="before")
+    @classmethod
+    def _zonder_witruimte(cls, v: object) -> object:
+        # Alleen spaties is geen reden: eerst strippen, dan min_length.
+        return v.strip() if isinstance(v, str) else v
 
 
 class CasusTeamCreate(BaseModel):
@@ -168,6 +190,10 @@ class CasusResponse(BaseModel):
     startvoorwaarden: dict[str, Any] = Field(default_factory=dict)
     # De eindeisen zoals het team ze naliep (momentopname), anders leeg.
     eind_eisen: list[dict[str, Any]] = Field(default_factory=list)
+    # In de koelkast als koelkast_sinds gezet is; de fase blijft staan.
+    koelkast_sinds: datetime | None = None
+    koelkast_reden: str | None = None
+    koelkast_verwacht_terug: date | None = None
     started_by_id: UUID | None = None
     trekker_naam: str | None = None
     team_count: int = 0
