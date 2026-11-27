@@ -1926,6 +1926,33 @@ export interface CasusFaseDef {
   door_als?: string | null;
 }
 
+/**
+ * Eén vast overleg van het team, voor het ritme op de tab RegelRitme
+ * (backend schema/overleggen.py). Tekst om te lezen, geen agenda.
+ */
+export interface Overleg {
+  id: string;
+  naam: string;
+  /** Vrije tekst, zoals "om de week, di 9.00 tot 11.00". */
+  wanneer?: string | null;
+  wie?: string | null;
+  waarvoor?: string | null;
+  /** Uit als het overleg besloten is maar het moment nog niet vastligt. */
+  vastgesteld: boolean;
+}
+
+/** Een wens voor Bouwmeester: een klein ticket, suggestie of bug (backend schema/wensen.py). */
+export interface Wens {
+  id: string;
+  soort: 'suggestie' | 'bug';
+  titel: string;
+  /** Rich text. */
+  toelichting?: string | null;
+  gemeld_door?: string | null;
+  /** ISO-datum. */
+  gemeld_op?: string | null;
+}
+
 /** De lead-kolom van waaruit een casus mag starten (dummy-regel, zie backend). */
 export const CASUS_START_STAGE = 'in_the_pocket';
 
@@ -2235,6 +2262,12 @@ export interface InitiatiefSettingsUpdate {
   casus_fases?: CasusFaseDef[];
   /** De startvragen; een lege lijst zet de standaardlijst terug. */
   startvragen?: Startvraag[];
+  /** De vaste overleggen; een lege lijst haalt ze weg. */
+  overleggen?: Overleg[];
+  /** De punten die nog openstaan; een lege lijst haalt ze weg. */
+  open_punten?: string[];
+  /** Wensen voor Bouwmeester: de hele lijst, een lege lijst haalt ze weg. */
+  wensen?: Wens[];
 }
 
 export interface InitiatiefUpdatePost {
@@ -2426,6 +2459,14 @@ export interface InitiatiefDetail extends Initiatief {
   casus_fases_voorstel?: CasusFaseDef[];
   /** Of de funnel het voorstel is (geen eigen fases). */
   casus_fases_is_voorstel?: boolean;
+  // Voor de tab RegelRitme. Alleen in de detailrespons (en het antwoord op
+  // opslaan), niet in het overzicht: InitiatiefListItem heeft ze niet.
+  /** Het ritme: de vaste overleggen van het team; leeg = nog niets vastgelegd. */
+  overleggen?: Overleg[];
+  /** De punten die het team nog moet bespreken of besluiten. */
+  open_punten?: string[];
+  /** Wensen om Bouwmeester zelf aan te passen. */
+  wensen?: Wens[];
 }
 
 /**

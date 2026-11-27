@@ -128,7 +128,7 @@ export function ColumnsManager({ initiatiefId }: ColumnsManagerProps) {
         toont casuses op de publieke pagina.
       </nldd-text>
 
-      <nldd-list appearance="box-tinted" dividers="always" accessible-label="Funnel-kolommen">
+      <nldd-list appearance="box-tinted" dividers="always" accessible-label="Kolommen van de Leads Funnel">
         {sortedColumns.map((col, idx) => (
           <ColumnRow
             key={col.id}

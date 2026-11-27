@@ -15,6 +15,7 @@ export type InitiatiefTab =
   | 'updates'
   | 'mensen'
   | 'signalen'
+  | 'regelritme'
   | 'instellingen';
 
 const INITIATIEF_TABS: readonly InitiatiefTab[] = [
@@ -24,6 +25,7 @@ const INITIATIEF_TABS: readonly InitiatiefTab[] = [
   'updates',
   'mensen',
   'signalen',
+  'regelritme',
   'instellingen',
 ];
 

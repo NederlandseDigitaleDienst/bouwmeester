@@ -13,11 +13,17 @@ from bouwmeester.schema.casus_fases import (
     controleer_fases,
     geldende_casus_fases,
 )
+from bouwmeester.schema.overleggen import (
+    Overleg,
+    controleer_overleggen,
+    geldende_overleggen,
+)
 from bouwmeester.schema.startvragen import (
     Startvraag,
     controleer_lijst,
     geldende_startvragen,
 )
+from bouwmeester.schema.wensen import Wens
 
 # Canonical eenheid-rol type — used in schemas, routes, and repository
 InitiatiefEenheidRol = Literal["eigenaar", "contributor", "viewer"]
@@ -109,6 +115,36 @@ class InitiatiefSettingsUpdate(BaseModel):
     startvragen: list[Startvraag] | None = None
     # De casusfunnel; een lege lijst zet het voorstel terug.
     casus_fases: list[CasusFaseDef] | None = None
+    # Het ritme: de vaste overleggen. Een lege lijst (of null) haalt ze weg.
+    overleggen: list[Overleg] | None = None
+    # De punten die nog openstaan; een lege lijst (of null) haalt ze weg.
+    open_punten: list[str] | None = Field(None, max_length=30)
+    # Wensen voor Bouwmeester (suggesties en bugs): de hele lijst. Een lege
+    # lijst (of null) haalt ze weg.
+    wensen: list[Wens] | None = Field(None, max_length=200)
+
+    @field_validator("open_punten")
+    @classmethod
+    def _strip_open_punten(cls, items: list[str] | None) -> list[str]:
+        # null betekent hier hetzelfde als leeg: de kolom kent geen null.
+        cleaned = [i.strip() for i in items or [] if i and i.strip()]
+        if any(len(i) > 300 for i in cleaned):
+            raise ValueError("Een open punt is maximaal 300 tekens")
+        return cleaned
+
+    @field_validator("wensen")
+    @classmethod
+    def _wensen_uniek(cls, items: list[Wens] | None) -> list[Wens]:
+        items = items or []
+        if len({w.id for w in items}) != len(items):
+            raise ValueError("Elke wens heeft een eigen id")
+        return items
+
+    @field_validator("overleggen")
+    @classmethod
+    def _check_overleggen(cls, overleggen: list[Overleg] | None) -> list[Overleg]:
+        # null betekent hier hetzelfde als leeg: de kolom kent geen null.
+        return controleer_overleggen(overleggen or [])
 
     @field_validator("casus_fases")
     @classmethod
@@ -212,7 +248,14 @@ class InitiatiefEenheidWithNameResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class InitiatiefResponse(BaseModel):
+class InitiatiefKernResponse(BaseModel):
+    """Het initiatief zonder wat alleen de tab RegelRitme leest.
+
+    De basis voor het overzicht (GET /api/initiatieven): dat stuurt per
+    initiatief een kaartje mee, en de wensen en overleggen van elk team horen
+    daar niet bij.
+    """
+
     id: UUID
     naam: str
     slug: str | None = None
@@ -247,7 +290,22 @@ class InitiatiefResponse(BaseModel):
         return geldende_casus_fases(opgeslagen)
 
 
-class InitiatiefListItemResponse(InitiatiefResponse):
+class InitiatiefResponse(InitiatiefKernResponse):
+    """Het initiatief met het ritme, de open punten en de wensen."""
+
+    # Het ritme: de vaste overleggen van het team.
+    overleggen: list[Overleg] = Field(default_factory=list)
+    # De punten die nog openstaan, en de wensen voor Bouwmeester.
+    open_punten: list[str] = Field(default_factory=list)
+    wensen: list[Wens] = Field(default_factory=list)
+
+    @field_validator("overleggen", mode="before")
+    @classmethod
+    def _geldende_overleggen(cls, opgeslagen: list | None) -> list[Overleg]:
+        return geldende_overleggen(opgeslagen)
+
+
+class InitiatiefListItemResponse(InitiatiefKernResponse):
     """An initiatief as the overview shows it: the record plus what is in it.
 
     The counts are what a card needs to say whether an initiatief is alive

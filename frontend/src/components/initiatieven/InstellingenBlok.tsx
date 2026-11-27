@@ -12,9 +12,10 @@ interface Props {
 }
 
 /**
- * Eén onderdeel van een initiatieftab, in te klappen (de instellingen en de
- * tab Mensen). Dicht zie je alleen de titel en de stand van zaken, zodat de
- * tab een overzicht blijft en je per onderdeel openklapt wat je nodig hebt.
+ * Eén onderdeel van een initiatieftab, in te klappen (de instellingen, de
+ * tab Mensen en de kaartjes van RegelRitme). Dicht zie je alleen de titel en
+ * de stand van zaken, zodat de tab een overzicht blijft en je per onderdeel
+ * openklapt wat je nodig hebt.
  *
  * De kop is een echte knop in een `<h3>` (het patroon voor een
  * uitklapbare sectie): het toetsenbord en een schermlezer krijgen
