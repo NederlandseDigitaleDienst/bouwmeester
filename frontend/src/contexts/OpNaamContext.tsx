@@ -6,7 +6,7 @@ import { NlddButton } from '@/components/nldd/NlddButton';
 import { useCurrentPerson } from '@/contexts/CurrentPersonContext';
 import { useInitiatiefPersonOptions } from '@/hooks/useInitiatiefPersonOptions';
 import { useUpdateTask } from '@/hooks/useTasks';
-import { TaskStatus, type TaskCasusSummary } from '@/types';
+import { TaskStatus, type Task, type TaskCasusSummary } from '@/types';
 
 /** Statussen waarbij er kennelijk iemand aan werkt of het gedaan heeft. */
 const MET_IEMAND: ReadonlySet<TaskStatus> = new Set([TaskStatus.IN_PROGRESS, TaskStatus.DONE]);
@@ -22,6 +22,8 @@ interface Taak {
   assignee_id?: string | null;
   /** De casus van de taak; daar komt het initiatief vandaan als het niet is meegegeven. */
   casus?: Partial<TaskCasusSummary> | null;
+  /** De vraag van de taak; zonder casus komt het initiatief daarvandaan. */
+  issue?: Partial<NonNullable<Task['issue']>> | null;
 }
 
 interface Vraag {
@@ -108,8 +110,10 @@ export function useOpNaam(): VraagOpNaam {
 function OpNaamVenster({ vraag, onKlaar }: { vraag: Vraag; onKlaar: () => void }) {
   const { taak, status } = vraag;
   // Meestal geeft de aanroeper het initiatief mee; anders komt het van de
-  // casus van de taak. Zonder beide is iedereen te kiezen.
-  const initiatiefId = vraag.initiatiefId ?? taak.casus?.initiatief_id ?? null;
+  // casus van de taak, of van de vraag als die geen casus heeft. Zonder
+  // een van drieën is iedereen te kiezen.
+  const initiatiefId =
+    vraag.initiatiefId ?? taak.casus?.initiatief_id ?? taak.issue?.initiatief_id ?? null;
   const update = useUpdateTask();
   const { currentPerson } = useCurrentPerson();
   const personOptions = useInitiatiefPersonOptions(null, initiatiefId);

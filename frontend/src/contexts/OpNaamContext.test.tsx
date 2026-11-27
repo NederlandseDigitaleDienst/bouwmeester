@@ -153,6 +153,17 @@ describe('OpNaamContext', () => {
     expect(updateTask).toHaveBeenCalledWith('t1', { assignee_id: 'ik' });
   });
 
+  it('zonder meegegeven initiatief en zonder casus: de leden van het initiatief van de vraag', async () => {
+    render();
+    await vraag(
+      { ...zonder, casus: null, issue: { id: 'v1', title: 'Vraag', casus_id: null, initiatief_id: 'i3' } },
+      TaskStatus.IN_PROGRESS,
+      null,
+    );
+    await waitFor(() => expect(knop('Op mijn naam')).toBeDefined());
+    expect(getInitiatiefPersonen).toHaveBeenCalledWith('i3');
+  });
+
   it('twee vragen kort na elkaar: de tweede wacht, en elke daarna draait op zijn beurt', async () => {
     render();
     const eerste = vi.fn();
