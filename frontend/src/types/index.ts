@@ -1876,7 +1876,7 @@ export interface Lead {
   contact_names: string[];
   created_at: string;
   updated_at: string | null;
-  /** Gevuld als uit deze lead een casus is gestart; de lead is dan alleen-lezen. */
+  /** Gevuld als uit deze lead een casus is gestart; de lead blijft dan in zijn kolom, de rest blijft bewerkbaar. */
   casus_id?: string | null;
 }
 

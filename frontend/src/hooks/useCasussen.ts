@@ -39,7 +39,7 @@ export function useCasus(id: string | null) {
   });
 }
 
-/** Start een casus vanuit een lead. De lead wordt daarna alleen-lezen, dus die ververst mee. */
+/** Start een casus vanuit een lead. De lead krijgt daarna een casus_id, dus die ververst mee. */
 export function useStartCasus() {
   return useMutationWithError({
     mutationFn: (data: CasusStart) => startCasus(data),

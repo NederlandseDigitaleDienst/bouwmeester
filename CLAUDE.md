@@ -147,7 +147,7 @@ ParlementairItem (tracks imported parliamentary items: moties, kamervragen, toez
 ├── CorpusNode (corpus_node_id, the created politieke_input node)
 └── type discriminator (motie, kamervraag, toezegging, amendement, ...)
 
-Lead ── 1:1 ──> Casus (start vanuit de kolom in_the_pocket; de lead is daarna alleen-lezen, 409 op mutaties)
+Lead ── 1:1 ──> Casus (start vanuit de kolom in_the_pocket; de lead blijft daarna bewerkbaar, maar 409 op een andere kolom, een ander initiatief, samenvoegen, verwijderen en een eigen Mattermost-kanaal, en op wat hij op de publieke pagina toont: de publieke velden, publiceren met publieke tekst (ook bij aanmaken) en titel of publieke tekst van een gepubliceerde update; eraf halen mag)
 ├── Casus (lead_id RESTRICT, initiatief_id, fase (dummy), startvoorwaarden JSON (dummy), nooit publiek)
 │   ├── Issue (casus_id; title, toelichting, is_onderzoeksvraag, assignee_id SET NULL (eigenaar, lid van het initiatief), status open/in_progress/done, sort_order, dod_checked JSON). Er is geen story-laag: issue > taak > subtaken. De status volgt de hoofdtaken eronder via `IssueRepository.sync_status` na elke taakwijziging (iets loopt of is af, ook alles af: in_progress; alles open: open als het done was, anders blijft hij staan). Afgerond wordt een issue alleen met de hand, via de Definition of Done (`DodModal.tsx`, ook vanuit het bewerkvenster); een afgerond issue blijft afgerond zolang alle taken af zijn. Subtaken en geannuleerde taken tellen niet mee.
 │   │   └── Task (issue_id SET NULL; casus_id wordt uit het issue gevuld)

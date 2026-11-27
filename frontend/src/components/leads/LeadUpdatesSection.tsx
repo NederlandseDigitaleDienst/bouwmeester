@@ -39,7 +39,13 @@ const emptyDraft = (): Draft => ({
   source_raw_text: '',
 });
 
-export function LeadUpdatesSection({ leadId }: { leadId: string }) {
+/**
+ * `publiekVast`: uit de lead is een casus gestart. Wat hij op de publieke
+ * pagina toont ligt dan vast (de backend weigert het met 409): een update
+ * met publieke tekst publiceer je niet meer, en van een gepubliceerde update
+ * met publieke tekst blijven titel en publieke tekst staan.
+ */
+export function LeadUpdatesSection({ leadId, publiekVast = false }: { leadId: string; publiekVast?: boolean }) {
   const { data: posts = [] } = useLeadUpdates(leadId);
   const createMutation = useCreateLeadUpdate();
   const editMutation = useEditLeadUpdate();
@@ -56,6 +62,7 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
   const [includeAttachments, setIncludeAttachments] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const titelRef = useRef<HTMLElement>(null);
   const mailSubjectRef = useRef<HTMLElement>(null);
@@ -80,6 +87,11 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
 
   const concepts = posts.filter((p) => !p.published_at);
   const published = posts.filter((p) => p.published_at);
+  const opDePagina = (p: LeadUpdatePost) => !!p.published_at && !!p.body_public;
+  const bewerkt = editingId ? posts.find((p) => p.id === editingId) : undefined;
+  // Titel en publieke tekst van deze update staan op de pagina en liggen vast.
+  const tekstVast = publiekVast && !!bewerkt && opDePagina(bewerkt);
+  const publicerenVast = publiekVast && !!draft.body_public.trim();
 
   const startCompose = () => {
     setDraft(emptyDraft());
@@ -89,6 +101,7 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
     setEditingId(null);
     setComposing(true);
     setError(null);
+    setSaveError(null);
   };
 
   const startEdit = (post: LeadUpdatePost) => {
@@ -106,12 +119,14 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
     setEditingId(post.id);
     setComposing(true);
     setError(null);
+    setSaveError(null);
   };
 
   const cancel = () => {
     setComposing(false);
     setEditingId(null);
     setError(null);
+    setSaveError(null);
   };
 
   const runExtract = async (useLeadHistory: boolean) => {
@@ -147,27 +162,35 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
   const handleSave = async (publish: boolean) => {
     if (!draft.titel.trim()) return;
     const payload = {
-      titel: draft.titel,
+      // Wat vastligt niet meesturen, dan blijft de rest te bewaren.
+      ...(tekstVast ? {} : { titel: draft.titel, body_public: draft.body_public || null }),
       body_internal: draft.body_internal || null,
-      body_public: draft.body_public || null,
       mail_subject: draft.mail_subject || null,
       mail_to: draft.mail_to.length ? draft.mail_to : null,
       mail_cc: draft.mail_cc.length ? draft.mail_cc : null,
     };
-    if (editingId) {
-      await editMutation.mutateAsync({ leadId, postId: editingId, data: payload });
-      if (publish) {
-        await publishMutation.mutateAsync({ leadId, postId: editingId });
+    setSaveError(null);
+    try {
+      if (editingId) {
+        await editMutation.mutateAsync({ leadId, postId: editingId, data: payload });
+        if (publish) {
+          await publishMutation.mutateAsync({ leadId, postId: editingId });
+        }
+      } else {
+        await createMutation.mutateAsync({
+          leadId,
+          data: {
+            ...payload,
+            titel: draft.titel,
+            body_public: draft.body_public || null,
+            source_raw_text: draft.source_raw_text || null,
+            publish,
+          },
+        });
       }
-    } else {
-      await createMutation.mutateAsync({
-        leadId,
-        data: {
-          ...payload,
-          source_raw_text: draft.source_raw_text || null,
-          publish,
-        },
-      });
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Opslaan is niet gelukt.');
+      return;
     }
     cancel();
   };
@@ -250,7 +273,21 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
               </nldd-card>
             )}
 
-            <nldd-text-field ref={titelRef} value={draft.titel} placeholder="Titel" accessible-label="Titel" />
+            {publiekVast && (
+              <nldd-text size="xs" color="secondary">
+                {tekstVast
+                  ? 'Uit deze lead is een casus gestart. Titel en publieke tekst van deze update staan op de publieke pagina en zijn niet meer te wijzigen.'
+                  : 'Uit deze lead is een casus gestart. Een update met publieke tekst kun je als concept bewaren, maar niet meer publiceren.'}
+              </nldd-text>
+            )}
+
+            <nldd-text-field
+              ref={titelRef}
+              value={draft.titel}
+              placeholder="Titel"
+              accessible-label="Titel"
+              {...(tekstVast ? { readonly: true as const } : {})}
+            />
 
             <RichTextFormField
               label="Interne mailtekst (voor team)"
@@ -259,12 +296,20 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
               rows={6}
             />
 
-            <RichTextFormField
-              label="Publieke samenvatting (community-pagina)"
-              value={draft.body_public}
-              onChange={(v) => setDraft({ ...draft, body_public: v })}
-              rows={3}
-            />
+            {tekstVast ? (
+              <nldd-form-field label="Publieke samenvatting (community-pagina)">
+                <nldd-text size="sm" className="whitespace-pre-wrap">
+                  {draft.body_public}
+                </nldd-text>
+              </nldd-form-field>
+            ) : (
+              <RichTextFormField
+                label="Publieke samenvatting (community-pagina)"
+                value={draft.body_public}
+                onChange={(v) => setDraft({ ...draft, body_public: v })}
+                rows={3}
+              />
+            )}
 
             <nldd-container gap="8">
               <nldd-form-field label="Mail-onderwerp">
@@ -282,6 +327,12 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
               />
             </nldd-container>
 
+            {saveError && (
+              <nldd-validation-list>
+                <nldd-validation-item>{saveError}</nldd-validation-item>
+              </nldd-validation-list>
+            )}
+
             <nldd-container layout="row" gap="8" horizontal-alignment="right">
               <NlddButton variant="secondary" size="sm" onClick={cancel} text="Annuleren" />
               <NlddButton
@@ -294,7 +345,7 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
               <NlddButton
                 size="sm"
                 onClick={() => handleSave(true)}
-                disabled={!draft.titel.trim() || parseMutation.isPending}
+                disabled={!draft.titel.trim() || parseMutation.isPending || publicerenVast}
                 text={editingId ? 'Opslaan + publiceren' : 'Direct publiceren'}
               />
             </nldd-container>
@@ -319,6 +370,7 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
                   unpublishMutation.mutate({ leadId, postId: post.id })
                 }
                 onDelete={() => setConfirmDelete(post.id)}
+                publicerenVast={publiekVast && !!post.body_public}
               />
             ))}
           </nldd-list>
@@ -342,6 +394,7 @@ export function LeadUpdatesSection({ leadId }: { leadId: string }) {
                   unpublishMutation.mutate({ leadId, postId: post.id })
                 }
                 onDelete={() => setConfirmDelete(post.id)}
+                publicerenVast={publiekVast && !!post.body_public}
               />
             ))}
           </nldd-list>
@@ -373,6 +426,7 @@ function UpdateRow({
   onPublish,
   onUnpublish,
   onDelete,
+  publicerenVast,
 }: {
   leadId: string;
   post: LeadUpdatePost;
@@ -380,6 +434,8 @@ function UpdateRow({
   onPublish: () => void;
   onUnpublish: () => void;
   onDelete: () => void;
+  /** Publiceren kan niet meer (zie publiekVast); depubliceren wel. */
+  publicerenVast: boolean;
 }) {
   const isPublished = !!post.published_at;
 
@@ -416,7 +472,12 @@ function UpdateRow({
       <nldd-list-item-segment ref={editRef} button accessible-label="Bewerken">
         <Icon name="pencil" size="sm" />
       </nldd-list-item-segment>
-      <nldd-list-item-segment ref={publishRef} button accessible-label={isPublished ? 'Depubliceren' : 'Publiceren'}>
+      <nldd-list-item-segment
+        ref={publishRef}
+        button
+        accessible-label={isPublished ? 'Depubliceren' : 'Publiceren'}
+        {...(!isPublished && publicerenVast ? { disabled: true as const } : {})}
+      >
         <Icon name={isPublished ? 'eye-slash' : 'globe'} size="sm" />
       </nldd-list-item-segment>
       <nldd-list-item-segment ref={deleteRef} button accessible-label="Verwijderen">

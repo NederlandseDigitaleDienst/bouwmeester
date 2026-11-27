@@ -388,7 +388,7 @@ async def create_lead_channel(
     init_ctx: InitiatiefContext = Depends(get_initiatief_context),
 ) -> MattermostChannelLinkResponse:
     lead = await _resolve_lead(db, lead_id, init_ctx)
-    # Een lead met een casus is alleen-lezen, en zijn kanaal is meegegaan
+    # Een lead met een casus blijft bewerkbaar, maar zijn kanaal is meegegaan
     # naar de casus. Een nieuw kanaal hoort dan ook bij de casus.
     await _require_lead_open(db, lead)
     repo = MattermostChannelLinkRepository(db)

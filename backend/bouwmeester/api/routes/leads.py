@@ -126,16 +126,48 @@ def _check_lead_access(lead: Lead, init_ctx: InitiatiefContext) -> None:
 
 
 async def _require_lead_open(db: AsyncSession, lead: Lead) -> None:
-    """409 als uit deze lead een casus is gestart: de lead is dan geschiedenis.
+    """409 als uit deze lead een casus is gestart, voor wat de koppeling met
+    de casus zou breken: de lead naar een andere kolom of een ander
+    initiatief, samenvoegen, of een eigen Mattermost-kanaal (dat is meegegaan
+    naar de casus).
 
-    Lezen mag altijd; wijzigen, verplaatsen, aanvullen en verwijderen niet.
-    Het werk gaat verder op de casus.
+    De lead zelf blijft bewerkbaar: gegevens, notities, contacten, nodes en
+    updates. Verwijderen weigert de delete-route met een eigen melding.
     """
     stmt = select(Casus.id).where(Casus.lead_id == lead.id)
     if (await db.execute(stmt.limit(1))).first() is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Uit deze lead is een casus gestart; de lead is alleen-lezen.",
+            detail=(
+                "Uit deze lead is een casus gestart: hij blijft in zijn kolom en "
+                "bij zijn initiatief, en samenvoegen of een eigen kanaal kan "
+                "niet meer."
+            ),
+        )
+
+
+# Wat van een lead naar de publieke pagina gaat (public_initiatief.py).
+LEAD_PUBLIEKE_VELDEN = ("public_visible", "public_title", "public_summary")
+
+
+async def _require_lead_niet_publiek(db: AsyncSession, lead: Lead) -> None:
+    """409 als uit deze lead een casus is gestart en iemand zou zetten of
+    wijzigen wat de lead op de publieke pagina toont: de publieke velden, of
+    de titel en publieke tekst van een gepubliceerde update.
+
+    Leadroutes vragen alleen of je het initiatief ziet, geen rol. Ook een
+    kijker kan ze dus aanroepen; deze regel voorkomt dat die een lead met
+    casus naar buiten brengt. Van de pagina halen mag wel. Een rolcheck voor
+    alle leadmutaties is een eigen wijziging.
+    """
+    stmt = select(Casus.id).where(Casus.lead_id == lead.id)
+    if (await db.execute(stmt.limit(1))).first() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Uit deze lead is een casus gestart. De publieke tekst is "
+                "daarna niet meer te wijzigen."
+            ),
         )
 
 
@@ -333,7 +365,7 @@ async def merge_leads(
             detail="Leads van verschillende initiatieven kunnen niet"
             " worden samengevoegd",
         )
-    # Een lead met een casus is alleen-lezen; samenvoegen zou hem wijzigen
+    # Een lead met een casus wordt niet samengevoegd: dat zou hem wijzigen
     # of (als bron) weghalen, wat de RESTRICT op de casus blokkeert.
     await _require_lead_open(db, source)
     await _require_lead_open(db, target)
@@ -424,7 +456,22 @@ async def update_lead(
     if old_lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(old_lead, init_ctx)
-    await _require_lead_open(db, old_lead)
+    andere_kolom = data.stage is not None and data.stage != old_lead.stage
+    ander_initiatief = (
+        "initiatief_id" in data.model_fields_set
+        and data.initiatief_id != old_lead.initiatief_id
+    )
+    if andere_kolom or ander_initiatief:
+        # Met een casus blijft de lead in zijn kolom en bij zijn initiatief
+        # (dat van de casus); de rest mag.
+        await _require_lead_open(db, old_lead)
+    publiek_anders = any(
+        veld in data.model_fields_set and getattr(data, veld) != getattr(old_lead, veld)
+        for veld in LEAD_PUBLIEKE_VELDEN
+    )
+    # Van de pagina halen mag altijd; iets naar buiten zetten niet meer.
+    if publiek_anders and data.public_visible is not False:
+        await _require_lead_niet_publiek(db, old_lead)
     old_assignee_id = old_lead.assignee_id
     old_stage = old_lead.stage
 
@@ -618,7 +665,6 @@ async def add_activity(
     lead_repo = LeadRepository(db)
     lead = require_found(await lead_repo.get(lead_id), "Lead")
     _check_lead_access(lead, init_ctx)
-    await _require_lead_open(db, lead)
 
     author_id = current_user.id if current_user else None
     repo = LeadActivityRepository(db)
@@ -695,7 +741,6 @@ async def delete_activity(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
-    await _require_lead_open(db, lead)
 
     activity = await db.get(LeadActivity, activity_id)
     if activity is None or activity.lead_id != lead_id:
@@ -757,7 +802,6 @@ async def add_contact(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="De trekker hoort bij de casus; start eerst de casus.",
         )
-    await _require_lead_open(db, lead)
 
     contact = ResourcePermission(
         person_id=data.person_id,
@@ -814,7 +858,6 @@ async def remove_contact(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
-    await _require_lead_open(db, lead)
     from bouwmeester.models.resource_permission import ResourcePermission
 
     result = await db.execute(
@@ -865,7 +908,6 @@ async def link_node(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
-    await _require_lead_open(db, lead)
     link = LeadNode(
         lead_id=lead_id,
         node_id=data.node_id,
@@ -905,7 +947,6 @@ async def unlink_node(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
-    await _require_lead_open(db, lead)
     result = await db.execute(
         select(LeadNode).where(
             LeadNode.id == link_id,
@@ -976,7 +1017,6 @@ async def add_tag_to_lead(
     repo = LeadRepository(db)
     lead = require_found(await repo.get(lead_id), "Lead")
     _check_lead_access(lead, init_ctx)
-    await _require_lead_open(db, lead)
 
     tag_repo = TagRepository(db)
 
@@ -1027,7 +1067,6 @@ async def remove_tag_from_lead(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
-    await _require_lead_open(db, lead)
     tag_repo = TagRepository(db)
     require_deleted(await tag_repo.remove_tag_from_lead(lead_id, tag_id), "Tag link")
 
@@ -1066,7 +1105,6 @@ async def upload_attachment(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
-    await _require_lead_open(db, lead)
 
     content_type = file.content_type or "application/octet-stream"
     content = await read_upload_content(file)
@@ -1157,7 +1195,6 @@ async def delete_attachment(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
-    await _require_lead_open(db, lead)
     result = await db.execute(
         select(LeadAttachment).where(
             LeadAttachment.id == attachment_id,
@@ -1229,7 +1266,6 @@ async def create_github_link(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
-    await _require_lead_open(db, lead)
 
     parsed = parse_github_url(payload.url)
     if parsed is None:
@@ -1294,7 +1330,6 @@ async def update_github_link(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
-    await _require_lead_open(db, lead)
 
     repo = GitHubLinkRepository(db)
     link = await repo.get(link_id)
@@ -1320,7 +1355,6 @@ async def delete_github_link(
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead niet gevonden")
     _check_lead_access(lead, init_ctx)
-    await _require_lead_open(db, lead)
 
     repo = GitHubLinkRepository(db)
     link = await repo.get(link_id)
