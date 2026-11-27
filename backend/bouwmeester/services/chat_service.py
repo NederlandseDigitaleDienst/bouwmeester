@@ -1731,7 +1731,7 @@ async def _require_chat_task_visible(
 
 
 async def _lead_open_of_weiger(db: AsyncSession, lead) -> dict | None:
-    """Een lead met een casus is alleen-lezen, ook voor de chat; zoals de
+    """Een lead met een casus blijft in zijn kolom, ook via de chat; zoals de
     leadroutes (``_require_lead_open``). Geeft de weigering, of None."""
     from fastapi import HTTPException
 
@@ -2224,8 +2224,6 @@ async def _execute_write_tool(
             existing = await repo.get(UUID(args["lead_id"]), init_ctx=init_ctx)
             if not existing:
                 return {"success": False, "summary": "Lead niet gevonden"}
-            if weigering := await _lead_open_of_weiger(db, existing):
-                return weigering
 
             update_data: dict = {}
             # Allow clearing text fields by passing empty string or null
@@ -2320,8 +2318,6 @@ async def _execute_write_tool(
             lead = await lead_repo.get(UUID(args["lead_id"]), init_ctx=init_ctx)
             if not lead:
                 return {"success": False, "summary": "Lead niet gevonden"}
-            if weigering := await _lead_open_of_weiger(db, lead):
-                return weigering
 
             act_repo = LeadActivityRepository(db)
             act_data = LeadActivityCreate(

@@ -233,7 +233,7 @@ export function StartCasusModal({ lead: vasteLead, onClose, onStarted, kiesUit, 
           </nldd-text>
         ))}
         <nldd-text size="sm" color="secondary">
-          De lead wordt daarna alleen-lezen. Het werk gaat verder op de casus. De vragen stel je in
+          Het werk gaat daarna verder op de casus. De lead blijft in zijn kolom. De vragen stel je in
           bij de instellingen van het initiatief.
         </nldd-text>
         {!vragenGeladen ? (
