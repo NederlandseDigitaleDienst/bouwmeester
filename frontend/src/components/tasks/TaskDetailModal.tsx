@@ -261,19 +261,23 @@ function TaakVelden({ task, onClose }: { task: Task; onClose: () => void }) {
   const navigate = useNavigate();
   // Voor een casustaak alleen leden van het initiatief (de backend weigert
   // een niet-lid met 400); daarbuiten iedereen.
-  const personOptions = useInitiatiefPersonOptions(task.assignee ?? null, task.casus?.initiatief_id ?? null);
+  // Werk: een taak in een casus of onder een vraag zonder casus. Het
+  // initiatief komt van de casus, of anders van de vraag.
+  const isWerk = !!(task.casus_id || task.issue_id);
+  const werkInitiatief = task.casus?.initiatief_id ?? task.issue?.initiatief_id ?? null;
+  const personOptions = useInitiatiefPersonOptions(task.assignee ?? null, werkInitiatief);
   // Zonder eigenaar naar In uitvoering of Afgerond: vragen of hij op naam
   // moet, met dezelfde keuze aan mensen als hierboven.
   const vraagOpNaam = useOpNaam();
   const zetStatus = (status: TaskStatus) =>
     updateTask.mutate(
       { id: task.id, data: { status } },
-      { onSuccess: () => vraagOpNaam(task, status, task.casus?.initiatief_id) },
+      { onSuccess: () => vraagOpNaam(task, status, werkInitiatief) },
     );
   // De onderzoeksvraag waar de taak onder hangt: alleen tonen. Een taak naar
   // een andere vraag verplaatsen kan hier bewust niet.
   const { data: vragen } = useIssues(task.casus_id ?? null);
-  const vraag = vragen?.find((v) => v.id === task.issue_id);
+  const vraag = vragen?.find((v) => v.id === task.issue_id) ?? task.issue;
 
   const teLaat = !!task.due_date && checkOverdue(task.due_date) && task.status !== TaskStatus.DONE;
 
@@ -306,14 +310,14 @@ function TaakVelden({ task, onClose }: { task: Task; onClose: () => void }) {
               <Waarde>{task.casus.title}</Waarde>
             </Eigenschap>
           )}
-          {task.casus_id && (
+          {isWerk && (
             <Eigenschap label="Onderzoeksvraag" breed>
               <Waarde leeg={!task.issue_id}>{vraag?.title ?? 'Laden...'}</Waarde>
             </Eigenschap>
           )}
           {/* Bij een casustaak zegt de casus waar het werk hoort; de
               eenheid alleen als die er toch op staat. */}
-          {(task.organisatie_eenheid_id || !task.casus) && (
+          {(task.organisatie_eenheid_id || !isWerk) && (
             <Eigenschap label="Verantwoordelijke eenheid">
               <EenheidVeld task={task} onOpslaan={(organisatie_eenheid_id) => zet({ organisatie_eenheid_id })} />
             </Eigenschap>
@@ -321,12 +325,12 @@ function TaakVelden({ task, onClose }: { task: Task; onClose: () => void }) {
           {/* Een taak buiten een casus hangt aan een node; die is te kiezen,
               ook bij een subtaak. Het werktype hoort bij het bestaande
               werk in Bouwmeester, niet bij een casus. */}
-          {!task.casus_id && (
+          {!isWerk && (
             <Eigenschap label="Werktype">
               <WerktypeVeld task={task} onOpslaan={(work_type) => zet({ work_type })} />
             </Eigenschap>
           )}
-          {!task.casus_id && (
+          {!isWerk && (
             <Eigenschap label="Node" breed>
               <NodeVeld task={task} onOpslaan={(node_id) => zet({ node_id })} onOpen={() => openNodeDetail(task.node_id!, task.title)} />
             </Eigenschap>
@@ -373,7 +377,7 @@ function TaakVelden({ task, onClose }: { task: Task; onClose: () => void }) {
 
       {/* Een taak in een casus heeft geen subtaken; daarbuiten (een taak aan
           een node) wel, zoals op main. */}
-      {!task.casus_id && <Subtaken task={task} />}
+      {!isWerk && <Subtaken task={task} />}
 
       {/* Opmerkingen: het gesprek over de taak. */}
       <TaskCommentsSection taskId={task.id} />

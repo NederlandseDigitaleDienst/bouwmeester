@@ -759,7 +759,8 @@ async def _casus_niveau(
     )
     rang = EENHEID_ROL_RANK.get(niveau or "", 0)
     trekker = False
-    if person is not None:
+    # Werk zonder casus (core/werkplek.py) heeft geen trekker.
+    if person is not None and casus.id is not None:
         trekker = (
             await db.scalar(
                 select(func.count())

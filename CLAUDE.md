@@ -135,7 +135,7 @@ Person
 
 CorpusNode (dossier/doel/instrument/beleidskader/maatregel/politieke_input/probleem/effect/beleidsoptie)
 ├── Edge (from_node_id / to_node_id, typed via EdgeType)
-├── Task (node_id, nullable: een taak hangt aan een node of aan een casus, zie ck_task_anchor)
+├── Task (node_id, nullable: een taak hangt aan een node, aan een casus of aan een vraag zonder casus, zie ck_task_anchor)
 ├── ResourcePermission (resource_type=corpus_node, resource_id=node_id)
 └── NodeTag (node_id → Tag, hierarchical tagging)
 
@@ -149,9 +149,9 @@ ParlementairItem (tracks imported parliamentary items: moties, kamervragen, toez
 
 Lead ── 1:1 ──> Casus (start vanuit de kolom in_the_pocket; de lead blijft daarna bewerkbaar, maar 409 op een andere kolom, een ander initiatief, samenvoegen, verwijderen en een eigen Mattermost-kanaal, en op wat hij op de publieke pagina toont: de publieke velden, publiceren met publieke tekst (ook bij aanmaken) en titel of publieke tekst van een gepubliceerde update; eraf halen mag)
 ├── Casus (lead_id RESTRICT, initiatief_id, fase (dummy), startvoorwaarden JSON (dummy), nooit publiek)
-│   ├── Issue (casus_id; title, toelichting, is_onderzoeksvraag, assignee_id SET NULL (eigenaar, lid van het initiatief), status open/in_progress/done, sort_order, dod_checked JSON). Er is geen story-laag: issue > taak > subtaken. De status volgt de hoofdtaken eronder via `IssueRepository.sync_status` na elke taakwijziging (iets loopt of is af, ook alles af: in_progress; alles open: open als het done was, anders blijft hij staan). Afgerond wordt een issue alleen met de hand, via de Definition of Done (`DodModal.tsx`, ook vanuit het bewerkvenster); een afgerond issue blijft afgerond zolang alle taken af zijn. Subtaken en geannuleerde taken tellen niet mee.
+│   ├── Issue (casus_id, leeg bij een vraag van het initiatief zelf (`/initiatieven/{id}/vragen`, `core/werkplek.py`); initiatief_id (kan leeg zijn bij een vraag in een casus; het initiatief van een vraag komt altijd uit de casus, anders uit dit veld); antwoord (intern); title, toelichting, is_onderzoeksvraag, assignee_id SET NULL (eigenaar, lid van het initiatief), status open/in_progress/done, sort_order, dod_checked JSON). Er is geen story-laag: issue > taak > subtaken. De status volgt de hoofdtaken eronder via `IssueRepository.sync_status` na elke taakwijziging (iets loopt of is af, ook alles af: in_progress; alles open: open als het done was, anders blijft hij staan). Afgerond wordt een issue alleen met de hand, via de Definition of Done (`DodModal.tsx`, ook vanuit het bewerkvenster); een afgerond issue blijft afgerond zolang alle taken af zijn. Subtaken en geannuleerde taken tellen niet mee.
 │   │   └── Task (issue_id SET NULL; casus_id wordt uit het issue gevuld)
-│   │       └── Task (parent_id: subtaak, staat als opsomming onder de hoofdtaak, nooit als eigen taak of kaartje)
+│   │       └── Task (parent_id: subtaak, staat als opsomming onder de hoofdtaak, nooit als eigen taak of kaartje; alleen uit oude gegevens, en bij het verhuizen van de vraag krijgt ze het issue_id van de vraag)
 │   ├── Task (casus_id, losse taak op de casus, zonder issue)
 │   │   ├── TaskComment (task_id CASCADE, author_id SET NULL; content; @-vermeldingen via mention_helper)
 │   │   └── TaskAttachment (task_id CASCADE; bestand via core.storage onder taken/)

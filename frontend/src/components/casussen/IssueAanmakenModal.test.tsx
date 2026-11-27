@@ -89,11 +89,11 @@ describe('IssueAanmakenModal', () => {
     const casus = selectMet('Subsidieregels');
     expect([...casus.options].filter((o) => o.value).map((o) => o.text)).toEqual(['Subsidieregels', 'Zorgtoeslag']);
     await typTitel('Werkt het?');
-    // Zonder casus nog niet toe te voegen.
-    expect(knop('Toevoegen').hasAttribute('disabled')).toBe(true);
+    // Ook zonder casus toe te voegen: dan een vraag van het initiatief.
+    expect(knop('Toevoegen').hasAttribute('disabled')).toBe(false);
     await kies(casus, 'c2');
     await toevoegen();
-    expect(createIssue).toHaveBeenCalledWith('c2', {
+    expect(createIssue).toHaveBeenCalledWith(expect.objectContaining({ casus_id: 'c2' }), {
       title: 'Werkt het?',
       is_onderzoeksvraag: true,
       assignee_id: null,
@@ -102,12 +102,23 @@ describe('IssueAanmakenModal', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('zonder casus wordt het een vraag van het initiatief', async () => {
+    renderModal();
+    await waitFor(() => expect(selectMet('Subsidieregels')).toBeTruthy());
+    await typTitel('Wat is de rol van werkpakketten?');
+    await toevoegen();
+    expect(createIssue).toHaveBeenCalledWith(
+      { casus_id: null, initiatief_id: 'i1' },
+      expect.objectContaining({ title: 'Wat is de rol van werkpakketten?', is_onderzoeksvraag: true }),
+    );
+  });
+
   it('het vinkje maakt er geen onderzoeksvraag van; de casus uit het filter staat klaar', async () => {
     renderModal('c1');
     await waitFor(() => expect(selectMet('Zorgtoeslag')).toBeTruthy());
     await typTitel('Schema uitbreiden');
     await geenVraag();
     await toevoegen();
-    expect(createIssue).toHaveBeenCalledWith('c1', expect.objectContaining({ title: 'Schema uitbreiden', is_onderzoeksvraag: false }));
+    expect(createIssue).toHaveBeenCalledWith(expect.objectContaining({ casus_id: 'c1' }), expect.objectContaining({ title: 'Schema uitbreiden', is_onderzoeksvraag: false }));
   });
 });

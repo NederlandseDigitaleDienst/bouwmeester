@@ -787,3 +787,32 @@
     grid-template-areas: "acties" "keuzes";
   }
 }
+/* Het bord met alle taken: de vraag onder een taakkaartje op één regel,
+ * afgekapt; de hele vraag staat in de tooltip. */
+.bord-vraagregel {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Een vraagkaartje op het bord: herkenbaar aan de rand links, net als de
+ * vraag in de lijst. */
+.bord-vraagkaart {
+  background: var(--semantics-surfaces-base-background-color);
+  border: 1px solid var(--primitives-color-neutral-200);
+  border-left: 4px solid var(--primitives-color-accent-300);
+  border-radius: var(--semantics-surfaces-corner-radius);
+  padding: 8px;
+  cursor: pointer;
+}
+.bord-vraagkaart[data-af] {
+  border-left-color: var(--primitives-color-neutral-300);
+}
+.bord-vraagtitel {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}

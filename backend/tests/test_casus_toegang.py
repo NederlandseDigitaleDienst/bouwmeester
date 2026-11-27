@@ -1046,3 +1046,150 @@ async def test_werktypen_van_casustaken_alleen_voor_leden(
         assert "Geheimwerktype" in (await c.get("/api/tasks/work-types")).json()
     async with client_as(db_session, buitenstaander) as c:
         assert "Geheimwerktype" not in (await c.get("/api/tasks/work-types")).json()
+
+
+# ---------------------------------------------------------------------------
+# Een taak onder een vraag zonder casus
+# ---------------------------------------------------------------------------
+# Zo'n taak heeft geen casus en geen node: casus_id en node_id zijn leeg,
+# alleen issue_id is gevuld. Ze volgt het initiatief van de vraag, op elke
+# plek waar een casustaak dat ook doet.
+
+
+@pytest.fixture
+async def losse_taak(client, initiatief, lid):
+    vraag = await client.post(
+        f"/api/initiatieven/{initiatief.id}/vragen", json={"title": "Losse vraag"}
+    )
+    assert vraag.status_code == 201, vraag.text
+    resp = await client.post(
+        "/api/tasks",
+        json={
+            "title": "Losse Zeldzaamwoordtaak",
+            "issue_id": vraag.json()["id"],
+            "assignee_id": str(lid.id),
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    taak = resp.json()
+    assert (taak["casus_id"], taak["node_id"]) == (None, None)
+    return taak
+
+
+async def test_taak_onder_losse_vraag_buiten_het_initiatief_onvindbaar(
+    db_session, initiatief, buitenstaander, lid, losse_taak
+):
+    tid = losse_taak["id"]
+    async with client_as(db_session, buitenstaander) as c:
+        for url in (
+            f"/api/tasks/{tid}",
+            f"/api/tasks/{tid}/comments",
+            f"/api/tasks/{tid}/attachments",
+        ):
+            assert (await c.get(url)).status_code == 404, url
+        assert (
+            await c.post(f"/api/tasks/{tid}/comments", json={"content": "Hallo"})
+        ).status_code == 404
+        assert (
+            await c.post(
+                f"/api/tasks/{tid}/attachments",
+                files={"file": ("n.txt", b"x", "text/plain")},
+            )
+        ).status_code == 404
+        for url, params in [
+            ("/api/tasks", {}),
+            ("/api/tasks", {"assignee_id": str(lid.id)}),
+            ("/api/tasks/unassigned", {}),
+        ]:
+            resp = await c.get(url, params=params)
+            assert resp.status_code == 200, (url, resp.text)
+            assert tid not in {t["id"] for t in resp.json()}, url
+        zoek = await c.get(
+            "/api/search", params={"q": "Zeldzaamwoordtaak", "result_types": "task"}
+        )
+        assert zoek.status_code == 200, zoek.text
+        assert tid not in {r["id"] for r in zoek.json()["results"]}
+        backlog = await c.get(
+            "/api/casussen/backlog", params={"initiatief_id": str(initiatief.id)}
+        )
+        assert backlog.status_code == 404
+
+    # Een lid ziet de taak op dezelfde plekken.
+    async with client_as(db_session, lid) as c:
+        assert (await c.get(f"/api/tasks/{tid}")).status_code == 200
+        assert (await c.get(f"/api/tasks/{tid}/comments")).status_code == 200
+        assert (await c.get(f"/api/tasks/{tid}/attachments")).status_code == 200
+        zoek = await c.get(
+            "/api/search", params={"q": "Zeldzaamwoordtaak", "result_types": "task"}
+        )
+        assert tid in {r["id"] for r in zoek.json()["results"]}
+        backlog = (
+            await c.get(
+                "/api/casussen/backlog", params={"initiatief_id": str(initiatief.id)}
+            )
+        ).json()
+        assert tid in {t["id"] for i in backlog["issues"] for t in i["tasks"]}
+
+
+async def test_wie_uit_het_initiatief_gaat_ziet_eigen_losse_taak_niet_meer(
+    db_session, initiatief, lid, losse_taak
+):
+    tid = losse_taak["id"]
+    async with client_as(db_session, lid) as c:
+        assert tid in {t["id"] for t in (await c.get("/api/tasks/my")).json()}
+        inbox = (await c.get("/api/tasks/inbox")).json()
+        assert tid in {i["related_task_id"] for i in inbox["items"]}
+
+    await db_session.execute(
+        sa_delete(ResourcePermission).where(
+            ResourcePermission.resource_type == "initiatief",
+            ResourcePermission.resource_id == initiatief.id,
+            ResourcePermission.person_id == lid.id,
+        )
+    )
+    await db_session.flush()
+
+    async with client_as(db_session, lid) as c:
+        assert tid not in {t["id"] for t in (await c.get("/api/tasks/my")).json()}
+        inbox = (await c.get("/api/tasks/inbox")).json()
+        assert tid not in {i["related_task_id"] for i in inbox["items"]}
+        assert (await c.get(f"/api/tasks/{tid}")).status_code == 404
+
+
+async def test_chat_ziet_en_wijzigt_geen_losse_taak_buiten_het_initiatief(
+    db_session, buitenstaander, lid, losse_taak
+):
+    import json
+
+    from bouwmeester.models.task import Task
+    from bouwmeester.services.chat_service import (
+        _execute_read_tool,
+        _execute_write_tool,
+    )
+
+    tid = losse_taak["id"]
+
+    async def taken_van_lid(persoon):
+        result = json.loads(
+            await _execute_read_tool(
+                "get_tasks_for_person",
+                {"person_id": str(lid.id)},
+                db_session,
+                person_id=persoon.id,
+            )
+        )
+        return {t["id"] for t in result.get("tasks", [])}
+
+    assert tid not in await taken_van_lid(buitenstaander)
+    assert tid in await taken_van_lid(lid)
+
+    result = await _execute_write_tool(
+        "update_task",
+        {"task_id": tid, "title": "Overgenomen", "status": "done"},
+        db_session,
+        person_id=buitenstaander.id,
+    )
+    assert result["success"] is False
+    db_session.expire_all()
+    task = await db_session.get(Task, uuid.UUID(tid))
+    assert (task.title, task.status) == ("Losse Zeldzaamwoordtaak", "open")

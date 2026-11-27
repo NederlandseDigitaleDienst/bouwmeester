@@ -23,10 +23,11 @@ if TYPE_CHECKING:
 class Task(Base):
     __tablename__ = "task"
     __table_args__ = (
-        # Een taak hangt aan een corpus-node (bestaand gedrag) of aan een
-        # casus. Zonder anker is hij nergens terug te vinden.
+        # Een taak hangt aan een corpus-node (bestaand gedrag), aan een
+        # casus, of alleen aan een vraag zonder casus. Zonder anker is hij
+        # nergens terug te vinden.
         CheckConstraint(
-            "node_id IS NOT NULL OR casus_id IS NOT NULL",
+            "node_id IS NOT NULL OR casus_id IS NOT NULL OR issue_id IS NOT NULL",
             name="ck_task_anchor",
         ),
     )

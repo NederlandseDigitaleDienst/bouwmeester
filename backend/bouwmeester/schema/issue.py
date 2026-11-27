@@ -1,4 +1,4 @@
-"""Pydantic schemas voor Issue (een onderzoeksvraag of ander issue op een casus)."""
+"""Pydantic schemas voor Issue (een onderzoeksvraag, in een casus of zonder)."""
 
 import enum
 from datetime import datetime
@@ -30,10 +30,12 @@ class IssueUpdate(BaseModel):
     is_onderzoeksvraag: bool | None = None
     assignee_id: UUID | None = None
     # Verhuizen naar een andere casus van hetzelfde initiatief; de taken
-    # eronder gaan mee.
+    # eronder gaan mee. Uitdrukkelijk null: uit de casus, naar het initiatief.
     casus_id: UUID | None = None
     # Afgevinkte DoD-eisen bij het afronden; de tekst van elke eis.
     dod_checked: list[str] | None = Field(None, max_length=50)
+    # Het antwoord, interne versie (rich text). Leeg of null wist het.
+    antwoord: str | None = Field(None, max_length=20000)
 
 
 class IssueReorder(BaseModel):
@@ -42,7 +44,9 @@ class IssueReorder(BaseModel):
 
 class IssueResponse(BaseModel):
     id: UUID
-    casus_id: UUID
+    # Leeg: een vraag van het initiatief zonder casus.
+    casus_id: UUID | None = None
+    initiatief_id: UUID | None = None
     title: str
     toelichting: str | None = None
     status: IssueStatus
@@ -51,6 +55,7 @@ class IssueResponse(BaseModel):
     assignee: TaskAssigneeSummary | None = None
     sort_order: int = 0
     dod_checked: list[str] = Field(default_factory=list)
+    antwoord: str | None = None
     task_count: int = 0
     task_done_count: int = 0
     created_at: datetime
