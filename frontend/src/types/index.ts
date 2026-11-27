@@ -2231,6 +2231,8 @@ export interface Initiatief {
   public_page_enabled: boolean;
   /** Tabs Casussen (en Backlog) en casus starten; standaard uit. */
   casussen_enabled: boolean;
+  /** Tab met de rollen van het initiatief en het werk per persoon; standaard uit. */
+  rollen_enabled?: boolean;
   score_strategisch_label: string | null;
   score_politiek_label: string | null;
   score_positie_label: string | null;
@@ -2273,6 +2275,7 @@ export interface InitiatiefSettingsUpdate {
   funnel_enabled?: boolean;
   public_page_enabled?: boolean;
   casussen_enabled?: boolean;
+  rollen_enabled?: boolean;
   score_strategisch_label?: string | null;
   score_politiek_label?: string | null;
   score_positie_label?: string | null;
@@ -2753,3 +2756,117 @@ export interface IssueUpdate {
 
 // Opmerkingen en bijlagen op een taak (het taakdetail).
 export * from './taskComments';
+
+// --- Rollen in een initiatief ---
+
+export interface PersoonKort {
+  id: string;
+  naam: string;
+}
+
+export type RolStatus = 'concept' | 'open' | 'belegd';
+
+export const ROL_STATUS_LABELS: Record<RolStatus, string> = {
+  concept: 'Concept',
+  open: 'Open',
+  belegd: 'Belegd',
+};
+
+export interface InitiatiefCirkel {
+  id: string;
+  initiatief_id: string;
+  /** Leeg bij de ankercirkel van het initiatief; subcirkels komen later. */
+  parent_id: string | null;
+  naam: string;
+  doel: string | null;
+  focus: string[];
+}
+
+export interface RolInteresse {
+  person: PersoonKort;
+  ronde: number;
+  /** Hoe iemand het voor zich ziet, in eigen woorden. */
+  invulling: string | null;
+  vastgelegd_door: PersoonKort | null;
+  created_at: string;
+}
+
+export interface RolRaakvlak {
+  id: string;
+  /** De rol aan de andere kant. */
+  rol: { id: string; naam: string };
+  omschrijving: string | null;
+}
+
+export interface InitiatiefRol {
+  id: string;
+  initiatief_id: string;
+  cirkel_id: string;
+  naam: string;
+  status: RolStatus;
+  doel: string | null;
+  aanspreekbaar_op: string[];
+  domein: string[];
+  toelichting: string | null;
+  /** Vrije tekst over de rol zelf, zoals "opsplitsen" of "samenvoegen". */
+  feedback: string | null;
+  vervuller: PersoonKort | null;
+  /** False als de vervuller het initiatief niet meer kan zien. */
+  vervuller_is_lid: boolean;
+  ronde: number;
+  /** Interesse in de huidige toewijzingsronde; leeg bij een belegde rol. */
+  interesse: RolInteresse[];
+  eerdere_interesse: RolInteresse[];
+  raakvlakken: RolRaakvlak[];
+  sort_order: number;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface InitiatiefRolInput {
+  naam?: string;
+  doel?: string | null;
+  aanspreekbaar_op?: string[];
+  domein?: string[];
+  toelichting?: string | null;
+  feedback?: string | null;
+  /** Open zetten bij een belegde rol is opnieuw toewijzen. */
+  status?: 'concept' | 'open';
+  vervuller_id?: string | null;
+}
+
+export interface RollenImportResultaat {
+  aangemaakt: number;
+  bijgewerkt: number;
+  raakvlakken: number;
+  meldingen: string[];
+}
+
+export interface PersoonWerk {
+  person: PersoonKort;
+  is_lid: boolean;
+  focus: string[];
+  rollen: { id: string; naam: string; doel: string | null }[];
+  interesse: { rol_id: string; rol_naam: string; invulling: string | null }[];
+  leads: { id: string; title: string; stage: string; als: ('eigenaar' | 'aanbrenger')[] }[];
+  casussen: { id: string; title: string; fase: string; rol: string }[];
+  issues: {
+    id: string;
+    title: string;
+    status: IssueStatus;
+    is_onderzoeksvraag: boolean;
+    /** Leeg bij een vraag van het initiatief zelf. */
+    casus_id: string | null;
+    casus_title: string | null;
+  }[];
+  open_taken: {
+    id: string;
+    title: string;
+    status: TaskStatus;
+    priority: TaskPriority;
+    deadline: string | null;
+    casus_id: string | null;
+    casus_title: string | null;
+    issue_id: string | null;
+  }[];
+}

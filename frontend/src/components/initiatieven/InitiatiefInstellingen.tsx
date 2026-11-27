@@ -11,6 +11,7 @@ import type { InitiatiefDetail, InitiatiefSettingsUpdate, InitiatiefUpdate } fro
 import { ColumnsManager } from '@/components/leads/ColumnsManager';
 import { InitiatiefKleurPicker } from './InitiatiefKleurPicker';
 import { InstellingenBlok } from './InstellingenBlok';
+import { RollenImportExport } from './rollen/RollenImportExport';
 import { CasusSoortenBeheer } from './CasusSoortenBeheer';
 import { CasusFunnelEditor } from './CasusFunnelEditor';
 import { useCasusSoorten } from '@/hooks/useCasusSoorten';
@@ -67,6 +68,12 @@ export function InitiatiefInstellingen({ initiatief }: { initiatief: InitiatiefD
           </nldd-container>
         </InstellingenBlok>
       )}
+      {/* Importeren mag een bijdrager ook; de tab Instellingen is er alleen voor wie kan bewerken. */}
+      {canEdit && initiatief.rollen_enabled && (
+        <InstellingenBlok icon="arrow-up-arrow-down" titel="Rollen importeren en exporteren">
+          <RollenImportExport initiatief={initiatief} canEdit />
+        </InstellingenBlok>
+      )}
       {isEigenaar && (
         <>
           <InstellingenBlok
@@ -75,6 +82,9 @@ export function InitiatiefInstellingen({ initiatief }: { initiatief: InitiatiefD
             samenvatting={`Publieke pagina ${initiatief.public_page_enabled ? 'aan' : 'uit'} · funnel-velden ${initiatief.funnel_enabled ? 'aan' : 'uit'}`}
           >
             <FeatureSettings initiatief={initiatief} />
+          </InstellingenBlok>
+          <InstellingenBlok icon="person-text-rectangle" titel="Rollen" samenvatting={initiatief.rollen_enabled ? 'aan' : 'uit'}>
+            <RollenSchakelaar initiatief={initiatief} />
           </InstellingenBlok>
           {initiatief.casussen_enabled && (
             <>
@@ -266,6 +276,29 @@ function CasussenSchakelaar({ initiatief }: { initiatief: InitiatiefDetail }) {
         settingsMutation.mutate({
           id: initiatief.id,
           data: { casussen_enabled: !initiatief.casussen_enabled },
+        })
+      }
+      loading={settingsMutation.isPending}
+    />
+  );
+}
+
+/**
+ * De schakelaar voor rollen. Aan: een tab met de rollen van het initiatief en het werk per
+ * persoon. Uit verbergt alleen; de rollen blijven.
+ */
+function RollenSchakelaar({ initiatief }: { initiatief: InitiatiefDetail }) {
+  const settingsMutation = useUpdateInitiatiefSettings();
+  return (
+    <ToggleRow
+      icon="person-text-rectangle"
+      label="Werken met rollen"
+      description="Rollen met een doel, waarop ze aanspreekbaar zijn en een domein, en per persoon wat die draagt. Uitzetten verbergt de rollen; ze blijven bewaard."
+      enabled={!!initiatief.rollen_enabled}
+      onToggle={() =>
+        settingsMutation.mutate({
+          id: initiatief.id,
+          data: { rollen_enabled: !initiatief.rollen_enabled },
         })
       }
       loading={settingsMutation.isPending}

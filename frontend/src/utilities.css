@@ -816,3 +816,34 @@
   line-clamp: 3;
   overflow: hidden;
 }
+/* De cirkel van een initiatief met zijn rollen (rollen/CirkelKaart.tsx). */
+.rollen-kaart {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+  margin-inline: auto;
+}
+.rollen-kaart-rol {
+  cursor: pointer;
+  outline: none;
+}
+.rollen-kaart-rol:focus-visible .rollen-kaart-rand {
+  stroke-width: 6;
+}
+.rollen-kaart-gedimd {
+  opacity: 0.25;
+}
+/* Het telbolletje op "Open" in het rollenfilter. Open is het laatste item,
+ * dus het bolletje staat op de hoek van de hele balk. */
+.rollen-filter {
+  position: relative;
+  display: inline-block;
+  align-self: flex-start;
+}
+.rollen-filter-teller {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  pointer-events: none;
+}

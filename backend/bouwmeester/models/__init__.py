@@ -37,6 +37,13 @@ from bouwmeester.models.github_link import GitHubLink  # noqa: F401
 from bouwmeester.models.http_session import HttpSession  # noqa: F401
 from bouwmeester.models.import_watermerk import ImportWatermerk  # noqa: F401
 from bouwmeester.models.initiatief import Initiatief  # noqa: F401
+from bouwmeester.models.initiatief_rol import (  # noqa: F401
+    InitiatiefCirkel,
+    InitiatiefPersoonFocus,
+    InitiatiefRol,
+    InitiatiefRolInteresse,
+    InitiatiefRolRaakvlak,
+)
 from bouwmeester.models.initiatief_update import InitiatiefUpdatePost  # noqa: F401
 from bouwmeester.models.instrument import Instrument  # noqa: F401
 from bouwmeester.models.issue import Issue  # noqa: F401

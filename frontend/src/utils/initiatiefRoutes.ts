@@ -14,6 +14,7 @@ export type InitiatiefTab =
   | 'backlog'
   | 'updates'
   | 'mensen'
+  | 'rollen'
   | 'signalen'
   | 'regelritme'
   | 'instellingen';
@@ -24,6 +25,7 @@ const INITIATIEF_TABS: readonly InitiatiefTab[] = [
   'backlog',
   'updates',
   'mensen',
+  'rollen',
   'signalen',
   'regelritme',
   'instellingen',
