@@ -101,6 +101,20 @@ class MattermostChannelLink(Base):
             "terug naar de lead als de casus verdwijnt; de rest wordt ontkoppeld."
         ),
     )
+    bekendmakingen_alerts_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment=(
+            "Stuur officiële bekendmakingen (regelgeving, beleidsregels, "
+            "besluiten en kennisgevingen uit de Staatscourant, het "
+            "Staatsblad en het Tractatenblad) die op een zoekterm matchen "
+            "naar dit kanaal. "
+            "Apart van kamerstukken en nieuws: een vastgestelde regeling is "
+            "een ander gesprek dan een voorstel of een artikel."
+        ),
+    )
     last_seen_post_at: Mapped[int | None] = mapped_column(
         BigInteger,
         nullable=True,

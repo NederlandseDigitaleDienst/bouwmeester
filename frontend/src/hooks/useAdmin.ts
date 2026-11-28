@@ -151,6 +151,7 @@ export interface MattermostChannelOverview {
   parlementaire_alerts_enabled: boolean;
   nieuws_alerts_enabled: boolean;
   casus_updates_enabled: boolean;
+  bekendmakingen_alerts_enabled: boolean;
   last_seen_post_at: string | null;
   disabled_at: string | null;
   created_at: string;

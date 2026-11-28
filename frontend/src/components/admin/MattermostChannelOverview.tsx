@@ -28,7 +28,7 @@ function scopeText(channel: Channel): string {
 /** De schakelaars van een koppeling, in de volgorde van de kaart.
  *
  * De tekst is korter dan het label op de checkbox ("Kamerstuk-alerts"
- * wordt "Kamerstukken"), want er passen er vier naast elkaar in deze
+ * wordt "Kamerstukken"), want ze moeten naast elkaar passen in deze
  * kolom. Elke schakelaar krijgt een eigen tag in plaats van één
  * samengestelde regel: met drie of vier actieve schakelaars liep die
  * regel de kolom uit. "Voortgang" staat alleen bij een casus aan.
@@ -39,6 +39,7 @@ const MODES = [
   { key: 'parlementaire_alerts_enabled', text: 'Kamerstukken' },
   { key: 'nieuws_alerts_enabled', text: 'Nieuws' },
   { key: 'casus_updates_enabled', text: 'Voortgang' },
+  { key: 'bekendmakingen_alerts_enabled', text: 'Bekendmakingen' },
 ] as const satisfies ReadonlyArray<{ key: keyof Channel; text: string }>;
 
 function modeCell(channel: Channel) {

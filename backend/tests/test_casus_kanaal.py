@@ -765,10 +765,17 @@ async def test_koppelen_en_ontkoppelen_staan_in_het_log(db_session, client, casu
 
 async def test_alleen_de_schakelaars_van_de_soort(client, casus, initiatief):
     link = await _koppel(client, casus)
-    resp = await client.patch(
-        f"/api/mattermost-channels/{link['id']}", json={"auto_note_enabled": True}
-    )
-    assert resp.status_code == 400
+    for vlag in (
+        "auto_note_enabled",
+        "suggest_leads_enabled",
+        "parlementaire_alerts_enabled",
+        "nieuws_alerts_enabled",
+        "bekendmakingen_alerts_enabled",
+    ):
+        resp = await client.patch(
+            f"/api/mattermost-channels/{link['id']}", json={vlag: True}
+        )
+        assert resp.status_code == 400, vlag
     resp = await client.post(
         f"/api/initiatieven/{initiatief.id}/mattermost-channels",
         json=_kanaal("initiatief-kanaal"),
